@@ -27,15 +27,12 @@ namespace android {
 class AndroidLineWidth : public LineWidth {
 public:
     AndroidLineWidth(float firstWidth, int32_t firstLineCount, float restWidth,
-                     const std::vector<float>& indents, const std::vector<float>& leftPaddings,
-                     const std::vector<float>& rightPaddings, int32_t indentsAndPaddingsOffset)
+                     const std::vector<float>& indents, int32_t indentsOffset)
             : mFirstWidth(firstWidth),
               mFirstLineCount(firstLineCount),
               mRestWidth(restWidth),
               mIndents(indents),
-              mLeftPaddings(leftPaddings),
-              mRightPaddings(rightPaddings),
-              mOffset(indentsAndPaddingsOffset) {}
+              mOffset(indentsOffset) {}
 
     float getAt(size_t lineNo) const override {
         const float width = ((ssize_t)lineNo < (ssize_t)mFirstLineCount) ? mFirstWidth : mRestWidth;
@@ -54,10 +51,6 @@ public:
         return minWidth;
     }
 
-    float getLeftPaddingAt(size_t lineNo) const override { return get(mLeftPaddings, lineNo); }
-
-    float getRightPaddingAt(size_t lineNo) const override { return get(mRightPaddings, lineNo); }
-
 private:
     float get(const std::vector<float>& vec, size_t lineNo) const {
         if (vec.empty()) {
@@ -75,32 +68,27 @@ private:
     const int32_t mFirstLineCount;
     const float mRestWidth;
     const std::vector<float>& mIndents;
-    const std::vector<float>& mLeftPaddings;
-    const std::vector<float>& mRightPaddings;
     const int32_t mOffset;
 };
 
 class StaticLayoutNative {
 public:
     StaticLayoutNative(BreakStrategy strategy, HyphenationFrequency frequency, bool isJustified,
-                       std::vector<float>&& indents, std::vector<float>&& leftPaddings,
-                       std::vector<float>&& rightPaddings)
+                       std::vector<float>&& indents)
             : mStrategy(strategy),
               mFrequency(frequency),
               mIsJustified(isJustified),
-              mIndents(std::move(indents)),
-              mLeftPaddings(std::move(leftPaddings)),
-              mRightPaddings(std::move(rightPaddings)) {}
+              mIndents(std::move(indents)) {}
 
     LineBreakResult computeBreaks(const U16StringPiece& textBuf, const MeasuredText& measuredText,
                                   // Line width arguments
                                   float firstWidth, int32_t firstWidthLineCount, float restWidth,
                                   int32_t indentsOffset,
                                   // Tab stop arguments
-                                  const int32_t* tabStops, int32_t tabStopSize,
-                                  int32_t defaultTabStopWidth) const {
+                                  const float* tabStops, int32_t tabStopSize,
+                                  float defaultTabStopWidth) const {
         AndroidLineWidth lineWidth(firstWidth, firstWidthLineCount, restWidth, mIndents,
-                                   mLeftPaddings, mRightPaddings, indentsOffset);
+                                   indentsOffset);
         return breakIntoLines(textBuf, mStrategy, mFrequency, mIsJustified, measuredText, lineWidth,
                               TabStops(tabStops, tabStopSize, defaultTabStopWidth));
     }

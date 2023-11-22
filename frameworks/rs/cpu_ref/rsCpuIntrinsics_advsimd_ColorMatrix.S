@@ -1031,16 +1031,18 @@ END(rsdIntrinsicColorMatrix_int_K)
  *          int st);            // x3
  */
 ENTRY(rsdIntrinsicColorMatrixSetup_int_K)
-            adr         x7, 2f
-            add         x4, x7, x2, LSL #2
-            ldrsh       x2, [x4], #2
-            ldrsh       x4, [x4]
+            adrp        x7, 2f
+            add         x7, x7, :lo12:2f
+            add         x4, x7, x2, LSL #3
+            ldrsw       x2, [x4], #4
+            ldrsw       x4, [x4]
             add         x2, x2, x7
             add         x4, x4, x7
-            adr         x7, 3f
-            add         x5, x7, x3, LSL #2
-            ldrsh       x3, [x5], #2
-            ldrsh       x5, [x5]
+            adrp        x7, 3f
+            add         x7, x7, :lo12:3f
+            add         x5, x7, x3, LSL #3
+            ldrsw       x3, [x5], #4
+            ldrsw       x5, [x5]
             add         x3, x3, x7
             add         x5, x5, x7
             stp         x2, x3, [x0, #32]
@@ -1050,16 +1052,17 @@ ENTRY(rsdIntrinsicColorMatrixSetup_int_K)
  * otherwise look up the appropriate function and store that. */
 
             mov         x3, #4
-            adr         x7, 4f
+            adrp        x7, 4f
+            add         x7, x7, :lo12:4f
 1:          ands        x2, x1, #15
             beq         9f
             and         x2, x1, #31
-            lsl         x2, x2, #3
-            ldrsh       x2, [x7, x2]
+            lsl         x2, x2, #4
+            ldrsw       x2, [x7, x2]
             add         x2, x2, x7
 9:          str         x2, [x0], #8
             lsr         x1, x1, #5
-            add         x7, x7, #2
+            add         x7, x7, #4
             subs        x3, x3, #1
             bne         1b
 
@@ -1076,37 +1079,38 @@ ENTRY(rsdIntrinsicColorMatrixSetup_int_K)
             bne         1b
             ret
 
+END(rsdIntrinsicColorMatrixSetup_int_K)
+.rodata
             .align 4
-2:          .hword      colormatrix_int_stu1-2b
-            .hword      colormatrix_int_stu1_end-2b
-            .hword      colormatrix_int_stu2-2b
-            .hword      colormatrix_int_stu2_end-2b
-            .hword      colormatrix_int_stu3-2b
-            .hword      colormatrix_int_stu3_end-2b
-            .hword      colormatrix_int_stu4-2b
-            .hword      colormatrix_int_stu4_end-2b
-3:          .hword      colormatrix_int_ldu1-3b
-            .hword      colormatrix_int_ldu1_end-3b
-            .hword      colormatrix_int_ldu2-3b
-            .hword      colormatrix_int_ldu2_end-3b
-            .hword      colormatrix_int_ldu3-3b
-            .hword      colormatrix_int_ldu3_end-3b
-            .hword      colormatrix_int_ldu4-3b
-            .hword      colormatrix_int_ldu4_end-3b
+2:          .word      colormatrix_int_stu1-2b
+            .word      colormatrix_int_stu1_end-2b
+            .word      colormatrix_int_stu2-2b
+            .word      colormatrix_int_stu2_end-2b
+            .word      colormatrix_int_stu3-2b
+            .word      colormatrix_int_stu3_end-2b
+            .word      colormatrix_int_stu4-2b
+            .word      colormatrix_int_stu4_end-2b
+3:          .word      colormatrix_int_ldu1-3b
+            .word      colormatrix_int_ldu1_end-3b
+            .word      colormatrix_int_ldu2-3b
+            .word      colormatrix_int_ldu2_end-3b
+            .word      colormatrix_int_ldu3-3b
+            .word      colormatrix_int_ldu3_end-3b
+            .word      colormatrix_int_ldu4-3b
+            .word      colormatrix_int_ldu4_end-3b
 4:
 .irp i, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15
-            .hword      colormatrix_int_col0_\i-4b
-            .hword      colormatrix_int_col1_\i-4b-2
-            .hword      colormatrix_int_col2_\i-4b-4
-            .hword      colormatrix_int_col3_\i-4b-6
+            .word      colormatrix_int_col0_\i-4b
+            .word      colormatrix_int_col1_\i-4b-4
+            .word      colormatrix_int_col2_\i-4b-8
+            .word      colormatrix_int_col3_\i-4b-12
 .endr
 .irp i, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0
-            .hword      colormatrix_int_col0_n\i-4b
-            .hword      colormatrix_int_col1_n\i-4b-2
-            .hword      colormatrix_int_col2_n\i-4b-4
-            .hword      colormatrix_int_col3_n\i-4b-6
+            .word      colormatrix_int_col0_n\i-4b
+            .word      colormatrix_int_col1_n\i-4b-4
+            .word      colormatrix_int_col2_n\i-4b-8
+            .word      colormatrix_int_col3_n\i-4b-12
 .endr
-END(rsdIntrinsicColorMatrixSetup_int_K)
 
 
 /* void rsdIntrinsicColorMatrix_float_K(
@@ -1175,16 +1179,18 @@ END(rsdIntrinsicColorMatrix_float_K)
  *          int st);            // x3
  */
 ENTRY(rsdIntrinsicColorMatrixSetup_float_K)
-            adr         x7, 2f
-            add         x4, x7, x2, LSL #2
-            ldrsh       x2, [x4], #2
-            ldrsh       x4, [x4]
+            adrp        x7, 2f
+            add         x7, x7, :lo12:2f
+            add         x4, x7, x2, LSL #3
+            ldrsw       x2, [x4], #4
+            ldrsw       x4, [x4]
             add         x2, x2, x7
             add         x4, x4, x7
-            adr         x7, 3f
-            add         x5, x7, x3, LSL #2
-            ldrsh       x3, [x5], #2
-            ldrsh       x5, [x5]
+            adrp        x7, 3f
+            add         x7, x7, :lo12:3f
+            add         x5, x7, x3, LSL #3
+            ldrsw       x3, [x5], #4
+            ldrsw       x5, [x5]
             add         x3, x3, x7
             add         x5, x5, x7
             stp         x2, x3, [x0, #32]
@@ -1194,16 +1200,17 @@ ENTRY(rsdIntrinsicColorMatrixSetup_float_K)
  * otherwise look up the appropriate function and store that. */
 
             mov         x3, #4
-            adr         x7, 4f
+            adrp        x7, 4f
+            add         x7, x7, :lo12:4f
 1:          ands        x2, x1, #15
             beq         9f
             and         x2, x1, #31
-            lsl         x2, x2, #3
-            ldrsh       x2, [x7, x2]
+            lsl         x2, x2, #4
+            ldrsw       x2, [x7, x2]
             add         x2, x2, x7
 9:          str         x2, [x0], #8
             lsr         x1, x1, #5
-            add         x7, x7, #2
+            add         x7, x7, #4
             subs        x3, x3, #1
             bne         1b
 
@@ -1220,50 +1227,51 @@ ENTRY(rsdIntrinsicColorMatrixSetup_float_K)
             bne         1b
             ret
 
+END(rsdIntrinsicColorMatrixSetup_float_K)
+.rodata
             .align 4
-2:          .hword      colormatrix_float_stu1-2b
-            .hword      colormatrix_float_stu1_end-2b
-            .hword      colormatrix_float_stu2-2b
-            .hword      colormatrix_float_stu2_end-2b
-            .hword      colormatrix_float_stu3-2b
-            .hword      colormatrix_float_stu3_end-2b
-            .hword      colormatrix_float_stu4-2b
-            .hword      colormatrix_float_stu4_end-2b
-            .hword      colormatrix_float_stf1-2b
-            .hword      colormatrix_float_stf1_end-2b
-            .hword      colormatrix_float_stf2-2b
-            .hword      colormatrix_float_stf2_end-2b
-            .hword      colormatrix_float_stf3-2b
-            .hword      colormatrix_float_stf3_end-2b
-            .hword      colormatrix_float_stf4-2b
-            .hword      colormatrix_float_stf4_end-2b
-3:          .hword      colormatrix_float_ldu1-3b
-            .hword      colormatrix_float_ldu1_end-3b
-            .hword      colormatrix_float_ldu2-3b
-            .hword      colormatrix_float_ldu2_end-3b
-            .hword      colormatrix_float_ldu3-3b
-            .hword      colormatrix_float_ldu3_end-3b
-            .hword      colormatrix_float_ldu4-3b
-            .hword      colormatrix_float_ldu4_end-3b
-            .hword      colormatrix_float_ldf1-3b
-            .hword      colormatrix_float_ldf1_end-3b
-            .hword      colormatrix_float_ldf2-3b
-            .hword      colormatrix_float_ldf2_end-3b
-            .hword      colormatrix_float_ldf3-3b
-            .hword      colormatrix_float_ldf3_end-3b
-            .hword      colormatrix_float_ldf4-3b
-            .hword      colormatrix_float_ldf4_end-3b
+2:          .word      colormatrix_float_stu1-2b
+            .word      colormatrix_float_stu1_end-2b
+            .word      colormatrix_float_stu2-2b
+            .word      colormatrix_float_stu2_end-2b
+            .word      colormatrix_float_stu3-2b
+            .word      colormatrix_float_stu3_end-2b
+            .word      colormatrix_float_stu4-2b
+            .word      colormatrix_float_stu4_end-2b
+            .word      colormatrix_float_stf1-2b
+            .word      colormatrix_float_stf1_end-2b
+            .word      colormatrix_float_stf2-2b
+            .word      colormatrix_float_stf2_end-2b
+            .word      colormatrix_float_stf3-2b
+            .word      colormatrix_float_stf3_end-2b
+            .word      colormatrix_float_stf4-2b
+            .word      colormatrix_float_stf4_end-2b
+3:          .word      colormatrix_float_ldu1-3b
+            .word      colormatrix_float_ldu1_end-3b
+            .word      colormatrix_float_ldu2-3b
+            .word      colormatrix_float_ldu2_end-3b
+            .word      colormatrix_float_ldu3-3b
+            .word      colormatrix_float_ldu3_end-3b
+            .word      colormatrix_float_ldu4-3b
+            .word      colormatrix_float_ldu4_end-3b
+            .word      colormatrix_float_ldf1-3b
+            .word      colormatrix_float_ldf1_end-3b
+            .word      colormatrix_float_ldf2-3b
+            .word      colormatrix_float_ldf2_end-3b
+            .word      colormatrix_float_ldf3-3b
+            .word      colormatrix_float_ldf3_end-3b
+            .word      colormatrix_float_ldf4-3b
+            .word      colormatrix_float_ldf4_end-3b
 4:
 .irp i, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15
-            .hword      colormatrix_float_col0_\i-4b
-            .hword      colormatrix_float_col1_\i-4b-2
-            .hword      colormatrix_float_col2_\i-4b-4
-            .hword      colormatrix_float_col3_\i-4b-6
+            .word      colormatrix_float_col0_\i-4b
+            .word      colormatrix_float_col1_\i-4b-4
+            .word      colormatrix_float_col2_\i-4b-8
+            .word      colormatrix_float_col3_\i-4b-12
 .endr
 .irp i, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0
-            .hword      colormatrix_float_col0_n\i-4b
-            .hword      colormatrix_float_col1_n\i-4b-2
-            .hword      colormatrix_float_col2_n\i-4b-4
-            .hword      colormatrix_float_col3_n\i-4b-6
+            .word      colormatrix_float_col0_n\i-4b
+            .word      colormatrix_float_col1_n\i-4b-4
+            .word      colormatrix_float_col2_n\i-4b-8
+            .word      colormatrix_float_col3_n\i-4b-12
 .endr
-END(rsdIntrinsicColorMatrixSetup_float_K)

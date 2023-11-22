@@ -34,6 +34,7 @@ struct ASensorEvent;
 // Concrete types for the NDK
 struct ASensorEventQueue {
     ALooper* looper;
+    bool requestAdditionalInfo;
 };
 
 // ----------------------------------------------------------------------------
@@ -64,7 +65,7 @@ public:
     // Default sensor sample period
     static constexpr int32_t SENSOR_DELAY_NORMAL = 200000;
 
-    SensorEventQueue(const sp<ISensorEventConnection>& connection);
+    explicit SensorEventQueue(const sp<ISensorEventConnection>& connection);
     virtual ~SensorEventQueue();
     virtual void onFirstRef();
 
@@ -92,6 +93,13 @@ public:
     void sendAck(const ASensorEvent* events, int count);
 
     status_t injectSensorEvent(const ASensorEvent& event);
+
+    // Filters the given sensor events in place and returns the new number of events.
+    //
+    // The filtering is controlled by ASensorEventQueue.requestAdditionalInfo, and if this value is
+    // false, then all SENSOR_TYPE_ADDITIONAL_INFO sensor events will be removed.
+    ssize_t filterEvents(ASensorEvent* events, size_t count) const;
+
 private:
     sp<Looper> getLooper() const;
     sp<ISensorEventConnection> mSensorEventConnection;

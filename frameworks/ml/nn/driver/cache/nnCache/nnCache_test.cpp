@@ -17,18 +17,16 @@
 #define LOG_TAG "nnCache_test"
 //#define LOG_NDEBUG 0
 
-#include <gtest/gtest.h>
-
-#include <utils/Log.h>
-
-#include <android-base/test_utils.h>
-
-#include "nnCache.h"
+#include <stdlib.h>
+#include <string.h>
 
 #include <memory>
 
-#include <stdlib.h>
-#include <string.h>
+#include <android-base/file.h>
+#include <gtest/gtest.h>
+#include <log/log.h>
+
+#include "nnCache.h"
 
 // Cache size limits.
 static const size_t maxKeySize = 12 * 1024;

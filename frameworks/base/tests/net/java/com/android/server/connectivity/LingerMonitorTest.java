@@ -23,31 +23,35 @@ import static org.mockito.Mockito.anyBoolean;
 import static org.mockito.Mockito.anyInt;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static org.mockito.Mockito.reset;
 
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.res.Resources;
 import android.net.ConnectivityManager;
+import android.net.IDnsResolver;
+import android.net.INetd;
 import android.net.Network;
 import android.net.NetworkCapabilities;
+import android.net.NetworkFactory;
 import android.net.NetworkInfo;
 import android.net.NetworkMisc;
-import android.support.test.runner.AndroidJUnit4;
-import android.support.test.filters.SmallTest;
+import android.os.INetworkManagementService;
 import android.text.format.DateUtils;
+
+import androidx.test.filters.SmallTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import com.android.internal.R;
 import com.android.server.ConnectivityService;
-import com.android.server.connectivity.NetworkNotificationManager;
 import com.android.server.connectivity.NetworkNotificationManager.NotificationType;
 
-import org.junit.runner.RunWith;
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
@@ -66,6 +70,9 @@ public class LingerMonitorTest {
     LingerMonitor mMonitor;
 
     @Mock ConnectivityService mConnService;
+    @Mock IDnsResolver mDnsResolver;
+    @Mock INetd mNetd;
+    @Mock INetworkManagementService mNMS;
     @Mock Context mCtx;
     @Mock NetworkMisc mMisc;
     @Mock NetworkNotificationManager mNotifier;
@@ -76,7 +83,6 @@ public class LingerMonitorTest {
         MockitoAnnotations.initMocks(this);
         when(mCtx.getResources()).thenReturn(mResources);
         when(mCtx.getPackageName()).thenReturn("com.android.server.connectivity");
-        when(mConnService.createNetworkMonitor(any(), any(), any(), any())).thenReturn(null);
 
         mMonitor = new TestableLingerMonitor(mCtx, mNotifier, HIGH_DAILY_LIMIT, HIGH_RATE_LIMIT);
     }
@@ -349,7 +355,8 @@ public class LingerMonitorTest {
         caps.addCapability(0);
         caps.addTransportType(transport);
         NetworkAgentInfo nai = new NetworkAgentInfo(null, null, new Network(netId), info, null,
-                caps, 50, mCtx, null, mMisc, null, mConnService);
+                caps, 50, mCtx, null, mMisc, mConnService, mNetd, mDnsResolver, mNMS,
+                NetworkFactory.SerialNumber.NONE);
         nai.everValidated = true;
         return nai;
     }

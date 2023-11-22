@@ -364,6 +364,7 @@ static SLresult checkDataFormat(const char *name, void *pFormat, DataFormat *pDa
                 break;
             }
             // SL_ANDROID_DATAFORMAT_PCM_EX - fall through to next test.
+            FALLTHROUGH_INTENDED;
         case SL_DATAFORMAT_PCM:
             pDataFormat->mPCM = *(SLDataFormat_PCM *)pFormat;
             do {
@@ -790,7 +791,7 @@ SLresult checkDataSource(const char *name, const SLDataSource *pDataSrc,
     // Per the spec, the pFormat field is ignored in some cases
     case SL_DATALOCATOR_IODEVICE:
         myDataSrc.pFormat = NULL;
-        // fall through
+        FALLTHROUGH_INTENDED;
     case SL_DATALOCATOR_NULL:
     case SL_DATALOCATOR_MIDIBUFFERQUEUE:
         allowedDataFormatMask &= DATAFORMAT_MASK_NULL;
@@ -872,7 +873,7 @@ SLresult checkDataSink(const char *name, const SLDataSink *pDataSink,
     case SL_DATALOCATOR_OUTPUTMIX:
     case XA_DATALOCATOR_NATIVEDISPLAY:
         myDataSink.pFormat = NULL;
-        // fall through
+        FALLTHROUGH_INTENDED;
     case SL_DATALOCATOR_NULL:
     case SL_DATALOCATOR_MIDIBUFFERQUEUE:
         allowedDataFormatMask &= DATAFORMAT_MASK_NULL;

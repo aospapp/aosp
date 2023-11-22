@@ -19,10 +19,10 @@ ifeq (,$(findstring setup-wizard-lib-gingerbread-compat,$(LOCAL_STATIC_ANDROID_L
   LOCAL_STATIC_ANDROID_LIBRARIES += setup-wizard-lib-gingerbread-compat
 endif
 
-ifeq (,$(findstring android-support-v7-appcompat,$(LOCAL_STATIC_ANDROID_LIBRARIES)))
-  LOCAL_STATIC_ANDROID_LIBRARIES += android-support-v7-appcompat
+ifeq (,$(findstring androidx.appcompat_appcompat,$(LOCAL_STATIC_ANDROID_LIBRARIES)))
+  LOCAL_STATIC_ANDROID_LIBRARIES += androidx.appcompat_appcompat
 endif
 
-ifeq (,$(findstring android-support-v7-recyclerview,$(LOCAL_STATIC_ANDROID_LIBRARIES)))
-  LOCAL_STATIC_ANDROID_LIBRARIES += android-support-v7-recyclerview
+ifeq (,$(findstring androidx.recyclerview_recyclerview,$(LOCAL_STATIC_ANDROID_LIBRARIES)))
+  LOCAL_STATIC_ANDROID_LIBRARIES += androidx.recyclerview_recyclerview
 endif

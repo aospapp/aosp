@@ -46,6 +46,9 @@ class InterfaceTool {
   // Returns true on success, false otherwise.
   virtual bool SetMacAddress(const char* if_name,
                              const std::array<uint8_t, ETH_ALEN>& address);
+
+  // Get the factory MAC address of the |if_name| interface
+  virtual std::array<uint8_t, ETH_ALEN> GetFactoryMacAddress(const char* if_name);
 };  // class InterfaceTool
 
 }  // namespace wifi_system

@@ -15,7 +15,13 @@
  */
 
 /**
- * @addtogroup NativeActivity Native Activity
+ * @defgroup ANativeWindow Native Window
+ *
+ * ANativeWindow represents the producer end of an image queue.
+ * It is the C counterpart of the android.view.Surface object in Java,
+ * and can be converted both ways. Depending on the consumer, images
+ * submitted to ANativeWindow can be shown on the display or sent to
+ * other consumers, such as video encoders.
  * @{
  */
 
@@ -41,7 +47,7 @@ extern "C" {
  * Legacy window pixel format names, kept for backwards compatibility.
  * New code and APIs should use AHARDWAREBUFFER_FORMAT_*.
  */
-enum {
+enum ANativeWindow_LegacyFormat {
     // NOTE: these values must match the values from graphics/common/x.x/types.hal
 
     /** Red: 8 bits, Green: 8 bits, Blue: 8 bits, Alpha: 8 bits. **/
@@ -95,7 +101,7 @@ typedef struct ANativeWindow_Buffer {
     /// memory. This may be >= width.
     int32_t stride;
 
-    /// The format of the buffer. One of AHARDWAREBUFFER_FORMAT_*
+    /// The format of the buffer. One of AHardwareBuffer_Format.
     int32_t format;
 
     /// The actual bits.
@@ -151,7 +157,7 @@ int32_t ANativeWindow_getFormat(ANativeWindow* window);
  *
  * \param width width of the buffers in pixels.
  * \param height height of the buffers in pixels.
- * \param format one of AHARDWAREBUFFER_FORMAT_* constants.
+ * \param format one of the AHardwareBuffer_Format constants.
  * \return 0 for success, or a negative value on error.
  */
 int32_t ANativeWindow_setBuffersGeometry(ANativeWindow* window,
@@ -178,7 +184,7 @@ int32_t ANativeWindow_lock(ANativeWindow* window, ANativeWindow_Buffer* outBuffe
  */
 int32_t ANativeWindow_unlockAndPost(ANativeWindow* window);
 
-#if __ANDROID_API__ >= __ANDROID_API_O__
+#if __ANDROID_API__ >= 26
 
 /**
  * Set a transform that will be applied to future buffers posted to the window.
@@ -186,11 +192,11 @@ int32_t ANativeWindow_unlockAndPost(ANativeWindow* window);
  * \param transform combination of {@link ANativeWindowTransform} flags
  * \return 0 for success, or -EINVAL if \p transform is invalid
  */
-int32_t ANativeWindow_setBuffersTransform(ANativeWindow* window, int32_t transform);
+int32_t ANativeWindow_setBuffersTransform(ANativeWindow* window, int32_t transform) __INTRODUCED_IN(26);
 
-#endif // __ANDROID_API__ >= __ANDROID_API_O__
+#endif // __ANDROID_API__ >= 26
 
-#if __ANDROID_API__ >= __ANDROID_API_P__
+#if __ANDROID_API__ >= 28
 
 /**
  * All buffers queued after this call will be associated with the dataSpace
@@ -206,16 +212,16 @@ int32_t ANativeWindow_setBuffersTransform(ANativeWindow* window, int32_t transfo
  * \return 0 for success, -EINVAL if window is invalid or the dataspace is not
  * supported.
  */
-int32_t ANativeWindow_setBuffersDataSpace(ANativeWindow* window, int32_t dataSpace);
+int32_t ANativeWindow_setBuffersDataSpace(ANativeWindow* window, int32_t dataSpace) __INTRODUCED_IN(28);
 
 /**
  * Get the dataspace of the buffers in window.
  * \return the dataspace of buffers in window, ADATASPACE_UNKNOWN is returned if
  * dataspace is unknown, or -EINVAL if window is invalid.
  */
-int32_t ANativeWindow_getBuffersDataSpace(ANativeWindow* window);
+int32_t ANativeWindow_getBuffersDataSpace(ANativeWindow* window) __INTRODUCED_IN(28);
 
-#endif // __ANDROID_API__ >= __ANDROID_API_P__
+#endif // __ANDROID_API__ >= 28
 
 #ifdef __cplusplus
 };

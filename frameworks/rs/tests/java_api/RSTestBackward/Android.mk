@@ -26,11 +26,12 @@ LOCAL_SRC_FILES := \
     $(call all-java-files-under, ../RSUnitTests/src)\
     $(call all-renderscript-files-under, ../RSUnitTests/src)\
 
-LOCAL_STATIC_JAVA_LIBRARIES := android-support-test
+LOCAL_STATIC_JAVA_LIBRARIES := androidx.test.rules
 LOCAL_COMPATIBILITY_SUITE := device-tests
 
-LOCAL_RENDERSCRIPT_TARGET_API := 0
+LOCAL_RENDERSCRIPT_TARGET_API := current
 LOCAL_MIN_SDK_VERSION := 21
+LOCAL_SDK_VERSION := current
 
 include $(BUILD_PACKAGE)
 

@@ -87,6 +87,10 @@ public:
 
     inline bool operator!=(const Range& o) const { return !(*this == o); }
 
+    inline Range operator+(int32_t shift) const { return Range(mStart + shift, mEnd + shift); }
+
+    inline Range operator-(int32_t shift) const { return Range(mStart - shift, mEnd - shift); }
+
 private:
     // Helper class for "for (uint32_t i : range)" style for-loop.
     class RangeIterator {

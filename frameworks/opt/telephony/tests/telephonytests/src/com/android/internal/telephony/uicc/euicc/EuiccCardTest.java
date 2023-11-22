@@ -48,6 +48,7 @@ import com.android.internal.telephony.uicc.IccUtils;
 import com.android.internal.telephony.uicc.asn1.Asn1Node;
 import com.android.internal.telephony.uicc.asn1.InvalidAsn1DataException;
 import com.android.internal.telephony.uicc.asn1.TagNotFoundException;
+import com.android.internal.telephony.uicc.euicc.apdu.ApduException;
 import com.android.internal.telephony.uicc.euicc.apdu.LogicalChannelMocker;
 import com.android.internal.telephony.uicc.euicc.async.AsyncResultCallback;
 
@@ -163,6 +164,28 @@ public class EuiccCardTest extends TelephonyTest {
             fail("Unexpected exception: " + ExceptionUtils.getCompleteMessage(e) + "\n-----\n"
                     + Log.getStackTraceString(e.getCause()) + "-----");
         }
+    }
+
+    @Test
+    public void testPassEidInContructor() throws InterruptedException {
+        mMockIccCardStatus.eid = "1A2B3C4D";
+        mEuiccCard = new EuiccCard(mContextFixture.getTestDouble(), mMockCi,
+                mMockIccCardStatus, 0 /* phoneId */, new Object());
+
+        final int eventEidReady = 0;
+        final CountDownLatch latch = new CountDownLatch(1);
+        Handler handler = new Handler(mTestHandlerThread.getLooper()) {
+            @Override
+            public void handleMessage(Message msg) {
+                if (msg.what == eventEidReady) {
+                    assertEquals("1A2B3C4D", mEuiccCard.getEid());
+                    latch.countDown();
+                }
+            }
+        };
+        // This will instantly return, since EID is already set
+        mEuiccCard.registerForEidReady(handler, eventEidReady, null /* obj */);
+        assertTrue(latch.await(WAIT_TIMEOUT_MLLIS, TimeUnit.MILLISECONDS));
     }
 
     @Test
@@ -437,14 +460,14 @@ public class EuiccCardTest extends TelephonyTest {
 
     @Test
     public void testGetRulesAuthTable() {
-        int channel = mockLogicalChannelResponses("BF4347"
-                + "A021" // Rule #1
+        int channel = mockLogicalChannelResponses("BF434B"
+                + "A0233021" // Rule #1
                 + "800206C0" // Policy rules: DO_NOT_DELETE | DO_NOT_DISABLE
                 + "A118" // Operator IDs
                 + "B70A800312F3458103010203" // ID #1: 213, 54, [1,2,3], null
                 + "B70A800312F3458203040506" // ID #2: 213, 54, null, [4,5,6]
                 + "820108" // Flag (no user consent)
-                + "A022" // Rule #2
+                + "A0243022" // Rule #2
                 + "80020780" // Policy rules: DO_NOT_DISABLE
                 + "A118" // Operator IDs
                 + "B70A800312E3458103010203" // ID #1: 213, 54E, [1,2,3], null
@@ -564,7 +587,7 @@ public class EuiccCardTest extends TelephonyTest {
                 com.android.internal.R.array.config_telephonyEuiccDeviceCapabilities))
                 .thenReturn(new String[] {});
 
-        int channel = mockLogicalChannelResponses("BF38038101039000");
+        int channel = mockLogicalChannelResponses("BF3805A1030201039000");
 
         ResultCaptor<byte[]> resultCaptor = new ResultCaptor<>();
         mEuiccCard.authenticateServer("A1B2C3-X4Y5Z6", // Matching id
@@ -702,7 +725,7 @@ public class EuiccCardTest extends TelephonyTest {
     }
 
     @Test
-    public void testLoadBoundProfilePackage_Error() {
+    public void testLoadBoundProfilePackage_ErrorAtEnd() {
         int channel = mockLogicalChannelResponses(
                 // For boundProfilePackage head + initialiseSecureChannelRequest
                 // (ES8+.InitialiseSecureChannel)
@@ -747,6 +770,94 @@ public class EuiccCardTest extends TelephonyTest {
         verifyStoreData(channel, "8603070809"); // ES8+.LoadProfileElements
         verifyStoreData(channel, "86030A0B0C"); // ES8+.LoadProfileElements
     }
+
+    @Test
+    public void testLoadBoundProfilePackage_ErrorInMiddle() {
+        int channel = mockLogicalChannelResponses(
+                // For boundProfilePackage head + initialiseSecureChannelRequest
+                // (ES8+.InitialiseSecureChannel)
+                "9000",
+                // For firstSequenceOf87 (ES8+.ConfigureISDP)
+                "9000",
+                // For head of sequenceOf88 (ES8+.StoreMetadata)
+                "9000",
+                // For body (element 1) of sequenceOf88 (ES8+.StoreMetadata)
+                "BF370ABF2707A205A1038101039000",
+                "9000",
+                // For head of sequenceOf86 (ES8+.LoadProfileElements)
+                "9000",
+                // For body (element 1) of sequenceOf86 (ES8+.LoadProfileElements)
+                "9000",
+                // Profile installation result (element 2 of sequenceOf86)
+                "9000");
+
+        ResultCaptor<byte[]> resultCaptor = new ResultCaptor<>();
+        mEuiccCard.loadBoundProfilePackage(
+                Asn1Node.newBuilder(0xBF36)
+                        .addChild(Asn1Node.newBuilder(0xBF23))
+                        .addChild(Asn1Node.newBuilder(0xA0)
+                                .addChildAsBytes(0x87, new byte[] {1, 2, 3}))
+                        .addChild(Asn1Node.newBuilder(0xA1)
+                                .addChildAsBytes(0x88, new byte[] {4, 5, 6}))
+                        .addChild(Asn1Node.newBuilder(0xA2))
+                        .addChild(Asn1Node.newBuilder(0xA3)
+                                .addChildAsBytes(0x86, new byte[] {7, 8, 9})
+                                .addChildAsBytes(0x86, new byte[] {0xA, 0xB, 0xC}))
+                        .build().toBytes(),
+                resultCaptor, mHandler);
+        resultCaptor.await();
+
+        assertEquals(3, ((EuiccCardErrorException) resultCaptor.exception).getErrorCode());
+        verifyStoreData(channel, "BF361FBF2300"); // ES8+.InitialiseSecureChannel
+        verifyStoreData(channel, "A0058703010203"); // ES8+.ConfigureISDP
+        verifyStoreData(channel, "A105"); // ES8+.StoreMetadata
+        verifyStoreData(channel, "8803040506"); // ES8+.StoreMetadata
+    }
+
+    @Test
+    public void testLoadBoundProfilePackage_ErrorStatus() {
+        int channel = mockLogicalChannelResponses(
+                // For boundProfilePackage head + initialiseSecureChannelRequest
+                // (ES8+.InitialiseSecureChannel)
+                "9000",
+                // For firstSequenceOf87 (ES8+.ConfigureISDP)
+                "9000",
+                // For head of sequenceOf88 (ES8+.StoreMetadata)
+                "9000",
+                // For body (element 1) of sequenceOf88 (ES8+.StoreMetadata)
+                "6985",
+                "9000",
+                // For head of sequenceOf86 (ES8+.LoadProfileElements)
+                "9000",
+                // For body (element 1) of sequenceOf86 (ES8+.LoadProfileElements)
+                "9000",
+                // Profile installation result (element 2 of sequenceOf86)
+                "9000");
+
+        ResultCaptor<byte[]> resultCaptor = new ResultCaptor<>();
+        mEuiccCard.loadBoundProfilePackage(
+                Asn1Node.newBuilder(0xBF36)
+                        .addChild(Asn1Node.newBuilder(0xBF23))
+                        .addChild(Asn1Node.newBuilder(0xA0)
+                                .addChildAsBytes(0x87, new byte[] {1, 2, 3}))
+                        .addChild(Asn1Node.newBuilder(0xA1)
+                                .addChildAsBytes(0x88, new byte[] {4, 5, 6}))
+                        .addChild(Asn1Node.newBuilder(0xA2))
+                        .addChild(Asn1Node.newBuilder(0xA3)
+                                .addChildAsBytes(0x86, new byte[] {7, 8, 9})
+                                .addChildAsBytes(0x86, new byte[] {0xA, 0xB, 0xC}))
+                        .build().toBytes(),
+                resultCaptor, mHandler);
+        resultCaptor.await();
+
+        EuiccCardException e = (EuiccCardException) resultCaptor.exception;
+        assertEquals(0x6985, ((ApduException) e.getCause()).getApduStatus());
+        verifyStoreData(channel, "BF361FBF2300"); // ES8+.InitialiseSecureChannel
+        verifyStoreData(channel, "A0058703010203"); // ES8+.ConfigureISDP
+        verifyStoreData(channel, "A105"); // ES8+.StoreMetadata
+        verifyStoreData(channel, "8803040506"); // ES8+.StoreMetadata
+    }
+
 
     @Test
     public void testCancelSession() {
@@ -982,6 +1093,22 @@ public class EuiccCardTest extends TelephonyTest {
         node = devCapsBuilder2.build();
 
         assertFalse(node.hasChild(Tags.TAG_CTX_0));
+    }
+
+    @Test
+    public void testGetDeviceId() {
+        // Unclear v2.0 definition
+        assertArrayEquals(
+                new byte[] {0x21, 0x43, 0x65, (byte) 0x87, 0x09, 0x21, 0x43, 0x05},
+                EuiccCard.getDeviceId("123456789012345", new EuiccSpecVersion(2, 0, 0)));
+        // Clarified v2.1+ definition
+        assertArrayEquals(
+                new byte[] {0x21, 0x43, 0x65, (byte) 0x87, 0x09, 0x21, 0x43, 0x5F},
+                EuiccCard.getDeviceId("123456789012345", new EuiccSpecVersion(2, 1, 0)));
+        // Same definition on v2.2
+        assertArrayEquals(
+                new byte[] {0x21, 0x43, 0x65, (byte) 0x87, 0x09, 0x21, 0x43, 0x5F},
+                EuiccCard.getDeviceId("123456789012345", new EuiccSpecVersion(2, 2, 0)));
     }
 
     private void verifyStoreData(int channel, String command) {

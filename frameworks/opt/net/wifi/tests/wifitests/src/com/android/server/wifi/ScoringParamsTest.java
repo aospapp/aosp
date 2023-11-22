@@ -32,7 +32,8 @@ import android.database.ContentObserver;
 import android.net.wifi.WifiInfo;
 import android.os.Handler;
 import android.provider.Settings;
-import android.support.test.filters.SmallTest;
+
+import androidx.test.filters.SmallTest;
 
 import com.android.internal.R;
 

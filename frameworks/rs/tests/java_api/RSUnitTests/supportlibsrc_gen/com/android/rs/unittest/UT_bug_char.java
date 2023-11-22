@@ -19,8 +19,8 @@
 package com.android.rs.unittest;
 
 import android.content.Context;
-import android.support.v8.renderscript.Byte2;
-import android.support.v8.renderscript.RenderScript;
+import androidx.renderscript.Byte2;
+import androidx.renderscript.RenderScript;
 import android.util.Log;
 
 import java.util.Arrays;

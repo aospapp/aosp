@@ -26,7 +26,7 @@ TEST(AndroidLineWidth, negativeWidthTest) {
     const std::vector<float> EMPTY;
     {
         AndroidLineWidth lineWidth(-10 /* first width */, 1 /* first count */, 0 /* rest width */,
-                                   EMPTY, EMPTY, EMPTY, 0);
+                                   EMPTY, 0);
 
         EXPECT_LE(0.0f, lineWidth.getMin());
         for (int i = 0; i < LINE_COUNT; ++i) {
@@ -35,7 +35,7 @@ TEST(AndroidLineWidth, negativeWidthTest) {
     }
     {
         AndroidLineWidth lineWidth(0 /* first width */, 0 /* first count */, -10 /* rest width */,
-                                   EMPTY, EMPTY, EMPTY, 0);
+                                   EMPTY, 0);
 
         EXPECT_LE(0.0f, lineWidth.getMin());
         for (int i = 0; i < LINE_COUNT; ++i) {
@@ -45,7 +45,7 @@ TEST(AndroidLineWidth, negativeWidthTest) {
     {
         std::vector<float> indents = {10};
         AndroidLineWidth lineWidth(0 /* first width */, 0 /* first count */, 0 /* rest width */,
-                                   indents, EMPTY, EMPTY, 0);
+                                   indents, 0);
 
         EXPECT_LE(0.0f, lineWidth.getMin());
         for (int i = 0; i < LINE_COUNT; ++i) {

@@ -16,7 +16,7 @@
 
 package com.android.rs.image2;
 
-import android.support.v8.renderscript.*;
+import androidx.renderscript.*;
 
 public class Artistic1 extends TestBase {
     private ScriptC_artistic1 mScript;

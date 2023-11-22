@@ -26,6 +26,7 @@
 #include "android-base/logging.h"
 
 #include "ResourceUtils.h"
+#include "trace/TraceBuffer.h"
 #include "XmlPullParser.h"
 #include "util/Util.h"
 
@@ -264,6 +265,7 @@ static void CopyAttributes(Element* el, android::ResXMLParser* parser, StringPoo
 }
 
 std::unique_ptr<XmlResource> Inflate(const void* data, size_t len, std::string* out_error) {
+  TRACE_CALL();
   // We import the android namespace because on Windows NO_ERROR is a macro, not
   // an enum, which causes errors when qualifying it with android::
   using namespace android;
@@ -421,6 +423,15 @@ const Attribute* Element::FindAttribute(const StringPiece& ns, const StringPiece
     }
   }
   return nullptr;
+}
+
+void Element::RemoveAttribute(const StringPiece& ns, const StringPiece& name) {
+  auto new_attr_end = std::remove_if(attributes.begin(), attributes.end(),
+    [&](const Attribute& attr) -> bool {
+      return ns == attr.namespace_uri && name == attr.name;
+    });
+
+  attributes.erase(new_attr_end, attributes.end());
 }
 
 Attribute* Element::FindOrCreateAttribute(const StringPiece& ns, const StringPiece& name) {

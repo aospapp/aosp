@@ -21,6 +21,7 @@
 #include <benchmark/benchmark.h>
 
 #include "minikin/LocaleList.h"
+#include "minikin/MinikinPaint.h"
 
 #include "FontTestUtils.h"
 #include "MinikinInternal.h"
@@ -95,7 +96,8 @@ static void BM_FontCollection_itemize(benchmark::State& state) {
 
     while (state.KeepRunning()) {
         result.clear();
-        collection->itemize(buffer, utf16_length, paint, &result);
+        collection->itemize(U16StringPiece(buffer, utf16_length), paint.fontStyle,
+                            paint.localeListId, paint.familyVariant);
     }
 }
 

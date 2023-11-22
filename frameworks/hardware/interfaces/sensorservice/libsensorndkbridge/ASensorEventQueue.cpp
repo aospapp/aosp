@@ -29,12 +29,8 @@ using android::BAD_VALUE;
 using android::Mutex;
 using android::hardware::Return;
 
-ASensorEventQueue::ASensorEventQueue(
-        ALooper *looper, ALooper_callbackFunc callback, void *data)
-    : mLooper(looper),
-      mCallback(callback),
-      mData(data) {
-}
+ASensorEventQueue::ASensorEventQueue(ALooper* looper, ALooper_callbackFunc callback, void* data)
+    : mLooper(looper), mCallback(callback), mData(data), mRequestAdditionalInfo(false) {}
 
 void ASensorEventQueue::setImpl(const sp<IEventQueue> &queueImpl) {
     mQueueImpl = queueImpl;
@@ -71,6 +67,11 @@ int ASensorEventQueue::setEventRate(
             sensor, samplingPeriodUs, 0 /* maxBatchReportLatencyUs */);
 }
 
+int ASensorEventQueue::requestAdditionalInfoEvents(bool enable) {
+    mRequestAdditionalInfo = enable;
+    return OK;
+}
+
 int ASensorEventQueue::disableSensor(ASensorRef sensor) {
     Return<Result> ret = mQueueImpl->disableSensor(
             reinterpret_cast<const SensorInfo *>(sensor)->sensorHandle);
@@ -104,16 +105,19 @@ int ASensorEventQueue::hasEvents() const {
 Return<void> ASensorEventQueue::onEvent(const Event &event) {
     LOG(VERBOSE) << "ASensorEventQueue::onEvent";
 
-    {
-        Mutex::Autolock autoLock(mLock);
+    if (static_cast<int32_t>(event.sensorType) != ASENSOR_TYPE_ADDITIONAL_INFO ||
+        mRequestAdditionalInfo.load()) {
+        {
+            Mutex::Autolock autoLock(mLock);
 
-        mQueue.emplace_back();
-        sensors_event_t *sensorEvent = &mQueue[mQueue.size() - 1];
-        android::hardware::sensors::V1_0::implementation::convertToSensorEvent(
-                event, sensorEvent);
+            mQueue.emplace_back();
+            sensors_event_t* sensorEvent = &mQueue[mQueue.size() - 1];
+            android::hardware::sensors::V1_0::implementation::convertToSensorEvent(event,
+                                                                                   sensorEvent);
+        }
+
+        mLooper->signalSensorEvents(this);
     }
-
-    mLooper->signalSensorEvents(this);
 
     return android::hardware::Void();
 }

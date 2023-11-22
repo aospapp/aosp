@@ -50,8 +50,7 @@ int ALooper::pollOnce(
     if (timeoutMillis < 0) {
         waitUntilNs = -1;
     } else {
-        waitUntilNs =
-            systemTime(SYSTEM_TIME_MONOTONIC) + timeoutMillis * 1000000ll;
+        waitUntilNs = systemTime(SYSTEM_TIME_MONOTONIC) + timeoutMillis * 1000000LL;
     }
 
     Mutex::Autolock autoLock(mLock);

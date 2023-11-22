@@ -27,44 +27,59 @@ from __future__ import print_function
 import argparse
 from functools import reduce
 import math
+import numpy as np
 import os
+import re
 import struct
 import sys
 import contextlib
-import test_generator
 import pprint
+
 # Stuff from test generator
+import test_generator as tg
+from test_generator import ActivationConverter
+from test_generator import BoolScalar
 from test_generator import Configuration
+from test_generator import DataTypeConverter
+from test_generator import DataLayoutConverter
 from test_generator import Example
+from test_generator import Float16Scalar
 from test_generator import Float32Scalar
+from test_generator import Float32Vector
 from test_generator import IgnoredOutput
 from test_generator import Input
 from test_generator import Int32Scalar
+from test_generator import Int32Vector
 from test_generator import Internal
 from test_generator import Model
 from test_generator import Operand
 from test_generator import Output
 from test_generator import Parameter
-from test_generator import smart_open
+from test_generator import ParameterAsInputConverter
+from test_generator import RelaxedModeConverter
+from test_generator import SmartOpen
+from test_generator import SymmPerChannelQuantParams
+
+# Dumping methods that shared with CTS generator
+from cts_generator import DumpCtsExample
+from cts_generator import DumpCtsIsIgnored
 
 # Take a model from command line
-def import_source():
-  parser = argparse.ArgumentParser()
-  parser.add_argument("spec", help="the spec file")
-  parser.add_argument(
-      "-m", "--model", help="the output model file", default="-")
-  parser.add_argument(
-      "-e", "--example", help="the output example file", default="-")
-  args = parser.parse_args()
-
-  if os.path.exists(args.spec):
-    test_generator.FileNames.SpecFile = os.path.basename(args.spec)
-    exec (open(args.spec).read())
-
-  return (args.model, args.example)
+def ParseCmdLine():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("spec", help="the spec file")
+    parser.add_argument(
+        "-m", "--model", help="the output model file", default="-")
+    parser.add_argument(
+        "-e", "--example", help="the output example file", default="-")
+    parser.add_argument(
+        "-t", "--test", help="the output test file", default="-")
+    args = parser.parse_args()
+    tg.FileNames.InitializeFileLists(
+        args.spec, args.model, args.example, args.test)
 
 # Generate operands in VTS format
-def generate_vts_operands():
+def generate_vts_operands(model):
   # Dump operand definitions
   op_def = """\
         {{
@@ -74,66 +89,84 @@ def generate_vts_operands():
             .scale = {scale},
             .zeroPoint = {zero_point},
             .lifetime = OperandLifeTime::{lifetime},
-            .location = {{.poolIndex = 0, .offset = {offset}, .length = {length}}},
+            .location = {{.poolIndex = 0, .offset = {offset}, .length = {length}}},{extraParams}
         }}"""
   offset = 0
   op_definitions = []
-  for o in Operand.operands.objects():
-    ty = o.type
-    no_consumers = len(o.outs) if o.traversable() else 0
-    lifetime = o.lifetime()
-    length = ty.get_size() if o.is_weight() else 0
-    real_shape, scale, zero_point = ty.get_parsed_shape()
-    scale = float(scale)
-    zero_point = int(zero_point)
+  extra_params_definitions = []
+  for index, o in enumerate(model.operands):
+    length = o.type.GetByteSize() if isinstance(o, Parameter) else 0
+    add_extra_params = o.type.extraParams is not None and not o.type.extraParams.hide
     op = {
-        "operand_type": ty.get_element_type(),
-        "shape": "{%s}" % real_shape,
-        "no_consumers": no_consumers,
-        "scale": test_generator.pretty_print_as_float(scale),
-        "zero_point": str(int(zero_point)),
-        "lifetime": lifetime,
-        "offset": offset if o.is_weight() else 0,
-        "length": length
+        "operand_type": o.type.type,
+        "shape": o.type.GetDimensionsString(),
+        "no_consumers": len(o.outs),
+        "scale": tg.PrettyPrintAsFloat(o.type.scale),
+        "zero_point": str(int(o.type.zeroPoint)),
+        "lifetime": o.lifetime,
+        "offset": offset if isinstance(o, Parameter) else 0,
+        "length": length,
+        "extraParams": "" if not add_extra_params else "\n            .extraParams = std::move(extraParams%d)," % (index,),
     }
     offset += length
     op_definitions.append(op_def.format(**op))
 
-  op_vec = """\
+    extra_params_def = """\
+    Operand::ExtraParams extraParams{index};
+    extraParams{index}.{setMethodName}({param});
+"""
+
+    if add_extra_params:
+      ep = o.type.extraParams
+      op = {
+          "index": index,
+          "setMethodName": ep.GetVtsSetter(),
+          "param": ep.GetVtsConstructor(),
+      }
+      extra_params_definitions.append(extra_params_def.format(**op))
+
+  op_vec = """{0}\
     const std::vector<Operand> operands = {{
-{0}
-    }};""".format(",\n".join(op_definitions))
+{1}
+    }};""".format(",\n".join(extra_params_definitions), ",\n".join(op_definitions))
   return op_vec
 
 # Generate VTS operand values
-def generate_vts_operand_values():
-  weights = [o for o in Operand.operands.objects() if o.is_weight()]
-  binit = []
-  for w in weights:
-    ty = w.type.get_element_type()
-    if ty == "TENSOR_QUANT8_ASYMM":
-      binit += w.initializer
-    elif ty in {"TENSOR_FLOAT32", "FLOAT32", "TENSOR_INT32", "INT32"}:
-      fmt = "f" if (ty == "TENSOR_FLOAT32" or ty == "FLOAT32") else "i"
-      for f in w.initializer:
-        binit += [int(x) for x in struct.pack(fmt, f)]
-    else:
-      assert 0 and "Unsupported VTS operand type"
+def generate_vts_operand_values(operands):
+    weights = [o for o in operands if isinstance(o, Parameter)]
+    binit = []
+    for w in weights:
+        ty = w.type.type
+        if ty == "TENSOR_QUANT8_ASYMM":
+            binit += w.value
+        elif ty == "TENSOR_QUANT8_SYMM_PER_CHANNEL" or ty == "TENSOR_QUANT8_SYMM":
+            binit += [struct.pack("b", value)[0] for value in w.value]
+        elif ty == "BOOL" or ty == "TENSOR_BOOL8":
+            binit += [1 if x else 0 for x in w.value]
+        elif ty == "TENSOR_FLOAT16" or ty == "FLOAT16":
+            for f in w.value:
+                # The pack format for float16 is not available until Python 3.6.
+                binit += [int(x) for x in np.float16(f).tostring()]
+        elif ty in {"TENSOR_FLOAT32", "FLOAT32", "TENSOR_INT32", "INT32", "TENSOR_QUANT16_ASYMM"}:
+            if ty in ["TENSOR_FLOAT32", "FLOAT32"]:
+                fmt = "f"
+            elif ty in ["TENSOR_INT32", "INT32"]:
+                fmt = "i"
+            elif ty == "TENSOR_QUANT16_ASYMM":
+                fmt = "H"
+            for f in w.value:
+                binit += [int(x) for x in struct.pack(fmt, f)]
+        else:
+            assert 0 and "Unsupported VTS operand type"
 
-  init_defs = ", ".join([str(x) for x in binit])
-  if (init_defs != ""):
-    init_defs = "\n      %s\n    " % init_defs
-  byte_vec_fmt = """{%s}""" % init_defs
-  return byte_vec_fmt
+    init_defs = ", ".join([str(x) for x in binit])
+    if (init_defs != ""):
+        init_defs = "\n      %s\n    " % init_defs
+    byte_vec_fmt = """{%s}""" % init_defs
+    return byte_vec_fmt
 
 # Generate VTS operations
-class VTSOps(object):
-  vts_ops = []
-  def generate_vts_operation(op):
-    try:
-      opcode =op.optype
-    except AttributeError: # not an op, but things like weights
-      return
+def generate_vts_operation(op, model):
     op_fmt = """\
         {{
             .type = OperationType::{op_code},
@@ -142,19 +175,16 @@ class VTSOps(object):
         }}"""
     op_content = {
         'op_code': op.optype,
-        'op_type': op.type.get_element_type(),
-        'ins': ", ".join([str(x.ID()) for x in op.ins]),
-        'outs': ", ".join([str(x.ID()) for x in op.outs]),
+        'ins': tg.GetJointStr(model.GetIndexOfOperands(op.ins)),
+        'outs': tg.GetJointStr(model.GetIndexOfOperands(op.outs))
     }
-    VTSOps.vts_ops.append(op_fmt.format(**op_content))
-    return True
+    return op_fmt.format(**op_content)
 
-def generate_vts_operations(model_file):
-  test_generator.TopologicalSort(lambda x: VTSOps.generate_vts_operation(x))
-  return ",\n".join(VTSOps.vts_ops)
+def generate_vts_operations(model):
+    vts_ops = [generate_vts_operation(op, model) for op in model.operations]
+    return ",\n".join(vts_ops)
 
-
-def generate_vts_model(model_file):
+def generate_vts_model(model, model_file):
   operand_values_fmt = ""
   if Configuration.useSHM():
     # Boilerplate code for passing weights in shared memory
@@ -194,14 +224,13 @@ def generate_vts_model(model_file):
 """
 
   operand_values_val = {
-      'operand_values': generate_vts_operand_values()
+      'operand_values': generate_vts_operand_values(model.operands)
   }
   operand_values = operand_values_fmt.format(**operand_values_val)
   #  operand_values = operand_values_fmt
   model_fmt = """\
-// Generated code. Do not edit
 // Create the model
-Model createTestModel() {{
+Model {create_test_model_name}() {{
 {operand_decls}
 
     const std::vector<Operation> operations = {{
@@ -221,27 +250,85 @@ Model createTestModel() {{
     }};
 }}
 """
-  model = {
-      "operations": generate_vts_operations(sys.stdout),
-      "operand_decls": generate_vts_operands(),
+  model_dict = {
+      "create_test_model_name": str(model.createTestFunctionName),
+      "operations": generate_vts_operations(model),
+      "operand_decls": generate_vts_operands(model),
       "operand_values": operand_values,
-      "output_indices": ", ".join([str(i.ID()) for i in Output.get_outputs()]),
-      "input_indices": ", ".join([str(i.ID()) for i in Input.get_inputs(True)]),
+      "output_indices": tg.GetJointStr(model.GetOutputsIndex()),
+      "input_indices": tg.GetJointStr(model.GetInputsIndex()),
       "relaxed_field":
-        "\n        .relaxComputationFloat32toFloat16 = true," if (Model.isRelaxed()) else ""
+        "\n        .relaxComputationFloat32toFloat16 = true," if (model.isRelaxed) else ""
   }
-  print(model_fmt.format(**model), file = model_file)
+  print(model_fmt.format(**model_dict), file = model_file)
 
-def generate_vts(model_file):
-  generate_vts_model(model_file)
-  print (IgnoredOutput.gen_ignored(), file=model_file)
+def generate_vts(model, model_file):
+  assert model.compiled
+  generate_vts_model(model, model_file)
+  DumpCtsIsIgnored(model, model_file)
+
+def generate_vts_test(example, test_file):
+    testTemplate = """\
+TEST_F({test_case_name}, {test_name}) {{
+  generated_tests::Execute(device,
+                           {namespace}::{create_model_name},
+                           {namespace}::{is_ignored_name},
+                           {namespace}::get_{examples_name}(){test_dynamic_output_shape});\n}}
+
+TEST_F(ValidationTest, {test_name}) {{
+  const Model model = {namespace}::{create_model_name}();
+  const std::vector<Request> requests = createRequests({namespace}::get_{examples_name}());
+  validateEverything(model, requests);
+}}\n
+"""
+    if example.model.hasDynamicOutputShape:
+        print("#ifdef NN_TEST_DYNAMIC_OUTPUT_SHAPE", file=test_fd)
+    print(testTemplate.format(
+            test_case_name="DynamicOutputShapeTest" if example.model.hasDynamicOutputShape \
+                           else "NeuralnetworksHidlTest",
+            test_name=str(example.testName),
+            namespace=tg.FileNames.specName,
+            create_model_name=str(example.model.createTestFunctionName),
+            is_ignored_name=str(example.model.isIgnoredFunctionName),
+            examples_name=str(example.examplesName),
+            test_dynamic_output_shape=", true" if example.model.hasDynamicOutputShape else ""
+        ), file=test_fd)
+    if example.model.hasDynamicOutputShape:
+        print("#endif", file=test_fd)
+
+def InitializeFiles(model_fd, example_fd, test_fd):
+    fileHeader = "// clang-format off\n// Generated file (from: {spec_file}). Do not edit"
+    testFileHeader = """\
+// Generated from: {spec_file}.
+namespace {spec_name} {{
+// Generated {spec_name} test
+#include "{example_file}"
+// Generated model constructor
+#include "{model_file}"
+}} // namespace {spec_name}\n"""
+    # This regex is to remove prefix and get relative path for #include
+    pathRegex = r".*frameworks/ml/nn/(runtime/test/generated/)?"
+    specFileBase = os.path.basename(tg.FileNames.specFile)
+    print(fileHeader.format(spec_file=specFileBase), file=model_fd)
+    print(fileHeader.format(spec_file=specFileBase), file=example_fd)
+    print(testFileHeader.format(
+        spec_file=specFileBase,
+        model_file=re.sub(pathRegex, "", tg.FileNames.modelFile),
+        example_file=re.sub(pathRegex, "", tg.FileNames.exampleFile),
+        spec_name=tg.FileNames.specName), file=test_fd)
 
 if __name__ == "__main__":
-  (model, example) = import_source()
-  print("Output VTS model: %s" % model, file=sys.stderr)
-  print("Output example:" + example, file=sys.stderr)
-
-  with smart_open(model) as model_file:
-    generate_vts(model_file)
-  with smart_open(example) as example_file:
-    Example.dump(example_file)
+    ParseCmdLine()
+    while tg.FileNames.NextFile():
+        print("Generating test(s) from spec: %s" % tg.FileNames.specFile, file=sys.stderr)
+        exec (open(tg.FileNames.specFile, "r").read())
+        print("Output VTS model: %s" % tg.FileNames.modelFile, file=sys.stderr)
+        print("Output example:" + tg.FileNames.exampleFile, file=sys.stderr)
+        with SmartOpen(tg.FileNames.modelFile) as model_fd, \
+             SmartOpen(tg.FileNames.exampleFile) as example_fd, \
+             SmartOpen(tg.FileNames.testFile, mode="a") as test_fd:
+            InitializeFiles(model_fd, example_fd, test_fd)
+            Example.DumpAllExamples(
+                DumpModel=generate_vts, model_fd=model_fd,
+                DumpExample=DumpCtsExample, example_fd=example_fd,
+                DumpTest=generate_vts_test, test_fd=test_fd)

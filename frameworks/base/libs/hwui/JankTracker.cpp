@@ -18,6 +18,7 @@
 
 #include <errno.h>
 #include <inttypes.h>
+#include <statslog.h>
 #include <sys/mman.h>
 
 #include <algorithm>
@@ -81,7 +82,6 @@ static FrameInfoIndex sFrameStart = FrameInfoIndex::IntendedVsync;
 JankTracker::JankTracker(ProfileDataContainer* globalData, const DisplayInfo& displayInfo) {
     mGlobalData = globalData;
     nsecs_t frameIntervalNanos = static_cast<nsecs_t>(1_s / displayInfo.fps);
-#if USE_HWC2
     nsecs_t sfOffset = frameIntervalNanos - (displayInfo.presentationDeadline - 1_ms);
     nsecs_t offsetDelta = sfOffset - displayInfo.appVsyncOffset;
     // There are two different offset cases. If the offsetDelta is positive
@@ -95,7 +95,6 @@ JankTracker::JankTracker(ProfileDataContainer* globalData, const DisplayInfo& di
         // return due to the staggering of VSYNC-app & VSYNC-sf.
         mDequeueTimeForgiveness = offsetDelta + 4_ms;
     }
-#endif
     setFrameInterval(frameIntervalNanos);
 }
 
@@ -146,7 +145,7 @@ void JankTracker::finishFrame(const FrameInfo& frame) {
                              frame[FrameInfoIndex::IntendedVsync] + mFrameInterval);
 
     // If we hit the deadline, cool!
-    if (frame[FrameInfoIndex::FrameCompleted] < mSwapDeadline) {
+    if (frame[FrameInfoIndex::FrameCompleted] < mSwapDeadline || totalDuration < mFrameInterval) {
         if (isTripleBuffered) {
             mData->reportJankType(JankType::kHighInputLatency);
             (*mGlobalData)->reportJankType(JankType::kHighInputLatency);
@@ -181,6 +180,7 @@ void JankTracker::finishFrame(const FrameInfo& frame) {
         ALOGI("%s", ss.str().c_str());
         // Just so we have something that counts up, the value is largely irrelevant
         ATRACE_INT(ss.str().c_str(), ++sDaveyCount);
+        android::util::stats_write(android::util::DAVEY_OCCURRED, getuid(), ns2ms(totalDuration));
     }
 }
 

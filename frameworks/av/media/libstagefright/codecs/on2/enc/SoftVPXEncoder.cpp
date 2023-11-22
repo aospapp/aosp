@@ -21,6 +21,7 @@
 #include "SoftVP8Encoder.h"
 #include "SoftVP9Encoder.h"
 
+#include <android-base/macros.h>
 #include <utils/Log.h>
 #include <utils/misc.h>
 
@@ -400,8 +401,8 @@ OMX_ERRORTYPE SoftVPXEncoder::internalSetParameter(OMX_INDEXTYPE index,
     }
 }
 
-OMX_ERRORTYPE SoftVPXEncoder::setConfig(
-        OMX_INDEXTYPE index, const OMX_PTR _params) {
+OMX_ERRORTYPE SoftVPXEncoder::internalSetConfig(
+        OMX_INDEXTYPE index, const OMX_PTR _params, bool *frameConfig) {
     switch (index) {
         case OMX_IndexConfigVideoIntraVOPRefresh:
         {
@@ -441,7 +442,7 @@ OMX_ERRORTYPE SoftVPXEncoder::setConfig(
         }
 
         default:
-            return SimpleSoftOMXComponent::setConfig(index, _params);
+            return SimpleSoftOMXComponent::internalSetConfig(index, _params, frameConfig);
     }
 }
 
@@ -557,7 +558,7 @@ vpx_enc_frame_flags_t SoftVPXEncoder::getEncodeFlags() {
               break;
           case kTemporalUpdateGoldenWithoutDependency:
               flags |= VP8_EFLAG_NO_REF_GF;
-              // Deliberately no break here.
+              FALLTHROUGH_INTENDED;
           case kTemporalUpdateGolden:
               flags |= VP8_EFLAG_NO_REF_ARF;
               flags |= VP8_EFLAG_NO_UPD_ARF;
@@ -566,14 +567,14 @@ vpx_enc_frame_flags_t SoftVPXEncoder::getEncodeFlags() {
           case kTemporalUpdateAltrefWithoutDependency:
               flags |= VP8_EFLAG_NO_REF_ARF;
               flags |= VP8_EFLAG_NO_REF_GF;
-              // Deliberately no break here.
+              FALLTHROUGH_INTENDED;
           case kTemporalUpdateAltref:
               flags |= VP8_EFLAG_NO_UPD_GF;
               flags |= VP8_EFLAG_NO_UPD_LAST;
               break;
           case kTemporalUpdateNoneNoRefAltref:
               flags |= VP8_EFLAG_NO_REF_ARF;
-              // Deliberately no break here.
+              FALLTHROUGH_INTENDED;
           case kTemporalUpdateNone:
               flags |= VP8_EFLAG_NO_UPD_GF;
               flags |= VP8_EFLAG_NO_UPD_ARF;

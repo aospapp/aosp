@@ -17,7 +17,7 @@
 package com.android.rs.test_compatlegacy;
 import android.content.Context;
 import android.util.Log;
-import android.support.v8.renderscript.RenderScript.RSMessageHandler;
+import androidx.renderscript.RenderScript.RSMessageHandler;
 
 public class UnitTest extends Thread {
     public String name;

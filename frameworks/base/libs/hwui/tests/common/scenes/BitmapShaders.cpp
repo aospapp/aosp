@@ -26,7 +26,7 @@ static bool _BitmapShaders(BitmapAllocationTestUtils::registerBitmapAllocationSc
 
 class BitmapShaders : public TestScene {
 public:
-    BitmapShaders(BitmapAllocationTestUtils::BitmapAllocator allocator)
+    explicit BitmapShaders(BitmapAllocationTestUtils::BitmapAllocator allocator)
             : TestScene(), mAllocator(allocator) {}
 
     sp<RenderNode> card;
@@ -44,8 +44,7 @@ public:
                 });
 
         SkPaint paint;
-        sk_sp<SkColorFilter> colorFilter;
-        sk_sp<SkImage> image = hwuiBitmap->makeImage(&colorFilter);
+        sk_sp<SkImage> image = hwuiBitmap->makeImage();
         sk_sp<SkShader> repeatShader =
                 image->makeShader(SkShader::TileMode::kRepeat_TileMode,
                                   SkShader::TileMode::kRepeat_TileMode, nullptr);

@@ -18,6 +18,8 @@ package com.android.server.devicepolicy;
 
 import static org.mockito.Mockito.mock;
 
+import android.annotation.Nullable;
+import android.app.AppOpsManager;
 import android.content.BroadcastReceiver;
 import android.content.ContentResolver;
 import android.content.Context;
@@ -30,10 +32,11 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.UserHandle;
 import android.os.UserManagerInternal;
-import android.support.annotation.NonNull;
 import android.test.mock.MockContext;
 import android.util.ArrayMap;
 import android.util.ExceptionUtils;
+
+import androidx.annotation.NonNull;
 
 import com.android.internal.util.FunctionalUtils;
 
@@ -58,6 +61,12 @@ public class DpmMockContext extends MockContext {
     public static final int CALLER_UID = UserHandle.getUid(CALLER_USER_HANDLE, 20123);
 
     /**
+     * UID corresponding to {@link #CALLER_USER_HANDLE}.
+     */
+    public static final int CALLER_MANAGED_PROVISIONING_UID = UserHandle.getUid(CALLER_USER_HANDLE,
+            20125);
+
+    /**
      * UID used when a caller is on the system user.
      */
     public static final int CALLER_SYSTEM_USER_UID = 20321;
@@ -79,6 +88,10 @@ public class DpmMockContext extends MockContext {
 
     public static final String ANOTHER_PACKAGE_NAME = "com.another.package.name";
     public static final int ANOTHER_UID = UserHandle.getUid(UserHandle.USER_SYSTEM, 18434);
+
+    public static final String DELEGATE_PACKAGE_NAME = "com.delegate.package.name";
+    public static final int DELEGATE_CERT_INSTALLER_UID = UserHandle.getUid(UserHandle.USER_SYSTEM,
+            18437);
 
     private final MockSystemServices mMockSystemServices;
 
@@ -313,6 +326,12 @@ public class DpmMockContext extends MockContext {
     }
 
     @Override
+    public void sendBroadcastAsUser(Intent intent,
+            UserHandle user, @Nullable String receiverPermission, @Nullable Bundle options) {
+        spiedContext.sendBroadcastAsUser(intent, user, receiverPermission, options);
+    }
+
+    @Override
     public void sendBroadcastAsUser(Intent intent, UserHandle user, String receiverPermission) {
         spiedContext.sendBroadcastAsUser(intent, user, receiverPermission);
     }
@@ -327,17 +346,17 @@ public class DpmMockContext extends MockContext {
     public void sendOrderedBroadcastAsUser(Intent intent, UserHandle user,
             String receiverPermission, BroadcastReceiver resultReceiver, Handler scheduler,
             int initialCode, String initialData, Bundle initialExtras) {
-        spiedContext.sendOrderedBroadcastAsUser(intent, user, receiverPermission, resultReceiver,
+        sendOrderedBroadcastAsUser(
+                intent, user, receiverPermission, AppOpsManager.OP_NONE, resultReceiver,
                 scheduler, initialCode, initialData, initialExtras);
-        resultReceiver.onReceive(spiedContext, intent);
     }
 
     @Override
     public void sendOrderedBroadcastAsUser(Intent intent, UserHandle user,
             String receiverPermission, int appOp, BroadcastReceiver resultReceiver,
             Handler scheduler, int initialCode, String initialData, Bundle initialExtras) {
-        spiedContext.sendOrderedBroadcastAsUser(intent, user, receiverPermission, appOp,
-                resultReceiver,
+        sendOrderedBroadcastAsUser(
+                intent, user, receiverPermission, appOp, null, resultReceiver,
                 scheduler, initialCode, initialData, initialExtras);
     }
 
@@ -347,6 +366,7 @@ public class DpmMockContext extends MockContext {
             Handler scheduler, int initialCode, String initialData, Bundle initialExtras) {
         spiedContext.sendOrderedBroadcastAsUser(intent, user, receiverPermission, appOp, options,
                 resultReceiver, scheduler, initialCode, initialData, initialExtras);
+        resultReceiver.onReceive(spiedContext, intent);
     }
 
     @Override
@@ -425,5 +445,10 @@ public class DpmMockContext extends MockContext {
     @Override
     public int getUserId() {
         return UserHandle.getUserId(binder.getCallingUid());
+    }
+
+    @Override
+    public int checkCallingPermission(String permission) {
+        return spiedContext.checkCallingPermission(permission);
     }
 }

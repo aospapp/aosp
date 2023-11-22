@@ -25,10 +25,11 @@ import android.content.Context;
 import android.content.res.Configuration;
 import android.content.res.Resources;
 import android.platform.test.annotations.Presubmit;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.filters.SmallTest;
-import android.support.test.runner.AndroidJUnit4;
 import android.text.format.Formatter.BytesResult;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.filters.SmallTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.After;
 import org.junit.Before;
@@ -162,7 +163,7 @@ public class FormatterTest {
 
         // Make sure it works on different locales.
         setLocale(Locale.FRANCE);
-        assertEquals("2 j", Formatter.formatShortElapsedTime(mContext, 2 * DAY));
+        assertEquals("2\u202fj", Formatter.formatShortElapsedTime(mContext, 2 * DAY));
     }
 
     @Test

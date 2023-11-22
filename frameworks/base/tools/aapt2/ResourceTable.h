@@ -17,7 +17,6 @@
 #ifndef AAPT_RESOURCE_TABLE_H
 #define AAPT_RESOURCE_TABLE_H
 
-#include "ConfigDescription.h"
 #include "Diagnostics.h"
 #include "Resource.h"
 #include "ResourceValues.h"
@@ -26,6 +25,7 @@
 #include "io/File.h"
 
 #include "android-base/macros.h"
+#include "androidfw/ConfigDescription.h"
 #include "androidfw/StringPiece.h"
 
 #include <functional>
@@ -57,16 +57,62 @@ struct AllowNew {
   std::string comment;
 };
 
-// The policy dictating whether an entry is overlayable at runtime by RROs.
 struct Overlayable {
+  Overlayable() = default;
+   Overlayable(const android::StringPiece& name, const android::StringPiece& actor)
+       : name(name.to_string()), actor(actor.to_string()) {}
+   Overlayable(const android::StringPiece& name, const android::StringPiece& actor,
+                    const Source& source)
+       : name(name.to_string()), actor(actor.to_string()), source(source ){}
+
+  static const char* kActorScheme;
+  std::string name;
+  std::string actor;
   Source source;
+};
+
+// Represents a declaration that a resource is overlayable at runtime.
+struct OverlayableItem {
+  explicit OverlayableItem(const std::shared_ptr<Overlayable>& overlayable)
+      : overlayable(overlayable) {}
+
+  // Represents the types overlays that are allowed to overlay the resource.
+  typedef uint32_t PolicyFlags;
+  enum Policy : uint32_t {
+    kNone = 0x00000000,
+
+    // The resource can be overlaid by any overlay.
+    kPublic = 0x00000001,
+
+    // The resource can be overlaid by any overlay on the system partition.
+    kSystem = 0x00000002,
+
+    // The resource can be overlaid by any overlay on the vendor partition.
+    kVendor = 0x00000004,
+
+    // The resource can be overlaid by any overlay on the product partition.
+    kProduct = 0x00000008,
+
+    // The resource can be overlaid by any overlay signed with the same signature as its actor.
+    kSignature = 0x00000010,
+
+    // The resource can be overlaid by any overlay on the odm partition.
+    kOdm = 0x00000020,
+
+    // The resource can be overlaid by any overlay on the oem partition.
+    kOem = 0x00000040,
+  };
+
+  std::shared_ptr<Overlayable> overlayable;
+  PolicyFlags policies = Policy::kNone;
   std::string comment;
+  Source source;
 };
 
 class ResourceConfigValue {
  public:
   // The configuration for which this value is defined.
-  const ConfigDescription config;
+  const android::ConfigDescription config;
 
   // The product for which this value is defined.
   const std::string product;
@@ -74,7 +120,7 @@ class ResourceConfigValue {
   // The actual Value.
   std::unique_ptr<Value> value;
 
-  ResourceConfigValue(const ConfigDescription& config, const android::StringPiece& product)
+  ResourceConfigValue(const android::ConfigDescription& config, const android::StringPiece& product)
       : config(config), product(product.to_string()) {}
 
  private:
@@ -96,21 +142,22 @@ class ResourceEntry {
 
   Maybe<AllowNew> allow_new;
 
-  Maybe<Overlayable> overlayable;
+  // The declarations of this resource as overlayable for RROs
+  Maybe<OverlayableItem> overlayable_item;
 
   // The resource's values for each configuration.
   std::vector<std::unique_ptr<ResourceConfigValue>> values;
 
   explicit ResourceEntry(const android::StringPiece& name) : name(name.to_string()) {}
 
-  ResourceConfigValue* FindValue(const ConfigDescription& config);
+  ResourceConfigValue* FindValue(const android::ConfigDescription& config);
 
-  ResourceConfigValue* FindValue(const ConfigDescription& config,
+  ResourceConfigValue* FindValue(const android::ConfigDescription& config,
                                  const android::StringPiece& product);
 
-  ResourceConfigValue* FindOrCreateValue(const ConfigDescription& config,
+  ResourceConfigValue* FindOrCreateValue(const android::ConfigDescription& config,
                                          const android::StringPiece& product);
-  std::vector<ResourceConfigValue*> FindAllValues(const ConfigDescription& config);
+  std::vector<ResourceConfigValue*> FindAllValues(const android::ConfigDescription& config);
 
   template <typename Func>
   std::vector<ResourceConfigValue*> FindValuesIf(Func f) {
@@ -146,8 +193,10 @@ class ResourceTableType {
 
   explicit ResourceTableType(const ResourceType type) : type(type) {}
 
-  ResourceEntry* FindEntry(const android::StringPiece& name);
-  ResourceEntry* FindOrCreateEntry(const android::StringPiece& name);
+  ResourceEntry* FindEntry(const android::StringPiece& name,
+                           Maybe<uint16_t> id = Maybe<uint16_t>());
+  ResourceEntry* FindOrCreateEntry(const android::StringPiece& name,
+                                   Maybe<uint16_t> id = Maybe<uint16_t>());
 
  private:
   DISALLOW_COPY_AND_ASSIGN(ResourceTableType);
@@ -163,8 +212,9 @@ class ResourceTablePackage {
   std::vector<std::unique_ptr<ResourceTableType>> types;
 
   ResourceTablePackage() = default;
-  ResourceTableType* FindType(ResourceType type);
-  ResourceTableType* FindOrCreateType(const ResourceType type);
+  ResourceTableType* FindType(ResourceType type, Maybe<uint8_t> id = Maybe<uint8_t>());
+  ResourceTableType* FindOrCreateType(const ResourceType type,
+                                      Maybe<uint8_t> id = Maybe<uint8_t>());
 
  private:
   DISALLOW_COPY_AND_ASSIGN(ResourceTablePackage);
@@ -174,52 +224,48 @@ class ResourceTablePackage {
 class ResourceTable {
  public:
   ResourceTable() = default;
+  explicit ResourceTable(bool validate_resources) : validate_resources_(validate_resources) {}
 
-  enum class CollisionResult { kKeepOriginal, kConflict, kTakeNew };
+  enum class CollisionResult { kKeepBoth, kKeepOriginal, kConflict, kTakeNew };
 
-  using CollisionResolverFunc = std::function<CollisionResult(Value*, Value*)>;
+  using CollisionResolverFunc = std::function<CollisionResult(Value*, Value*, bool)>;
 
   // When a collision of resources occurs, this method decides which value to keep.
-  static CollisionResult ResolveValueCollision(Value* existing, Value* incoming);
+  static CollisionResult ResolveValueCollision(Value* existing, Value* incoming, bool overlay);
 
-  bool AddResource(const ResourceNameRef& name, const ConfigDescription& config,
+  // When a collision of resources occurs, this method keeps both values
+  static CollisionResult IgnoreCollision(Value* existing, Value* incoming, bool overlay);
+
+  bool AddResource(const ResourceNameRef& name, const android::ConfigDescription& config,
                    const android::StringPiece& product, std::unique_ptr<Value> value,
                    IDiagnostics* diag);
 
   bool AddResourceWithId(const ResourceNameRef& name, const ResourceId& res_id,
-                         const ConfigDescription& config, const android::StringPiece& product,
-                         std::unique_ptr<Value> value, IDiagnostics* diag);
-
-  bool AddFileReference(const ResourceNameRef& name, const ConfigDescription& config,
-                        const Source& source, const android::StringPiece& path, IDiagnostics* diag);
-
-  bool AddFileReferenceMangled(const ResourceNameRef& name, const ConfigDescription& config,
-                               const Source& source, const android::StringPiece& path,
-                               io::IFile* file, IDiagnostics* diag);
+                         const android::ConfigDescription& config,
+                         const android::StringPiece& product, std::unique_ptr<Value> value,
+                         IDiagnostics* diag);
 
   // Same as AddResource, but doesn't verify the validity of the name. This is used
   // when loading resources from an existing binary resource table that may have mangled names.
-  bool AddResourceMangled(const ResourceNameRef& name, const ConfigDescription& config,
+  bool AddResourceMangled(const ResourceNameRef& name, const android::ConfigDescription& config,
                           const android::StringPiece& product, std::unique_ptr<Value> value,
                           IDiagnostics* diag);
 
   bool AddResourceWithIdMangled(const ResourceNameRef& name, const ResourceId& id,
-                                const ConfigDescription& config,
+                                const android::ConfigDescription& config,
                                 const android::StringPiece& product, std::unique_ptr<Value> value,
                                 IDiagnostics* diag);
 
+  bool GetValidateResources();
+
   bool SetVisibility(const ResourceNameRef& name, const Visibility& visibility, IDiagnostics* diag);
-  bool SetVisibilityMangled(const ResourceNameRef& name, const Visibility& visibility,
-                            IDiagnostics* diag);
   bool SetVisibilityWithId(const ResourceNameRef& name, const Visibility& visibility,
                            const ResourceId& res_id, IDiagnostics* diag);
   bool SetVisibilityWithIdMangled(const ResourceNameRef& name, const Visibility& visibility,
                                   const ResourceId& res_id, IDiagnostics* diag);
 
-  bool SetOverlayable(const ResourceNameRef& name, const Overlayable& overlayable,
-                      IDiagnostics* diag);
-  bool SetOverlayableMangled(const ResourceNameRef& name, const Overlayable& overlayable,
-                             IDiagnostics* diag);
+  bool SetOverlayable(const ResourceNameRef& name, const OverlayableItem& overlayable,
+                      IDiagnostics *diag);
 
   bool SetAllowNew(const ResourceNameRef& name, const AllowNew& allow_new, IDiagnostics* diag);
   bool SetAllowNewMangled(const ResourceNameRef& name, const AllowNew& allow_new,
@@ -277,13 +323,10 @@ class ResourceTable {
                     IDiagnostics* diag);
 
   bool AddResourceImpl(const ResourceNameRef& name, const ResourceId& res_id,
-                       const ConfigDescription& config, const android::StringPiece& product,
-                       std::unique_ptr<Value> value, NameValidator name_validator,
-                       const CollisionResolverFunc& conflict_resolver, IDiagnostics* diag);
-
-  bool AddFileReferenceImpl(const ResourceNameRef& name, const ConfigDescription& config,
-                            const Source& source, const android::StringPiece& path, io::IFile* file,
-                            NameValidator name_validator, IDiagnostics* diag);
+                       const android::ConfigDescription& config,
+                       const android::StringPiece& product, std::unique_ptr<Value> value,
+                       NameValidator name_validator, const CollisionResolverFunc& conflict_resolver,
+                       IDiagnostics* diag);
 
   bool SetVisibilityImpl(const ResourceNameRef& name, const Visibility& visibility,
                          const ResourceId& res_id, NameValidator name_validator,
@@ -292,12 +335,11 @@ class ResourceTable {
   bool SetAllowNewImpl(const ResourceNameRef& name, const AllowNew& allow_new,
                        NameValidator name_validator, IDiagnostics* diag);
 
-  bool SetOverlayableImpl(const ResourceNameRef& name, const Overlayable& overlayable,
-                          NameValidator name_validator, IDiagnostics* diag);
+  bool SetOverlayableImpl(const ResourceNameRef &name, const OverlayableItem& overlayable,
+                          NameValidator name_validator, IDiagnostics *diag);
 
-  bool SetSymbolStateImpl(const ResourceNameRef& name, const ResourceId& res_id,
-                          const Visibility& symbol, NameValidator name_validator,
-                          IDiagnostics* diag);
+  // Controls whether the table validates resource names and prevents duplicate resource names
+  bool validate_resources_ = true;
 
   DISALLOW_COPY_AND_ASSIGN(ResourceTable);
 };

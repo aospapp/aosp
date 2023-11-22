@@ -24,6 +24,8 @@
 #include <iostream>
 
 #include <procpartition/procpartition.h>
+#include <vintf/Arch.h>
+#include <vintf/Transport.h>
 
 #include "TextTable.h"
 
@@ -32,21 +34,6 @@ namespace lshal {
 
 using android::procpartition::Partition;
 using Pids = std::vector<int32_t>;
-
-enum : unsigned int {
-    HWSERVICEMANAGER_LIST, // through defaultServiceManager()->list()
-    PTSERVICEMANAGER_REG_CLIENT, // through registerPassthroughClient
-    LIST_DLLIB, // through listing dynamic libraries
-};
-using TableEntrySource = unsigned int;
-
-enum : unsigned int {
-    ARCH_UNKNOWN = 0,
-    ARCH32       = 1 << 0,
-    ARCH64       = 1 << 1,
-    ARCH_BOTH    = ARCH32 | ARCH64
-};
-using Architecture = unsigned int;
 
 enum class TableColumnType : unsigned int {
     INTERFACE_NAME,
@@ -60,16 +47,35 @@ enum class TableColumnType : unsigned int {
     THREADS,
     RELEASED,
     HASH,
+    VINTF,
+    SERVICE_STATUS,
 };
+
+enum : unsigned int {
+    VINTF_INFO_EMPTY = 0,
+    DEVICE_MANIFEST = 1 << 0,
+    DEVICE_MATRIX = 1 << 1,
+    FRAMEWORK_MANIFEST = 1 << 2,
+    FRAMEWORK_MATRIX = 1 << 3,
+};
+using VintfInfo = unsigned int;
 
 enum {
     NO_PID = -1,
     NO_PTR = 0
 };
 
+enum class ServiceStatus {
+    UNKNOWN, // For passthrough
+    ALIVE,
+    NON_RESPONSIVE, // registered but not respond to calls
+    DECLARED, // in VINTF manifest
+};
+std::string to_string(ServiceStatus s);
+
 struct TableEntry {
     std::string interfaceName{};
-    std::string transport{};
+    vintf::Transport transport{vintf::Transport::EMPTY};
     int32_t serverPid{NO_PID};
     uint32_t threadUsage{0};
     uint32_t threadCount{0};
@@ -77,10 +83,13 @@ struct TableEntry {
     uint64_t serverObjectAddress{NO_PTR};
     Pids clientPids{};
     std::vector<std::string> clientCmdlines{};
-    Architecture arch{ARCH_UNKNOWN};
+    vintf::Arch arch{vintf::Arch::ARCH_EMPTY};
     // empty: unknown, all zeros: unreleased, otherwise: released
     std::string hash{};
     Partition partition{Partition::UNKNOWN};
+    VintfInfo vintfInfo{VINTF_INFO_EMPTY};
+    // true iff hwbinder and service started
+    ServiceStatus serviceStatus{ServiceStatus::UNKNOWN};
 
     static bool sortByInterfaceName(const TableEntry &a, const TableEntry &b) {
         return a.interfaceName < b.interfaceName;
@@ -98,6 +107,8 @@ struct TableEntry {
     }
 
     std::string isReleased() const;
+
+    std::string getVintfInfo() const;
 
     std::string getField(TableColumnType type) const;
 
@@ -138,7 +149,7 @@ using TableEntryCompare = std::function<bool(const TableEntry &, const TableEntr
 
 class MergedTable {
 public:
-    MergedTable(std::vector<const Table*>&& tables) : mTables(std::move(tables)) {}
+    explicit MergedTable(std::vector<const Table*>&& tables) : mTables(std::move(tables)) {}
     TextTable createTextTable();
 private:
     std::vector<const Table*> mTables;

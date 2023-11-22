@@ -16,12 +16,10 @@
 
 package android.net;
 
-import android.net.Credentials;
-import android.net.LocalServerSocket;
-import android.net.LocalSocket;
-import android.net.LocalSocketAddress;
 import android.test.MoreAsserts;
-import android.test.suitebuilder.annotation.SmallTest;
+
+import androidx.test.filters.SmallTest;
+
 import junit.framework.TestCase;
 
 import java.io.FileDescriptor;
@@ -38,6 +36,20 @@ public class LocalSocketTest extends TestCase {
         ss = new LocalServerSocket("android.net.LocalSocketTest");
 
         ls = new LocalSocket();
+
+        try {
+            ls.connect(new LocalSocketAddress(null));
+            fail("Expected NullPointerException");
+        } catch (NullPointerException e) {
+            // pass
+        }
+
+        try {
+            ls.bind(new LocalSocketAddress(null));
+            fail("Expected NullPointerException");
+        } catch (NullPointerException e) {
+            // pass
+        }
 
         ls.connect(new LocalSocketAddress("android.net.LocalSocketTest"));
 

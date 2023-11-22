@@ -379,24 +379,9 @@ static void ImageReader_init(JNIEnv* env, jobject thiz, jobject weakThiz, jint w
     String8 consumerName = String8::format("ImageReader-%dx%df%xm%d-%d-%d",
             width, height, format, maxImages, getpid(),
             createProcessUniqueId());
-    uint32_t consumerUsage = GRALLOC_USAGE_SW_READ_OFTEN;
-    bool needUsageOverride = ndkUsage != CONSUMER_BUFFER_USAGE_UNKNOWN;
-    uint64_t outProducerUsage = 0;
-    uint64_t outConsumerUsage = 0;
-    android_hardware_HardwareBuffer_convertToGrallocUsageBits(&outProducerUsage, &outConsumerUsage,
-            ndkUsage, 0);
+    uint64_t consumerUsage =
+            android_hardware_HardwareBuffer_convertToGrallocUsageBits(ndkUsage);
 
-    if (isFormatOpaque(nativeFormat)) {
-        // Use the SW_READ_NEVER usage to tell producer that this format is not for preview or video
-        // encoding. The only possibility will be ZSL output.
-        consumerUsage = GRALLOC_USAGE_SW_READ_NEVER;
-        if (needUsageOverride) {
-            consumerUsage = android_convertGralloc1To0Usage(0, outConsumerUsage);
-        }
-    } else if (needUsageOverride) {
-        ALOGW("Consumer usage override for non-opaque format is not implemented yet, "
-                "ignore the provided usage from the application");
-    }
     bufferConsumer = new BufferItemConsumer(gbConsumer, consumerUsage, maxImages,
             /*controlledByApp*/true);
     if (bufferConsumer == nullptr) {
@@ -405,6 +390,11 @@ static void ImageReader_init(JNIEnv* env, jobject thiz, jobject weakThiz, jint w
                 nativeFormat, consumerUsage);
         return;
     }
+
+    if (consumerUsage & GRALLOC_USAGE_PROTECTED) {
+        gbConsumer->setConsumerIsProtected(true);
+    }
+
     ctx->setBufferConsumer(bufferConsumer);
     bufferConsumer->setName(consumerName);
 
@@ -612,8 +602,12 @@ static jint ImageReader_imageSetup(JNIEnv* env, jobject thiz, jobject image) {
     Image_setBufferItem(env, image, buffer);
     env->SetLongField(image, gSurfaceImageClassInfo.mTimestamp,
             static_cast<jlong>(buffer->mTimestamp));
+    auto transform = buffer->mTransform;
+    if (buffer->mTransformToDisplayInverse) {
+        transform |= NATIVE_WINDOW_TRANSFORM_INVERSE_DISPLAY;
+    }
     env->SetIntField(image, gSurfaceImageClassInfo.mTransform,
-            static_cast<jint>(buffer->mTransform));
+            static_cast<jint>(transform));
     env->SetIntField(image, gSurfaceImageClassInfo.mScalingMode,
             static_cast<jint>(buffer->mScalingMode));
 

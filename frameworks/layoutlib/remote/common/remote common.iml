@@ -20,5 +20,6 @@
     </orderEntry>
     <orderEntry type="library" name="layoutlib_api-prebuilt" level="project" />
     <orderEntry type="module" module-name="common" />
+    <orderEntry type="library" name="framework.jar" level="project" />
   </component>
 </module>

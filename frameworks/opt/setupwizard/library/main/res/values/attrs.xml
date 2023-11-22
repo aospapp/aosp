@@ -21,6 +21,7 @@
     <attr name="suwLayoutTheme" format="reference" />
     <attr name="suwMarginSides" format="dimension|reference" />
     <attr name="suwEditTextBackgroundColor" format="color" />
+    <attr name="suwButtonHighlightAlpha" format="float" />
 
     <!-- Subset of values in "gravity" in frameworks/base/core/res/res/values/attrs.xml. Only
          horizontal values are listed here as the header does not support vertical gravity. -->

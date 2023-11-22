@@ -19,8 +19,8 @@
 package com.android.rs.unittest;
 
 import android.content.Context;
-import android.support.v8.renderscript.RenderScript;
-import android.support.v8.renderscript.Sampler;
+import androidx.renderscript.RenderScript;
+import androidx.renderscript.Sampler;
 
 public class UT_sampler extends UnitTest {
     Sampler minification;

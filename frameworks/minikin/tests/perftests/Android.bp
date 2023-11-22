@@ -42,7 +42,7 @@ cc_benchmark {
     shared_libs: [
         "libft2",
         "libharfbuzz_ng",
-        "libicuuc",
+        "libandroidicu",
         "liblog",
 
     ],

@@ -2279,7 +2279,7 @@ nAllocationGetStride(JNIEnv *_env, jobject _this, jlong con, jlong alloc)
 // ---------------------------------------------------------------------------
 
 
-static const char *classPathName = "android/support/v8/renderscript/RenderScript";
+static const char *classPathName = "androidx/renderscript/RenderScript";
 
 static JNINativeMethod methods[] = {
 {"nLoadSO",                        "(ZILjava/lang/String;)Z",                 (bool*)nLoadSO },

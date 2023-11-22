@@ -19,10 +19,11 @@
 #include <net/if_arp.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
+
+#include <linux/ethtool.h>
 /* We need linux/if.h for flags like IFF_UP.  Sadly, it forward declares
    struct sockaddr and must be included after sys/socket.h. */
 #include <linux/if.h>
-
 
 #include <android-base/logging.h>
 #include <android-base/unique_fd.h>
@@ -132,6 +133,42 @@ bool InterfaceTool::SetMacAddress(const char* if_name,
   }
 
   return true;
+}
+
+std::array<uint8_t, ETH_ALEN> InterfaceTool::GetFactoryMacAddress(const char* if_name) {
+  std::array<uint8_t, ETH_ALEN> paddr = {};
+  struct ifreq ifr;
+  struct ethtool_perm_addr *epaddr;
+
+  base::unique_fd sock(socket(PF_INET, SOCK_DGRAM | SOCK_CLOEXEC, 0));
+  if (sock.get() < 0) {
+    LOG(ERROR) << "Failed to open socket to get factory MAC address ("
+               << strerror(errno) << ")";
+    return paddr;
+  }
+
+  if (!GetIfState(if_name, sock.get(), &ifr)) {
+    return paddr;  // logging done internally
+  }
+
+  epaddr = (ethtool_perm_addr*) malloc(sizeof(struct ethtool_perm_addr) + ETH_ALEN);
+  if (!epaddr) {
+    LOG(ERROR) << "Failed to set memory for mac address ("
+               << strerror(errno) << ")";
+    return paddr;
+  }
+
+  epaddr->cmd = ETHTOOL_GPERMADDR;
+  epaddr->size = ETH_ALEN;
+  ifr.ifr_data = epaddr;
+
+  if (TEMP_FAILURE_RETRY(ioctl(sock.get(), SIOCETHTOOL, &ifr)) != 0) {
+    LOG(ERROR) << "Could not get factory address MAC for " << if_name
+               << " (" << strerror(errno) << ")";
+  } else if (epaddr->size == ETH_ALEN) {
+    memcpy(paddr.data(), epaddr->data, ETH_ALEN);
+  }
+  return paddr;
 }
 
 }  // namespace wifi_system

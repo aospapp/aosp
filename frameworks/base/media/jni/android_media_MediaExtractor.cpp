@@ -18,10 +18,11 @@
 #define LOG_TAG "MediaExtractor-JNI"
 #include <utils/Log.h>
 
+#include "android_media_AudioPresentation.h"
 #include "android_media_MediaDataSource.h"
 #include "android_media_MediaExtractor.h"
 #include "android_media_MediaMetricsJNI.h"
-#include "android_media_Utils.h"
+#include "android_media_Streams.h"
 #include "android_os_HwRemoteBinder.h"
 #include "android_runtime/AndroidRuntime.h"
 #include "android_runtime/Log.h"
@@ -56,6 +57,7 @@ struct fields_t {
 };
 
 static fields_t gFields;
+static JAudioPresentationInfo::fields_t gAudioPresentationFields;
 
 JMediaExtractor::JMediaExtractor(JNIEnv *env, jobject thiz)
     : mClass(NULL),
@@ -289,6 +291,10 @@ bool JMediaExtractor::getCachedDuration(int64_t *durationUs, bool *eos) const {
     return mImpl->getCachedDuration(durationUs, eos);
 }
 
+status_t JMediaExtractor::getAudioPresentations(size_t trackIdx,
+        AudioPresentationCollection *presentations) const {
+    return mImpl->getAudioPresentations(trackIdx, presentations);
+}
 }  // namespace android
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -494,17 +500,17 @@ static jlong android_media_MediaExtractor_getSampleTime(
 
     if (extractor == NULL) {
         jniThrowException(env, "java/lang/IllegalStateException", NULL);
-        return -1ll;
+        return -1LL;
     }
 
     int64_t sampleTimeUs;
     status_t err = extractor->getSampleTime(&sampleTimeUs);
 
     if (err == ERROR_END_OF_STREAM) {
-        return -1ll;
+        return -1LL;
     } else if (err != OK) {
         jniThrowException(env, "java/lang/IllegalArgumentException", NULL);
-        return -1ll;
+        return -1LL;
     }
 
     return (jlong) sampleTimeUs;
@@ -516,17 +522,17 @@ static jlong android_media_MediaExtractor_getSampleSize(
 
     if (extractor == NULL) {
         jniThrowException(env, "java/lang/IllegalStateException", NULL);
-        return -1ll;
+        return -1LL;
     }
 
     size_t sampleSize;
     status_t err = extractor->getSampleSize(&sampleSize);
 
     if (err == ERROR_END_OF_STREAM) {
-        return -1ll;
+        return -1LL;
     } else if (err != OK) {
         jniThrowException(env, "java/lang/IllegalArgumentException", NULL);
-        return -1ll;
+        return -1LL;
     }
 
     return (jlong) sampleSize;
@@ -668,6 +674,28 @@ static jboolean android_media_MediaExtractor_getSampleCryptoInfo(
     return JNI_TRUE;
 }
 
+static jobject android_media_MediaExtractor_getAudioPresentations(
+        JNIEnv *env, jobject thiz, jint trackIdx) {
+    sp<JMediaExtractor> extractor = getMediaExtractor(env, thiz);
+    jobject presentationsJObj = JAudioPresentationInfo::asJobject(env, gAudioPresentationFields);
+    if (extractor == NULL) {
+        jniThrowException(env, "java/lang/IllegalStateException", NULL);
+        return presentationsJObj;
+    }
+    AudioPresentationCollection presentations;
+    status_t err = extractor->getAudioPresentations(trackIdx, &presentations);
+    if (err == ERROR_END_OF_STREAM || err == ERROR_UNSUPPORTED) {
+        return presentationsJObj;
+    } else if (err != OK) {
+        jniThrowException(env, "java/lang/IllegalArgumentException", NULL);
+        return presentationsJObj;
+    }
+
+    JAudioPresentationInfo::addPresentations(
+            env, gAudioPresentationFields, presentations, presentationsJObj);
+    return presentationsJObj;
+}
+
 static void android_media_MediaExtractor_native_init(JNIEnv *env) {
     jclass clazz = env->FindClass("android/media/MediaExtractor");
     CHECK(clazz != NULL);
@@ -683,6 +711,8 @@ static void android_media_MediaExtractor_native_init(JNIEnv *env) {
 
     gFields.cryptoInfoSetPatternID =
         env->GetMethodID(clazz, "setPattern", "(II)V");
+
+    gAudioPresentationFields.init(env);
 }
 
 static void android_media_MediaExtractor_native_setup(
@@ -828,13 +858,13 @@ static jlong android_media_MediaExtractor_getCachedDurationUs(
 
     if (extractor == NULL) {
         jniThrowException(env, "java/lang/IllegalStateException", NULL);
-        return -1ll;
+        return -1LL;
     }
 
     int64_t cachedDurationUs;
     bool eos;
     if (!extractor->getCachedDuration(&cachedDurationUs, &eos)) {
-        return -1ll;
+        return -1LL;
     }
 
     return (jlong) cachedDurationUs;
@@ -883,13 +913,9 @@ android_media_MediaExtractor_native_getMetrics(JNIEnv * env, jobject thiz)
     }
 
     // build and return the Bundle
-    MediaAnalyticsItem *item = new MediaAnalyticsItem;
+    std::unique_ptr<MediaAnalyticsItem> item(MediaAnalyticsItem::create());
     item->readFromParcel(reply);
-    jobject mybundle = MediaMetricsJNI::writeMetricsToBundle(env, item, NULL);
-
-    // housekeeping
-    delete item;
-    item = NULL;
+    jobject mybundle = MediaMetricsJNI::writeMetricsToBundle(env, item.get(), NULL);
 
     return mybundle;
 }
@@ -963,6 +989,9 @@ static const JNINativeMethod gMethods[] = {
 
     {"native_getMetrics",          "()Landroid/os/PersistableBundle;",
       (void *)android_media_MediaExtractor_native_getMetrics},
+
+    { "native_getAudioPresentations", "(I)Ljava/util/List;",
+      (void *)android_media_MediaExtractor_getAudioPresentations },
 };
 
 int register_android_media_MediaExtractor(JNIEnv *env) {

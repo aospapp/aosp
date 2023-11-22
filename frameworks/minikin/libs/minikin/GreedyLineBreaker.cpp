@@ -78,7 +78,7 @@ private:
     void updateLineWidth(uint16_t c, float width);
 
     // Break line if current line exceeds the line limit.
-    void processLineBreak(uint32_t offset, WordBreaker* breaker);
+    void processLineBreak(uint32_t offset, WordBreaker* breaker, bool doHyphenation);
 
     // Try to break with previous word boundary.
     // Returns false if unable to break by word boundary.
@@ -96,7 +96,8 @@ private:
     // This method only breaks at the first offset which has the longest width for the line width
     // limit. This method don't keep line breaking even if the rest of the word exceeds the line
     // width limit.
-    void doLineBreakWithGraphemeBounds(const Range& range);
+    // This method return true if there is no characters to be processed.
+    bool doLineBreakWithGraphemeBounds(const Range& range);
 
     // Info about the line currently processing.
     uint32_t mLineNum = 0;
@@ -193,9 +194,9 @@ bool GreedyLineBreaker::tryLineBreakWithHyphenation(const Range& range, WordBrea
             continue;  // Not a hyphenation point.
         }
 
-        const float width = targetRun->measureHyphenPiece(mTextBuf, contextRange.split(i).first,
-                                                          mStartHyphenEdit, editForThisLine(hyph),
-                                                          nullptr /* advances */, nullptr);
+        const float width =
+                targetRun->measureHyphenPiece(mTextBuf, contextRange.split(i).first,
+                                              mStartHyphenEdit, editForThisLine(hyph), nullptr);
 
         if (width <= mLineWidthLimit) {
             // There are still space, remember current offset and look up next hyphenation point.
@@ -214,7 +215,7 @@ bool GreedyLineBreaker::tryLineBreakWithHyphenation(const Range& range, WordBrea
             const StartHyphenEdit nextLineStartHyphenEdit = editForNextLine(hyph);
             const float remainingCharWidths = targetRun->measureHyphenPiece(
                     mTextBuf, contextRange.split(prevOffset).second, nextLineStartHyphenEdit,
-                    EndHyphenEdit::NO_EDIT, nullptr /* advances */, nullptr);
+                    EndHyphenEdit::NO_EDIT, nullptr);
             breakLineAt(prevOffset, prevWidth,
                         remainingCharWidths - (mSumOfCharWidths - mLineWidth), remainingCharWidths,
                         editForThisLine(hyph), nextLineStartHyphenEdit);
@@ -243,7 +244,7 @@ bool GreedyLineBreaker::tryLineBreakWithHyphenation(const Range& range, WordBrea
         const StartHyphenEdit nextLineStartHyphenEdit = editForNextLine(hyph);
         const float remainingCharWidths = targetRun->measureHyphenPiece(
                 mTextBuf, contextRange.split(prevOffset).second, nextLineStartHyphenEdit,
-                EndHyphenEdit::NO_EDIT, nullptr /* advances */, nullptr);
+                EndHyphenEdit::NO_EDIT, nullptr);
 
         breakLineAt(prevOffset, prevWidth, remainingCharWidths - (mSumOfCharWidths - mLineWidth),
                     remainingCharWidths, editForThisLine(hyph), nextLineStartHyphenEdit);
@@ -253,7 +254,7 @@ bool GreedyLineBreaker::tryLineBreakWithHyphenation(const Range& range, WordBrea
 }
 
 // TODO: Respect trailing line end spaces.
-void GreedyLineBreaker::doLineBreakWithGraphemeBounds(const Range& range) {
+bool GreedyLineBreaker::doLineBreakWithGraphemeBounds(const Range& range) {
     double width = mMeasuredText.widths[range.getStart()];
 
     // Starting from + 1 since at least one character needs to be assigned to a line.
@@ -269,7 +270,7 @@ void GreedyLineBreaker::doLineBreakWithGraphemeBounds(const Range& range) {
 
             // This method only breaks at the first longest offset, since we may want to hyphenate
             // the rest of the word.
-            return;
+            return false;
         } else {
             width += w;
         }
@@ -278,6 +279,7 @@ void GreedyLineBreaker::doLineBreakWithGraphemeBounds(const Range& range) {
     // Reaching here means even one character (or cluster) doesn't fit the line.
     // Give up and break at the end of this range.
     breakLineAt(range.getEnd(), mLineWidth, 0, 0, EndHyphenEdit::NO_EDIT, StartHyphenEdit::NO_EDIT);
+    return true;
 }
 
 void GreedyLineBreaker::updateLineWidth(uint16_t c, float width) {
@@ -292,15 +294,18 @@ void GreedyLineBreaker::updateLineWidth(uint16_t c, float width) {
     }
 }
 
-void GreedyLineBreaker::processLineBreak(uint32_t offset, WordBreaker* breaker) {
+void GreedyLineBreaker::processLineBreak(uint32_t offset, WordBreaker* breaker,
+                                         bool doHyphenation) {
     while (mLineWidth > mLineWidthLimit) {
         const Range lineRange(getPrevLineBreakOffset(), offset);  // The range we need to address.
         if (tryLineBreakWithWordBreak()) {
             continue;  // The word in the new line may still be too long for the line limit.
-        } else if (tryLineBreakWithHyphenation(lineRange, breaker)) {
+        } else if (doHyphenation && tryLineBreakWithHyphenation(lineRange, breaker)) {
             continue;  // TODO: we may be able to return here.
         } else {
-            doLineBreakWithGraphemeBounds(lineRange);
+            if (doLineBreakWithGraphemeBounds(lineRange)) {
+                return;
+            }
         }
     }
 
@@ -337,8 +342,10 @@ void GreedyLineBreaker::process() {
             updateLineWidth(mTextBuf[i], mMeasuredText.widths[i]);
 
             if ((i + 1) == nextWordBoundaryOffset) {
-                // Only process line break at word boundary.
-                processLineBreak(i + 1, &wordBreaker);
+                // Only process line break at word boundary and the run can break into some pieces.
+                if (run->canBreak() || nextWordBoundaryOffset == range.getEnd()) {
+                    processLineBreak(i + 1, &wordBreaker, run->canBreak());
+                }
                 nextWordBoundaryOffset = wordBreaker.next();
             }
         }
@@ -359,15 +366,12 @@ LineBreakResult GreedyLineBreaker::getResult() const {
     for (const auto& breakPoint : mBreakPoints) {
         // TODO: compute these during line breaking if these takes longer time.
         bool hasTabChar = false;
-        MinikinExtent extent = {0.0, 0.0, 0.0};
         for (uint32_t i = prevBreakOffset; i < breakPoint.offset; ++i) {
-            const uint16_t c = mTextBuf[i];
-            hasTabChar |= c == CHAR_TAB;
-            if (!isLineSpaceExcludeChar(c)) {
-                extent.extendBy(mMeasuredText.extents[i]);
-            }
+            hasTabChar |= mTextBuf[i] == CHAR_TAB;
         }
 
+        MinikinExtent extent =
+                mMeasuredText.getExtent(mTextBuf, Range(prevBreakOffset, breakPoint.offset));
         out.breakPoints.push_back(breakPoint.offset);
         out.widths.push_back(breakPoint.lineWidth);
         out.ascents.push_back(extent.ascent);

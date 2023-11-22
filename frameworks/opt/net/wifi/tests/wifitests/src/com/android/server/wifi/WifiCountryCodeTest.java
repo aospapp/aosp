@@ -16,19 +16,24 @@
 
 package com.android.server.wifi;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.*;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import android.support.test.filters.SmallTest;
+import androidx.test.filters.SmallTest;
 
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+
+import java.io.PrintWriter;
+import java.io.StringWriter;
+import java.util.Locale;
 
 /**
  * Unit tests for {@link com.android.server.wifi.WifiCountryCode}.
@@ -166,4 +171,55 @@ public class WifiCountryCodeTest {
         assertEquals(mTelephonyCountryCode, mWifiCountryCode.getCountryCode());
     }
 
+    /**
+     * Tests that we always use the US locale for converting the provided country code regardless
+     * of the system locale set.
+     */
+    @Test
+    public void useUSLocaleForConversionToUpperCase() {
+        String oemCountryCodeLower = "us";
+        String oemCountryCodeUpper = "US";
+        String telephonyCountryCodeLower = "il";
+        String telephonyCountryCodeUpper = "IL";
+
+        mWifiCountryCode = new WifiCountryCode(
+                mWifiNative,
+                oemCountryCodeLower,
+                mRevertCountryCodeOnCellularLoss);
+
+        // Set the default locale to "tr" (Non US).
+        Locale.setDefault(new Locale("tr"));
+
+        // Trigger a country code change using the OEM country code.
+        mWifiCountryCode.setReadyForChange(true);
+        verify(mWifiNative).setCountryCode(any(), eq(oemCountryCodeUpper));
+
+        // Now trigger a country code change using the telephony country code.
+        mWifiCountryCode.setCountryCode(telephonyCountryCodeLower);
+        verify(mWifiNative).setCountryCode(any(), eq(telephonyCountryCodeUpper));
+    }
+    /**
+     * Verifies that dump() does not fail
+     */
+    @Test
+    public void dumpDoesNotFail() {
+        StringWriter sw = new StringWriter();
+        PrintWriter pw = new PrintWriter(sw);
+
+        mWifiCountryCode = new WifiCountryCode(
+                null,
+                null,
+                false /* config_wifi_revert_country_code_on_cellular_loss */);
+
+        mWifiCountryCode.dump(null, pw, null);
+        String dumpCountryCodeStr = sw.toString();
+
+        assertTrue(dumpCountryCodeStr.contains("mDriverCountryCode"));
+        assertTrue(dumpCountryCodeStr.contains("mTelephonyCountryCode"));
+        assertTrue(dumpCountryCodeStr.contains("mDefaultCountryCode"));
+        assertTrue(dumpCountryCodeStr.contains("mTelephonyCountryTimestamp"));
+        assertTrue(dumpCountryCodeStr.contains("mDriverCountryTimestamp"));
+        assertTrue(dumpCountryCodeStr.contains("mReadyTimestamp"));
+        assertTrue(dumpCountryCodeStr.contains("mReady"));
+    }
 }

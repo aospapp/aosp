@@ -104,6 +104,8 @@ aaudio_result_t AudioStreamBuilder::build(AudioStream** streamPtr) {
     }
     *streamPtr = nullptr;
 
+    logParameters();
+
     aaudio_result_t result = validate();
     if (result != AAUDIO_OK) {
         return result;
@@ -148,6 +150,11 @@ aaudio_result_t AudioStreamBuilder::build(AudioStream** streamPtr) {
     if (getSessionId() != AAUDIO_SESSION_ID_NONE) {
         ALOGD("%s() MMAP not available because sessionId used.", __func__);
         allowMMap = false;
+    }
+
+    if (!allowMMap && !allowLegacy) {
+        ALOGE("%s() no backend available: neither MMAP nor legacy path are allowed", __func__);
+        return AAUDIO_ERROR_ILLEGAL_ARGUMENT;
     }
 
     result = builder_createStream(getDirection(), sharingMode, allowMMap, &audioStream);
@@ -211,4 +218,42 @@ aaudio_result_t AudioStreamBuilder::validate() const {
     }
 
     return AAUDIO_OK;
+}
+
+static const char *AAudio_convertSharingModeToShortText(aaudio_sharing_mode_t sharingMode) {
+    switch (sharingMode) {
+        case AAUDIO_SHARING_MODE_EXCLUSIVE:
+            return "EX";
+        case AAUDIO_SHARING_MODE_SHARED:
+            return "SH";
+        default:
+            return "?!";
+    }
+}
+
+static const char *AAudio_convertDirectionToText(aaudio_direction_t direction) {
+    switch (direction) {
+        case AAUDIO_DIRECTION_OUTPUT:
+            return "OUTPUT";
+        case AAUDIO_DIRECTION_INPUT:
+            return "INPUT";
+        default:
+            return "?!";
+    }
+}
+
+void AudioStreamBuilder::logParameters() const {
+    // This is very helpful for debugging in the future. Please leave it in.
+    ALOGI("rate   = %6d, channels  = %d, format   = %d, sharing = %s, dir = %s",
+          getSampleRate(), getSamplesPerFrame(), getFormat(),
+          AAudio_convertSharingModeToShortText(getSharingMode()),
+          AAudio_convertDirectionToText(getDirection()));
+    ALOGI("device = %6d, sessionId = %d, perfMode = %d, callback: %s with frames = %d",
+          getDeviceId(),
+          getSessionId(),
+          getPerformanceMode(),
+          ((getDataCallbackProc() != nullptr) ? "ON" : "OFF"),
+          mFramesPerDataCallback);
+    ALOGI("usage  = %6d, contentType = %d, inputPreset = %d, allowedCapturePolicy = %d",
+          getUsage(), getContentType(), getInputPreset(), getAllowedCapturePolicy());
 }

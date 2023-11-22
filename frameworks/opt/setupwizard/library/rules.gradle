@@ -26,7 +26,7 @@ android {
         // Provides backwards compatibility for Gingerbread or above, using support libraries.
         gingerbreadCompat {
             dimension 'compat'
-            minSdkVersion 9
+            minSdkVersion 14
         }
     }
 

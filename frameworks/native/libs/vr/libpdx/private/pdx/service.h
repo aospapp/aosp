@@ -59,9 +59,18 @@ class Channel : public std::enable_shared_from_this<Channel> {
   virtual ~Channel() {}
 
   /*
+   * Accessors to the pid of the last active client.
+   */
+  pid_t GetActiveProcessId() const { return client_pid_; }
+  void SetActiveProcessId(pid_t pid) { client_pid_ = pid; }
+
+  /*
    * Utility to get a shared_ptr reference from the channel context pointer.
    */
   static std::shared_ptr<Channel> GetFromMessageInfo(const MessageInfo& info);
+
+ private:
+  pid_t client_pid_ = 0;
 };
 
 /*
@@ -86,14 +95,14 @@ class Channel : public std::enable_shared_from_this<Channel> {
 class Message : public OutputResourceMapper, public InputResourceMapper {
  public:
   Message();
-  Message(const MessageInfo& info);
+  explicit Message(const MessageInfo& info);
   ~Message();
 
   /*
    * Message objects support move construction and assignment.
    */
-  Message(Message&& other);
-  Message& operator=(Message&& other);
+  Message(Message&& other) noexcept;
+  Message& operator=(Message&& other) noexcept;
 
   /*
    * Read/write payload, in either single buffer or iovec form.

@@ -20,6 +20,8 @@
 #include <jni.h>
 #include <memory>
 
+#include <minikin/Font.h>
+
 namespace minikin {
 class FontFamily;
 }  // namespace minikin
@@ -27,8 +29,13 @@ class FontFamily;
 namespace android {
 
 struct FontFamilyWrapper {
-  FontFamilyWrapper(std::shared_ptr<minikin::FontFamily>&& family) : family(family) {}
+  explicit FontFamilyWrapper(std::shared_ptr<minikin::FontFamily>&& family) : family(family) {}
   std::shared_ptr<minikin::FontFamily> family;
+};
+
+struct FontWrapper {
+  FontWrapper(minikin::Font&& font) : font(std::move(font)) {}
+  minikin::Font font;
 };
 
 // Utility wrapper for java.util.List

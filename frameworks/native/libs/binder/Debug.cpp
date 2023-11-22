@@ -165,13 +165,13 @@ void printHexData(int32_t indent, const void *buf, size_t length,
         else if (bytesPerLine >= 8) alignment = 2;
         else alignment = 1;
     }
-    if (func == NULL) func = defaultPrintFunc;
+    if (func == nullptr) func = defaultPrintFunc;
 
     size_t offset;
 
     unsigned char *pos = (unsigned char *)buf;
 
-    if (pos == NULL) {
+    if (pos == nullptr) {
         if (singleLineBytesCutoff < 0) func(cookie, "\n");
         func(cookie, "(NULL)");
         return;
@@ -221,7 +221,11 @@ void printHexData(int32_t indent, const void *buf, size_t length,
 
         for (word = 0; word < bytesPerLine; ) {
 
-            const size_t startIndex = word+(alignment-(alignment?1:0));
+            size_t align_offset = alignment-(alignment?1:0);
+            if (remain > 0 && (size_t)remain <= align_offset) {
+                align_offset = remain - 1;
+            }
+            const size_t startIndex = word+align_offset;
 
             for (index = 0; index < alignment || (alignment == 0 && index < bytesPerLine); index++) {
 
@@ -297,7 +301,7 @@ void printHexData(int32_t indent, const void *buf, size_t length,
 
 ssize_t getBinderKernelReferences(size_t count, uintptr_t* buf) {
     sp<ProcessState> proc = ProcessState::selfOrNull();
-    if (proc.get() == NULL) {
+    if (proc.get() == nullptr) {
         return 0;
     }
 

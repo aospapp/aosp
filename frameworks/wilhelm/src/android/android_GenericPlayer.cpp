@@ -71,7 +71,7 @@ void GenericPlayer::init(const notif_cbf_t cbf, void* notifUser) {
     }
 
     mLooper->registerHandler(this);
-    mLooper->start(false /*runOnCallingThread*/, false /*canCallJava*/, PRIORITY_DEFAULT);
+    mLooper->start(false /*runOnCallingThread*/, true /*canCallJava*/, PRIORITY_DEFAULT);
 }
 
 

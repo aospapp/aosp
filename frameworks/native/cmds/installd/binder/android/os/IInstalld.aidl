@@ -55,6 +55,8 @@ interface IInstalld {
             @nullable @utf8InCpp String profileName,
             @nullable @utf8InCpp String dexMetadataPath,
             @nullable @utf8InCpp String compilationReason);
+    boolean compileLayouts(@utf8InCpp String apkPath, @utf8InCpp String packageName,
+            @utf8InCpp String outDexFile, int uid);
 
     void rmdex(@utf8InCpp String codePath, @utf8InCpp String instructionSet);
 
@@ -102,4 +104,27 @@ interface IInstalld {
     boolean prepareAppProfile(@utf8InCpp String packageName,
         int userId, int appId, @utf8InCpp String profileName, @utf8InCpp String codePath,
         @nullable @utf8InCpp String dexMetadata);
+
+    long snapshotAppData(@nullable @utf8InCpp String uuid, in @utf8InCpp String packageName,
+            int userId, int snapshotId, int storageFlags);
+    void restoreAppDataSnapshot(@nullable @utf8InCpp String uuid, in @utf8InCpp String packageName,
+            int appId, @utf8InCpp String seInfo, int user, int snapshotId, int storageflags);
+    void destroyAppDataSnapshot(@nullable @utf8InCpp String uuid, @utf8InCpp String packageName,
+            int userId, long ceSnapshotInode, int snapshotId, int storageFlags);
+
+    void migrateLegacyObbData();
+
+    const int FLAG_STORAGE_DE = 0x1;
+    const int FLAG_STORAGE_CE = 0x2;
+    const int FLAG_STORAGE_EXTERNAL = 0x4;
+
+    const int FLAG_CLEAR_CACHE_ONLY = 0x10;
+    const int FLAG_CLEAR_CODE_CACHE_ONLY = 0x20;
+
+    const int FLAG_FREE_CACHE_V2 = 0x100;
+    const int FLAG_FREE_CACHE_V2_DEFY_QUOTA = 0x200;
+    const int FLAG_FREE_CACHE_NOOP = 0x400;
+
+    const int FLAG_USE_QUOTA = 0x1000;
+    const int FLAG_FORCE = 0x2000;
 }

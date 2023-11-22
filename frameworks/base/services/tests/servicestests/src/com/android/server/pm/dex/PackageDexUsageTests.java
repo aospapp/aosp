@@ -16,24 +16,9 @@
 
 package com.android.server.pm.dex;
 
-import android.os.Build;
-import android.support.test.filters.SmallTest;
-import android.support.test.runner.AndroidJUnit4;
-import dalvik.system.VMRuntime;
-
-import java.util.Collections;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-
-import java.io.IOException;
-import java.io.StringReader;
-import java.io.StringWriter;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
+import static com.android.server.pm.dex.PackageDexUsage.DexUseInfo;
+import static com.android.server.pm.dex.PackageDexUsage.MAX_SECONDARY_FILES_PER_OWNER;
+import static com.android.server.pm.dex.PackageDexUsage.PackageUseInfo;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -42,12 +27,33 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
-import static com.android.server.pm.dex.PackageDexUsage.PackageUseInfo;
-import static com.android.server.pm.dex.PackageDexUsage.DexUseInfo;
+import android.os.Build;
+
+import androidx.test.filters.SmallTest;
+import androidx.test.runner.AndroidJUnit4;
+
+import dalvik.system.VMRuntime;
+
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
+import java.io.IOException;
+import java.io.StringReader;
+import java.io.StringWriter;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 @RunWith(AndroidJUnit4.class)
 @SmallTest
 public class PackageDexUsageTests {
+    private static final String ISA = VMRuntime.getInstructionSet(Build.SUPPORTED_ABIS[0]);
+
     private PackageDexUsage mPackageDexUsage;
 
     private TestData mFooBaseUser0;
@@ -70,25 +76,23 @@ public class PackageDexUsageTests {
         String fooCodeDir = "/data/app/com.google.foo/";
         String fooDataDir = "/data/user/0/com.google.foo/";
 
-        String isa = VMRuntime.getInstructionSet(Build.SUPPORTED_ABIS[0]);
-
         mFooBaseUser0 = new TestData(fooPackageName,
-                fooCodeDir + "base.apk", 0, isa, false, true, fooPackageName);
+                fooCodeDir + "base.apk", 0, ISA, false, true, fooPackageName);
 
         mFooSplit1User0 = new TestData(fooPackageName,
-                fooCodeDir + "split-1.apk", 0, isa, false, true, fooPackageName);
+                fooCodeDir + "split-1.apk", 0, ISA, false, true, fooPackageName);
 
         mFooSplit2UsedByOtherApps0 = new TestData(fooPackageName,
-                fooCodeDir + "split-2.apk", 0, isa, true, true, "used.by.other.com");
+                fooCodeDir + "split-2.apk", 0, ISA, true, true, "used.by.other.com");
 
         mFooSecondary1User0 = new TestData(fooPackageName,
-                fooDataDir + "sec-1.dex", 0, isa, false, false, fooPackageName);
+                fooDataDir + "sec-1.dex", 0, ISA, false, false, fooPackageName);
 
         mFooSecondary1User1 = new TestData(fooPackageName,
-                fooDataDir + "sec-1.dex", 1, isa, false, false, fooPackageName);
+                fooDataDir + "sec-1.dex", 1, ISA, false, false, fooPackageName);
 
         mFooSecondary2UsedByOtherApps0 = new TestData(fooPackageName,
-                fooDataDir + "sec-2.dex", 0, isa, true, false, "used.by.other.com");
+                fooDataDir + "sec-2.dex", 0, ISA, true, false, "used.by.other.com");
 
         mInvalidIsa = new TestData(fooPackageName,
                 fooCodeDir + "base.apk", 0, "INVALID_ISA", false, true, "INALID_USER");
@@ -99,11 +103,11 @@ public class PackageDexUsageTests {
         String barDataDir1 = "/data/user/1/com.google.bar/";
 
         mBarBaseUser0 = new TestData(barPackageName,
-                barCodeDir + "base.apk", 0, isa, false, true, barPackageName);
+                barCodeDir + "base.apk", 0, ISA, false, true, barPackageName);
         mBarSecondary1User0 = new TestData(barPackageName,
-                barDataDir + "sec-1.dex", 0, isa, false, false, barPackageName);
+                barDataDir + "sec-1.dex", 0, ISA, false, false, barPackageName);
         mBarSecondary2User1 = new TestData(barPackageName,
-                barDataDir1 + "sec-2.dex", 1, isa, false, false, barPackageName);
+                barDataDir1 + "sec-2.dex", 1, ISA, false, false, barPackageName);
     }
 
     @Test
@@ -179,6 +183,25 @@ public class PackageDexUsageTests {
         writeAndReadBack();
         assertPackageDexUsage(
                 mFooSplit2UsedByOtherApps0, mFooSecondary1User0, mFooSecondary2UsedByOtherApps0);
+    }
+
+    @Test
+    public void testRecordTooManySecondaries() {
+        int tooManyFiles = MAX_SECONDARY_FILES_PER_OWNER + 1;
+        List<TestData> expectedSecondaries = new ArrayList<>();
+        for (int i = 1; i <= tooManyFiles; i++) {
+            String fooPackageName = "com.google.foo";
+            TestData testData = new TestData(fooPackageName,
+                    "/data/user/0/" + fooPackageName + "/sec-" + i + "1.dex", 0, ISA, false, false,
+                    fooPackageName);
+            if (i < tooManyFiles) {
+                assertTrue("Adding " + testData.mDexFile, record(testData));
+                expectedSecondaries.add(testData);
+            } else {
+                assertFalse("Adding " + testData.mDexFile, record(testData));
+            }
+            assertPackageDexUsage(mPackageDexUsage, null, null, expectedSecondaries);
+        }
     }
 
     @Test
@@ -398,20 +421,6 @@ public class PackageDexUsageTests {
     }
 
     @Test
-    public void testRecordClassLoaderContextUnsupportedContext() {
-        // Record a secondary dex file.
-        assertTrue(record(mFooSecondary1User0));
-        // Now update its context.
-        TestData unsupportedContext = mFooSecondary1User0.updateClassLoaderContext(
-                PackageDexUsage.UNSUPPORTED_CLASS_LOADER_CONTEXT);
-        assertTrue(record(unsupportedContext));
-
-        assertPackageDexUsage(null, unsupportedContext);
-        writeAndReadBack();
-        assertPackageDexUsage(null, unsupportedContext);
-    }
-
-    @Test
     public void testRecordClassLoaderContextTransitionFromUnknown() {
         // Record a secondary dex file.
         TestData unknownContext = mFooSecondary1User0.updateClassLoaderContext(
@@ -439,26 +448,38 @@ public class PackageDexUsageTests {
         PackageDexUsage.DexUseInfo validContext = new DexUseInfo(isUsedByOtherApps, userId,
                 "valid_context", "arm");
         assertFalse(validContext.isUnknownClassLoaderContext());
-        assertFalse(validContext.isUnsupportedClassLoaderContext());
         assertFalse(validContext.isVariableClassLoaderContext());
-
-        PackageDexUsage.DexUseInfo unsupportedContext = new DexUseInfo(isUsedByOtherApps, userId,
-                PackageDexUsage.UNSUPPORTED_CLASS_LOADER_CONTEXT, "arm");
-        assertFalse(unsupportedContext.isUnknownClassLoaderContext());
-        assertTrue(unsupportedContext.isUnsupportedClassLoaderContext());
-        assertFalse(unsupportedContext.isVariableClassLoaderContext());
 
         PackageDexUsage.DexUseInfo variableContext = new DexUseInfo(isUsedByOtherApps, userId,
                 PackageDexUsage.VARIABLE_CLASS_LOADER_CONTEXT, "arm");
         assertFalse(variableContext.isUnknownClassLoaderContext());
-        assertFalse(variableContext.isUnsupportedClassLoaderContext());
         assertTrue(variableContext.isVariableClassLoaderContext());
 
         PackageDexUsage.DexUseInfo unknownContext = new DexUseInfo(isUsedByOtherApps, userId,
                 PackageDexUsage.UNKNOWN_CLASS_LOADER_CONTEXT, "arm");
         assertTrue(unknownContext.isUnknownClassLoaderContext());
-        assertFalse(unknownContext.isUnsupportedClassLoaderContext());
         assertFalse(unknownContext.isVariableClassLoaderContext());
+    }
+
+    @Test
+    public void testUnsupportedClassLoaderDiscardedOnRead() throws Exception {
+        String content = "PACKAGE_MANAGER__PACKAGE_DEX_USAGE__2\n"
+                + mBarSecondary1User0.mPackageName + "\n"
+                + "#" + mBarSecondary1User0.mDexFile + "\n"
+                + "0,0," + mBarSecondary1User0.mLoaderIsa + "\n"
+                + "@\n"
+                + "=UnsupportedClassLoaderContext=\n"
+
+                + mFooSecondary1User0.mPackageName + "\n"
+                + "#" + mFooSecondary1User0.mDexFile + "\n"
+                + "0,0," + mFooSecondary1User0.mLoaderIsa + "\n"
+                + "@\n"
+                + mFooSecondary1User0.mClassLoaderContext + "\n";
+
+        mPackageDexUsage.read(new StringReader(content));
+
+        assertPackageDexUsage(mFooBaseUser0, mFooSecondary1User0);
+        assertPackageDexUsage(mBarBaseUser0);
     }
 
     @Test
@@ -541,7 +562,14 @@ public class PackageDexUsageTests {
 
     private void assertPackageDexUsage(PackageDexUsage packageDexUsage, Set<String> users,
             TestData primary, TestData... secondaries) {
-        String packageName = primary == null ? secondaries[0].mPackageName : primary.mPackageName;
+        assertPackageDexUsage(packageDexUsage, users, primary, Arrays.asList(secondaries));
+    }
+
+    private void assertPackageDexUsage(PackageDexUsage packageDexUsage, Set<String> users,
+            TestData primary, List<TestData> secondaries) {
+        String packageName = primary == null
+                ? secondaries.get(0).mPackageName
+                : primary.mPackageName;
         boolean primaryUsedByOtherApps = primary != null && primary.mUsedByOtherApps;
         PackageUseInfo pInfo = packageDexUsage.getPackageUseInfo(packageName);
 
@@ -555,7 +583,7 @@ public class PackageDexUsageTests {
         }
 
         Map<String, DexUseInfo> dexUseInfoMap = pInfo.getDexUseInfoMap();
-        assertEquals(secondaries.length, dexUseInfoMap.size());
+        assertEquals(secondaries.size(), dexUseInfoMap.size());
 
         // Check dex use info
         for (TestData testData : secondaries) {

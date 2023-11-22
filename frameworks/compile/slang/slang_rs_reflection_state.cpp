@@ -257,7 +257,7 @@ void ReflectionState::beginForEach(const RSExportForEach *EF) {
     return;
 
   const bool IsKernel = EF->isKernelStyle();
-  const std::string Name = EF->getName();
+  const std::string& Name = EF->getName();
   const unsigned Ordinal = EF->getOrdinal();
   const size_t InCount = EF->getInTypes().size();
   const size_t ParamCount = EF->params_count();
@@ -573,7 +573,7 @@ void ReflectionState::declareInvokable(const RSExportFunc *EF) {
   if (!isActive())
     return;
 
-  const std::string Name = EF->getName(/*Mangle=*/false);
+  const std::string& Name = EF->getName(/*Mangle=*/false);
   const size_t ParamCount = EF->getNumParameters();
 
   auto &invokables = mFiles.Current().mInvokables;
@@ -852,7 +852,7 @@ void ReflectionState::declareReduce(const RSExportReduce *ER, bool IsExportable)
     if (mReducesOrderFatal)
       return;
 
-    const std::string Name = ER->getNameReduce();
+    const std::string& Name = ER->getNameReduce();
 
     if (reduces.isFinished()) {
       // This doesn't actually break reflection, but that's a

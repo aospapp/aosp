@@ -24,6 +24,8 @@ import android.content.Context;
 import android.content.res.Resources;
 import android.net.wifi.WifiInfo;
 
+import androidx.test.filters.SmallTest;
+
 import com.android.internal.R;
 
 import org.junit.Before;
@@ -35,6 +37,7 @@ import org.mockito.Spy;
 /**
  * Unit tests for {@link com.android.server.wifi.VelocityBasedConnectedScore}.
  */
+@SmallTest
 public class VelocityBasedConnectedScoreTest {
 
 

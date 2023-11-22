@@ -19,6 +19,8 @@
 
 #include <cstdint>
 
+#include "minikin/U16StringPiece.h"
+
 namespace minikin {
 
 /*
@@ -33,7 +35,7 @@ bool isWordSpace(uint16_t code_unit);
  * kerning or complex script processing. This is necessarily a
  * heuristic, but should be accurate most of the time.
  */
-size_t getPrevWordBreakForCache(const uint16_t* chars, size_t offset, size_t len);
+uint32_t getPrevWordBreakForCache(const U16StringPiece& textBuf, uint32_t offset);
 
 /**
  * Return offset of next word break. It is either > offset or == len.
@@ -42,7 +44,7 @@ size_t getPrevWordBreakForCache(const uint16_t* chars, size_t offset, size_t len
  * kerning or complex script processing. This is necessarily a
  * heuristic, but should be accurate most of the time.
  */
-size_t getNextWordBreakForCache(const uint16_t* chars, size_t offset, size_t len);
+uint32_t getNextWordBreakForCache(const U16StringPiece& textBuf, uint32_t offset);
 
 }  // namespace minikin
 #endif  // MINIKIN_LAYOUT_UTILS_H

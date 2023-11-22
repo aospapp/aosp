@@ -86,6 +86,10 @@ cc_library_shared {
         "-Werror",
     ],
 
+    ldflags: [
+        "-Wl,--exclude-libs,ALL",
+    ],
+
     product_variables: {
         platform_sdk_version: {
             // API level
@@ -211,14 +215,11 @@ cc_library_shared {
         "libutils",
         "libmedia",
         "libmedia_omx",
-        "libmediaextractor",
         "libaudioclient",
         "libaudiomanager",
         "libbinder",
         "libstagefright",
         "libstagefright_foundation",
-        "libcutils",
-        "libnativewindow",
         "libgui",
         "libdl",
         "libandroid_runtime",
@@ -264,6 +265,7 @@ cc_library_shared {
         "liblog",
         "libnativewindow",
     ],
+    version_script: "libOpenSLES.map.txt",
 }
 
 cc_library_shared {
@@ -293,4 +295,5 @@ cc_library_shared {
         "liblog",
         "libnativewindow",
     ],
+    version_script: "libOpenMAXAL.map.txt",
 }

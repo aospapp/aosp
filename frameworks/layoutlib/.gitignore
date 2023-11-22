@@ -1,5 +1,6 @@
 bin
-/.idea/workspace.xml
 /out
 /bridge/out
 /.idea/kotlinc.xml
+/.idea/shelf
+/.idea/workspace.xml

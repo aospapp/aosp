@@ -20,7 +20,8 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import android.os.Parcel;
-import android.support.test.filters.SmallTest;
+
+import androidx.test.filters.SmallTest;
 
 import org.junit.Test;
 
@@ -189,8 +190,7 @@ public class HomeSpTest {
         Map<String, Long> homeNetworkIds = new HashMap<>();
         byte[] rawSsidBytes = new byte[33];
         Arrays.fill(rawSsidBytes, (byte) 'a');
-        homeNetworkIds.put(
-                StringFactory.newStringFromBytes(rawSsidBytes, StandardCharsets.UTF_8), 0x1234L);
+        homeNetworkIds.put(new String(rawSsidBytes, StandardCharsets.UTF_8), 0x1234L);
         homeSp.setHomeNetworkIds(homeNetworkIds);
         assertFalse(homeSp.validate());
     }

@@ -16,6 +16,7 @@
 
 //#define LOG_NDEBUG 0
 #define LOG_TAG "OMXNodeInstance"
+#include <android-base/macros.h>
 #include <utils/Log.h>
 
 #include <inttypes.h>
@@ -32,12 +33,13 @@
 
 #include <binder/IMemory.h>
 #include <cutils/properties.h>
-#include <gui/BufferQueue.h>
 #include <media/hardware/HardwareAPI.h>
 #include <media/stagefright/foundation/ADebug.h>
 #include <media/stagefright/foundation/ABuffer.h>
 #include <media/stagefright/foundation/ColorUtils.h>
 #include <media/stagefright/MediaErrors.h>
+#include <ui/GraphicBuffer.h>
+#include <ui/Fence.h>
 #include <utils/misc.h>
 #include <utils/NativeHandle.h>
 #include <media/OMXBuffer.h>
@@ -354,9 +356,9 @@ OMXNodeInstance::OMXNodeInstance(
       mQuirks(0),
       mBufferIDCount(0),
       mRestorePtsFailed(false),
-      mMaxTimestampGapUs(0ll),
-      mPrevOriginalTimeUs(-1ll),
-      mPrevModifiedTimeUs(-1ll)
+      mMaxTimestampGapUs(0LL),
+      mPrevOriginalTimeUs(-1LL),
+      mPrevModifiedTimeUs(-1LL)
 {
     mName = ADebug::GetDebugName(name);
     DEBUG = ADebug::GetDebugLevelFromProperty(name, "debug.stagefright.omx-debug");
@@ -459,7 +461,7 @@ status_t OMXNodeInstance::freeNode() {
                 break;
             }
 
-            // fall through
+            FALLTHROUGH_INTENDED;
         }
 
         case OMX_StateIdle:
@@ -486,7 +488,7 @@ status_t OMXNodeInstance::freeNode() {
             }
             CHECK_EQ(err, OMX_ErrorNone);
 
-            // fall through
+            FALLTHROUGH_INTENDED;
         }
 
         case OMX_StateLoaded:
@@ -535,6 +537,9 @@ status_t OMXNodeInstance::sendCommand(
     }
 
     Mutex::Autolock autoLock(mLock);
+    if (mHandle == NULL) {
+        return DEAD_OBJECT;
+    }
 
     if (cmd == OMX_CommandStateSet) {
         // There are no configurations past first StateSet command.
@@ -599,6 +604,9 @@ bool OMXNodeInstance::isProhibitedIndex_l(OMX_INDEXTYPE index) {
 status_t OMXNodeInstance::getParameter(
         OMX_INDEXTYPE index, void *params, size_t /* size */) {
     Mutex::Autolock autoLock(mLock);
+    if (mHandle == NULL) {
+        return DEAD_OBJECT;
+    }
 
     if (isProhibitedIndex_l(index)) {
         android_errorWriteLog(0x534e4554, "29422020");
@@ -617,6 +625,10 @@ status_t OMXNodeInstance::getParameter(
 status_t OMXNodeInstance::setParameter(
         OMX_INDEXTYPE index, const void *params, size_t size) {
     Mutex::Autolock autoLock(mLock);
+    if (mHandle == NULL) {
+        return DEAD_OBJECT;
+    }
+
     OMX_INDEXEXTTYPE extIndex = (OMX_INDEXEXTTYPE)index;
     CLOG_CONFIG(setParameter, "%s(%#x), %zu@%p)", asString(extIndex), index, size, params);
 
@@ -638,6 +650,9 @@ status_t OMXNodeInstance::setParameter(
 status_t OMXNodeInstance::getConfig(
         OMX_INDEXTYPE index, void *params, size_t /* size */) {
     Mutex::Autolock autoLock(mLock);
+    if (mHandle == NULL) {
+        return DEAD_OBJECT;
+    }
 
     if (isProhibitedIndex_l(index)) {
         android_errorWriteLog(0x534e4554, "29422020");
@@ -656,6 +671,10 @@ status_t OMXNodeInstance::getConfig(
 status_t OMXNodeInstance::setConfig(
         OMX_INDEXTYPE index, const void *params, size_t size) {
     Mutex::Autolock autoLock(mLock);
+    if (mHandle == NULL) {
+        return DEAD_OBJECT;
+    }
+
     OMX_INDEXEXTTYPE extIndex = (OMX_INDEXEXTTYPE)index;
     CLOG_CONFIG(setConfig, "%s(%#x), %zu@%p)", asString(extIndex), index, size, params);
 
@@ -672,6 +691,9 @@ status_t OMXNodeInstance::setConfig(
 
 status_t OMXNodeInstance::setPortMode(OMX_U32 portIndex, IOMX::PortMode mode) {
     Mutex::Autolock autoLock(mLock);
+    if (mHandle == NULL) {
+        return DEAD_OBJECT;
+    }
 
     if (portIndex >= NELEM(mPortMode)) {
         ALOGE("b/31385713, portIndex(%u)", portIndex);
@@ -854,6 +876,9 @@ status_t OMXNodeInstance::enableNativeBuffers_l(
 status_t OMXNodeInstance::getGraphicBufferUsage(
         OMX_U32 portIndex, OMX_U32* usage) {
     Mutex::Autolock autoLock(mLock);
+    if (mHandle == NULL) {
+        return DEAD_OBJECT;
+    }
 
     OMX_INDEXTYPE index;
     OMX_STRING name = const_cast<OMX_STRING>(
@@ -967,6 +992,10 @@ status_t OMXNodeInstance::prepareForAdaptivePlayback(
         OMX_U32 portIndex, OMX_BOOL enable, OMX_U32 maxFrameWidth,
         OMX_U32 maxFrameHeight) {
     Mutex::Autolock autolock(mLock);
+    if (mHandle == NULL) {
+        return DEAD_OBJECT;
+    }
+
     if (mSailed) {
         android_errorWriteLog(0x534e4554, "29422020");
         return INVALID_OPERATION;
@@ -1007,6 +1036,10 @@ status_t OMXNodeInstance::configureVideoTunnelMode(
         OMX_U32 portIndex, OMX_BOOL tunneled, OMX_U32 audioHwSync,
         native_handle_t **sidebandHandle) {
     Mutex::Autolock autolock(mLock);
+    if (mHandle == NULL) {
+        return DEAD_OBJECT;
+    }
+
     if (mSailed) {
         android_errorWriteLog(0x534e4554, "29422020");
         return INVALID_OPERATION;
@@ -1061,6 +1094,10 @@ status_t OMXNodeInstance::useBuffer(
     }
 
     Mutex::Autolock autoLock(mLock);
+    if (mHandle == NULL) {
+        return DEAD_OBJECT;
+    }
+
     if (!mSailed) {
         ALOGE("b/35467458");
         android_errorWriteLog(0x534e4554, "35467458");
@@ -1085,7 +1122,8 @@ status_t OMXNodeInstance::useBuffer(
         }
 
         case OMXBuffer::kBufferTypeANWBuffer: {
-            if (mPortMode[portIndex] != IOMX::kPortModePresetANWBuffer) {
+            if (mPortMode[portIndex] != IOMX::kPortModePresetANWBuffer
+                    && mPortMode[portIndex] != IOMX::kPortModeDynamicANWBuffer) {
                 break;
             }
             return useGraphicBuffer_l(portIndex, omxBuffer.mGraphicBuffer, buffer);
@@ -1476,6 +1514,9 @@ status_t OMXNodeInstance::updateNativeHandleInMeta_l(
 status_t OMXNodeInstance::setInputSurface(
         const sp<IOMXBufferSource> &bufferSource) {
     Mutex::Autolock autolock(mLock);
+    if (mHandle == NULL) {
+        return DEAD_OBJECT;
+    }
 
     status_t err;
 
@@ -1542,6 +1583,9 @@ status_t OMXNodeInstance::allocateSecureBuffer(
     }
 
     Mutex::Autolock autoLock(mLock);
+    if (mHandle == NULL) {
+        return DEAD_OBJECT;
+    }
 
     if (!mSailed) {
         ALOGE("b/35467458");
@@ -1598,6 +1642,10 @@ status_t OMXNodeInstance::allocateSecureBuffer(
 status_t OMXNodeInstance::freeBuffer(
         OMX_U32 portIndex, IOMX::buffer_id buffer) {
     Mutex::Autolock autoLock(mLock);
+    if (mHandle == NULL) {
+        return DEAD_OBJECT;
+    }
+
     CLOG_BUFFER(freeBuffer, "%s:%u %#x", portString(portIndex), portIndex, buffer);
 
     removeActiveBuffer(portIndex, buffer);
@@ -1609,12 +1657,15 @@ status_t OMXNodeInstance::freeBuffer(
     }
     BufferMeta *buffer_meta = static_cast<BufferMeta *>(header->pAppPrivate);
 
+    // Invalidate buffers in the client side first before calling OMX_FreeBuffer.
+    // If not, pending events in the client side might access the buffers after free.
+    invalidateBufferID(buffer);
+
     OMX_ERRORTYPE err = OMX_FreeBuffer(mHandle, portIndex, header);
     CLOG_IF_ERROR(freeBuffer, err, "%s:%u %#x", portString(portIndex), portIndex, buffer);
 
     delete buffer_meta;
     buffer_meta = NULL;
-    invalidateBufferID(buffer);
 
     return StatusFromOMXError(err);
 }
@@ -1622,6 +1673,9 @@ status_t OMXNodeInstance::freeBuffer(
 status_t OMXNodeInstance::fillBuffer(
         IOMX::buffer_id buffer, const OMXBuffer &omxBuffer, int fenceFd) {
     Mutex::Autolock autoLock(mLock);
+    if (mHandle == NULL) {
+        return DEAD_OBJECT;
+    }
 
     OMX_BUFFERHEADERTYPE *header = findBufferHeader(buffer, kPortIndexOutput);
     if (header == NULL) {
@@ -1672,6 +1726,9 @@ status_t OMXNodeInstance::emptyBuffer(
         buffer_id buffer, const OMXBuffer &omxBuffer,
         OMX_U32 flags, OMX_TICKS timestamp, int fenceFd) {
     Mutex::Autolock autoLock(mLock);
+    if (mHandle == NULL) {
+        return DEAD_OBJECT;
+    }
 
     switch (omxBuffer.mBufferType) {
     case OMXBuffer::kBufferTypePreset:
@@ -1892,7 +1949,7 @@ status_t OMXNodeInstance::setMaxPtsGapUs(const void *params, size_t size) {
 int64_t OMXNodeInstance::getCodecTimestamp(OMX_TICKS timestamp) {
     int64_t originalTimeUs = timestamp;
 
-    if (mMaxTimestampGapUs > 0ll) {
+    if (mMaxTimestampGapUs > 0LL) {
         /* Cap timestamp gap between adjacent frames to specified max
          *
          * In the scenario of cast mirroring, encoding could be suspended for
@@ -1900,7 +1957,7 @@ int64_t OMXNodeInstance::getCodecTimestamp(OMX_TICKS timestamp) {
          * where encoder's rate control logic produces huge frames after a
          * long period of suspension.
          */
-        if (mPrevOriginalTimeUs >= 0ll) {
+        if (mPrevOriginalTimeUs >= 0LL) {
             int64_t timestampGapUs = originalTimeUs - mPrevOriginalTimeUs;
             timestamp = (timestampGapUs < mMaxTimestampGapUs ?
                 timestampGapUs : mMaxTimestampGapUs) + mPrevModifiedTimeUs;
@@ -1908,7 +1965,7 @@ int64_t OMXNodeInstance::getCodecTimestamp(OMX_TICKS timestamp) {
         ALOGV("IN  timestamp: %lld -> %lld",
             static_cast<long long>(originalTimeUs),
             static_cast<long long>(timestamp));
-    } else if (mMaxTimestampGapUs < 0ll) {
+    } else if (mMaxTimestampGapUs < 0LL) {
         /*
          * Apply a fixed timestamp gap between adjacent frames.
          *
@@ -1916,7 +1973,7 @@ int64_t OMXNodeInstance::getCodecTimestamp(OMX_TICKS timestamp) {
          * on frames could go forward or backward. Some encoders may silently
          * drop frames when it goes backward (or even stay unchanged).
          */
-        if (mPrevOriginalTimeUs >= 0ll) {
+        if (mPrevOriginalTimeUs >= 0LL) {
             timestamp = mPrevModifiedTimeUs - mMaxTimestampGapUs;
         }
         ALOGV("IN  timestamp: %lld -> %lld",
@@ -1927,7 +1984,7 @@ int64_t OMXNodeInstance::getCodecTimestamp(OMX_TICKS timestamp) {
     mPrevOriginalTimeUs = originalTimeUs;
     mPrevModifiedTimeUs = timestamp;
 
-    if (mMaxTimestampGapUs != 0ll && !mRestorePtsFailed) {
+    if (mMaxTimestampGapUs != 0LL && !mRestorePtsFailed) {
         mOriginalTimeUs.add(timestamp, originalTimeUs);
     }
 
@@ -1960,7 +2017,7 @@ status_t OMXNodeInstance::emptyNativeHandleBuffer_l(
 void OMXNodeInstance::codecBufferFilled(omx_message &msg) {
     Mutex::Autolock autoLock(mLock);
 
-    if (mMaxTimestampGapUs == 0ll || mRestorePtsFailed) {
+    if (mMaxTimestampGapUs == 0LL || mRestorePtsFailed) {
         return;
     }
 
@@ -1986,6 +2043,9 @@ void OMXNodeInstance::codecBufferFilled(omx_message &msg) {
 status_t OMXNodeInstance::getExtensionIndex(
         const char *parameterName, OMX_INDEXTYPE *index) {
     Mutex::Autolock autoLock(mLock);
+    if (mHandle == NULL) {
+        return DEAD_OBJECT;
+    }
 
     OMX_ERRORTYPE err = OMX_GetExtensionIndex(
             mHandle, const_cast<char *>(parameterName), index);
@@ -2192,8 +2252,8 @@ void OMXNodeInstance::onEvent(
                     // bump internal-state debug level for 2 input and output frames
                     Mutex::Autolock _l(mDebugLock);
                     bumpDebugLevel_l(2 /* numInputBuffers */, 2 /* numOutputBuffers */);
+                    FALLTHROUGH_INTENDED;
                 }
-                // fall through
                 default:
                     arg2String = portString(arg2);
             }
@@ -2204,7 +2264,7 @@ void OMXNodeInstance::onEvent(
             break;
         case OMX_EventPortSettingsChanged:
             arg2String = asString((OMX_INDEXEXTTYPE)arg2);
-            // fall through
+            FALLTHROUGH_INTENDED;
         default:
             arg1String = portString(arg1);
     }

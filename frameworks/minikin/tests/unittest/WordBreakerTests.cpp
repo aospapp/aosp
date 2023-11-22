@@ -19,7 +19,6 @@
 #include <cstdio>
 
 #include <gtest/gtest.h>
-#include <unicode/locid.h>
 #include <unicode/uclean.h>
 #include <unicode/udata.h>
 
@@ -96,7 +95,6 @@ TEST(WordBreakerTest, postfixAndPrefix) {
 TEST(WordBreakerTest, myanmarKinzi) {
     uint16_t buf[] = {0x1004, 0x103A, 0x1039, 0x1000, 0x102C};  // NGA, ASAT, VIRAMA, KA, UU
     WordBreaker breaker;
-    icu::Locale burmese("my");
     breaker.setText(buf, NELEM(buf));
     EXPECT_EQ(0, breaker.current());
 
@@ -596,7 +594,7 @@ TEST(WordBreakerTest, LineBreakerPool_acquire_with_release) {
     ICULineBreakerPool::Slot enUSBreaker = pool.acquire(enUS);
 
     uint64_t enUSBreakerLocaleId = enUSBreaker.localeId;
-    icu::BreakIterator* enUSBreakerPtr = enUSBreaker.breaker.get();
+    UBreakIterator* enUSBreakerPtr = enUSBreaker.breaker.get();
 
     pool.release(std::move(enUSBreaker));
     EXPECT_EQ(nullptr, enUSBreaker.breaker.get());

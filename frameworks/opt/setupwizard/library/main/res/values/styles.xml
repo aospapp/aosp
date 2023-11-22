@@ -58,6 +58,12 @@
         <item name="android:activityCloseExitAnimation">@anim/suw_slide_back_out</item>
     </style>
 
+    <!-- DayNight themes -->
+    <style name="SuwThemeMaterial.DayNight" parent="SuwThemeMaterial.Light" />
+    <style name="SuwThemeGlif.DayNight" parent="SuwThemeGlif.Light" />
+    <style name="SuwThemeGlifV2.DayNight" parent="SuwThemeGlifV2.Light" />
+    <style name="SuwThemeGlifV3.DayNight" parent="SuwThemeGlifV3.Light" />
+
     <!-- Content styles -->
 
     <!-- Ignore UnusedResources: Used by clients -->
@@ -166,7 +172,7 @@
         <!-- Before Honeycomb, layout_gravity is needed for FrameLayout to apply the margins -->
         <item name="android:layout_gravity">top</item>
         <item name="android:ellipsize">end</item>
-        <item name="android:maxLines">2</item>
+        <item name="android:maxLines">3</item>
         <item name="android:textSize">@dimen/suw_header_title_size</item>
     </style>
 
@@ -203,11 +209,6 @@
              button -->
         <item name="android:textAllCaps" tools:targetApi="ice_cream_sandwich">false</item>
     </style>
-
-    <!-- Ignore UnusedResources: used by clients -->
-    <style name="SuwGlifButton.Tertiary"
-        parent="SuwGlifButton.BaseTertiary"
-        tools:ignore="UnusedResources" />
 
     <!-- The start and end paddings are asymmetric because start buttons are borderless buttons
          which aligns the text label. -->

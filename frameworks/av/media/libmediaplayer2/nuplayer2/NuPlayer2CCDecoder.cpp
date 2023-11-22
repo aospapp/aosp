@@ -199,6 +199,18 @@ status_t NuPlayer2::CCDecoder::selectTrack(size_t index, bool select) {
     return OK;
 }
 
+ssize_t NuPlayer2::CCDecoder::getSelectedTrack(media_track_type type) const {
+    if (mSelectedTrack != -1) {
+        CCTrack track = mTracks[mSelectedTrack];
+        if (track.mTrackType == kTrackTypeCEA608 || track.mTrackType == kTrackTypeCEA708) {
+            return (type == MEDIA_TRACK_TYPE_SUBTITLE ? mSelectedTrack : -1);
+        }
+        return (type == MEDIA_TRACK_TYPE_UNKNOWN ? mSelectedTrack : -1);
+    }
+
+    return -1;
+}
+
 bool NuPlayer2::CCDecoder::isSelected() const {
     return mSelectedTrack >= 0 && mSelectedTrack < (int32_t)getTrackCount();
 }
@@ -372,10 +384,16 @@ bool NuPlayer2::CCDecoder::parseMPEGCCData(int64_t timeUs, const uint8_t *data, 
                             timeUs, mDTVCCPacket->data(), mDTVCCPacket->size());
                     mDTVCCPacket->setRange(0, 0);
                 }
+                if (mDTVCCPacket->size() + 2 > mDTVCCPacket->capacity()) {
+                    return false;
+                }
                 memcpy(mDTVCCPacket->data() + mDTVCCPacket->size(), br.data(), 2);
                 mDTVCCPacket->setRange(0, mDTVCCPacket->size() + 2);
                 br.skipBits(16);
             } else if (mDTVCCPacket->size() > 0 && cc_type == 2) {
+                if (mDTVCCPacket->size() + 2 > mDTVCCPacket->capacity()) {
+                    return false;
+                }
                 memcpy(mDTVCCPacket->data() + mDTVCCPacket->size(), br.data(), 2);
                 mDTVCCPacket->setRange(0, mDTVCCPacket->size() + 2);
                 br.skipBits(16);
@@ -402,6 +420,9 @@ bool NuPlayer2::CCDecoder::parseMPEGCCData(int64_t timeUs, const uint8_t *data, 
                     if (line21CCBuf == NULL) {
                         line21CCBuf = new ABuffer((cc_count - i) * sizeof(CCData));
                         line21CCBuf->setRange(0, 0);
+                    }
+                    if (line21CCBuf->size() + sizeof(cc) > line21CCBuf->capacity()) {
+                        return false;
                     }
                     memcpy(line21CCBuf->data() + line21CCBuf->size(), &cc, sizeof(cc));
                     line21CCBuf->setRange(0, line21CCBuf->size() + sizeof(CCData));
@@ -464,6 +485,9 @@ bool NuPlayer2::CCDecoder::parseDTVCCPacket(int64_t timeUs, const uint8_t *data,
             size_t trackIndex = getTrackIndex(kTrackTypeCEA708, service_number, &trackAdded);
             if (mSelectedTrack == (ssize_t)trackIndex) {
                 sp<ABuffer> ccPacket = new ABuffer(block_size);
+                if (ccPacket->capacity() == 0) {
+                    return false;
+                }
                 memcpy(ccPacket->data(), br.data(), block_size);
                 mCCMap.add(timeUs, ccPacket);
             }
@@ -527,10 +551,12 @@ void NuPlayer2::CCDecoder::display(int64_t timeUs) {
         ccBuf = new ABuffer(size);
         ccBuf->setRange(0, 0);
 
-        for (ssize_t i = 0; i <= index; ++i) {
-            sp<ABuffer> buf = mCCMap.valueAt(i);
-            memcpy(ccBuf->data() + ccBuf->size(), buf->data(), buf->size());
-            ccBuf->setRange(0, ccBuf->size() + buf->size());
+        if (ccBuf->capacity() > 0) {
+            for (ssize_t i = 0; i <= index; ++i) {
+                sp<ABuffer> buf = mCCMap.valueAt(i);
+                memcpy(ccBuf->data() + ccBuf->size(), buf->data(), buf->size());
+                ccBuf->setRange(0, ccBuf->size() + buf->size());
+            }
         }
     }
 
@@ -541,7 +567,7 @@ void NuPlayer2::CCDecoder::display(int64_t timeUs) {
 
         ccBuf->meta()->setInt32(AMEDIAFORMAT_KEY_TRACK_INDEX, mSelectedTrack);
         ccBuf->meta()->setInt64("timeUs", timeUs);
-        ccBuf->meta()->setInt64("durationUs", 0ll);
+        ccBuf->meta()->setInt64("durationUs", 0LL);
 
         sp<AMessage> msg = mNotify->dup();
         msg->setInt32("what", kWhatClosedCaptionData);

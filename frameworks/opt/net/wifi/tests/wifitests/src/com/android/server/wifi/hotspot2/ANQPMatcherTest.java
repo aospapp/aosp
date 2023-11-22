@@ -21,7 +21,8 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import android.net.wifi.EAPConstants;
-import android.support.test.filters.SmallTest;
+
+import androidx.test.filters.SmallTest;
 
 import com.android.server.wifi.IMSIParameter;
 import com.android.server.wifi.hotspot2.anqp.CellularNetwork;
@@ -50,6 +51,9 @@ import java.util.Set;
  */
 @SmallTest
 public class ANQPMatcherTest {
+    private static final String TEST_MCC_MNC = "123456";
+    private static final String TEST_3GPP_FQDN = String.format("wlan.mnc%s.mcc%s.3gppnetwork.org",
+            TEST_MCC_MNC.substring(3), TEST_MCC_MNC.substring(0, 3));
     /**
      * Verify that domain name match will fail when a null Domain Name ANQP element is provided.
      *
@@ -159,7 +163,8 @@ public class ANQPMatcherTest {
 
     /**
      * Verify that method match will be returned when the specified EAP
-     * method only matches a eap method in the NAI Realm ANQP element.
+     * method only matches a eap method in the NAI Realm ANQP element if the element does not have
+     * auth params.
      *
      * @throws Exception
      */
@@ -168,17 +173,18 @@ public class ANQPMatcherTest {
         // Test data.
         String providerRealm = "test.com";
         String anqpRealm = "test2.com";
+        NonEAPInnerAuth authParam = new NonEAPInnerAuth(NonEAPInnerAuth.AUTH_TYPE_MSCHAP);
         int eapMethodID = EAPConstants.EAP_TLS;
 
-        // Setup NAI Realm element.
+        // Setup NAI Realm element that has EAP method and no auth params.
         EAPMethod method = new EAPMethod(eapMethodID, new HashMap<Integer, Set<AuthParam>>());
         NAIRealmData realmData = new NAIRealmData(
-            Arrays.asList(new String[] {anqpRealm}), Arrays.asList(new EAPMethod[] {method}));
+                Arrays.asList(new String[]{anqpRealm}), Arrays.asList(new EAPMethod[]{method}));
         NAIRealmElement element = new NAIRealmElement(
-            Arrays.asList(new NAIRealmData[] {realmData}));
+                Arrays.asList(new NAIRealmData[]{realmData}));
 
         assertEquals(AuthMatch.METHOD,
-            ANQPMatcher.matchNAIRealm(element, providerRealm, eapMethodID, null));
+                ANQPMatcher.matchNAIRealm(element, providerRealm, eapMethodID, authParam));
     }
 
     /**
@@ -358,5 +364,98 @@ public class ANQPMatcherTest {
                 new ThreeGPPNetworkElement(Arrays.asList(new CellularNetwork[] {network}));
         // The MCC-MNC provided in 3GPP Network ANQP element doesn't match the IMSI parameter.
         assertFalse(ANQPMatcher.matchThreeGPPNetwork(element, imsiParam, simImsiList));
+    }
+
+    /**
+     * Verify that it will return a EAP-Method from the NAI realm when there is a matched realm in
+     * the NAIRealm element.
+     */
+    @Test
+    public void getEapMethodForNAIRealmWithCarrierInMatch() {
+        // Test data.
+        String realm = TEST_3GPP_FQDN;
+        int eapMethodID = EAPConstants.EAP_AKA;
+
+        // Create a realm that has the EAP method
+        EAPMethod method = new EAPMethod(eapMethodID, null);
+        NAIRealmData realmData = new NAIRealmData(
+                Arrays.asList(new String[]{realm}), Arrays.asList(new EAPMethod[]{method}));
+
+        // Setup NAI Realm element.
+        NAIRealmElement element = new NAIRealmElement(
+                Arrays.asList(new NAIRealmData[]{realmData}));
+
+        assertEquals(EAPConstants.EAP_AKA,
+                ANQPMatcher.getCarrierEapMethodFromMatchingNAIRealm(TEST_3GPP_FQDN, element));
+    }
+
+    /**
+     * Verify that it will return -1 when there is a matched realm in the NAIRealm element, but it
+     * does not have a EAP Method.
+     */
+    @Test
+    public void getEapMethodForNAIRealmWithCarrierInMatchButNotEapMethod() {
+        // Test data.
+        String realm = TEST_3GPP_FQDN;
+        NAIRealmData realmData = new NAIRealmData(Arrays.asList(new String[]{realm}),
+                new ArrayList<>());
+
+        // Setup NAI Realm element.
+        NAIRealmElement element = new NAIRealmElement(
+                Arrays.asList(new NAIRealmData[]{realmData}));
+
+        assertEquals(-1,
+                ANQPMatcher.getCarrierEapMethodFromMatchingNAIRealm(TEST_3GPP_FQDN, element));
+    }
+
+    /**
+     * Verify that it will return -1 when there is a matched realm in the NAIRealm element, but it
+     * does have non-carrier EAP-method.
+     */
+    @Test
+    public void getEapMethodForNAIRealmWithCarrierInMatchButNotCarrierEapMethod() {
+        // Test data.
+        String realm = TEST_3GPP_FQDN;
+        int eapMethodID = EAPConstants.EAP_TTLS;
+        NonEAPInnerAuth authParam = new NonEAPInnerAuth(NonEAPInnerAuth.AUTH_TYPE_MSCHAP);
+        Set<AuthParam> authSet = new HashSet<>();
+        authSet.add(authParam);
+        Map<Integer, Set<AuthParam>> authMap = new HashMap<>();
+        authMap.put(authParam.getAuthTypeID(), authSet);
+
+        // Setup NAI Realm element.
+        EAPMethod method = new EAPMethod(eapMethodID, authMap);
+        NAIRealmData realmData = new NAIRealmData(
+                Arrays.asList(new String[]{realm}), Arrays.asList(new EAPMethod[]{method}));
+        NAIRealmElement element = new NAIRealmElement(
+                Arrays.asList(new NAIRealmData[]{realmData}));
+
+        assertEquals(-1,
+                ANQPMatcher.getCarrierEapMethodFromMatchingNAIRealm(TEST_3GPP_FQDN, element));
+    }
+
+    /**
+     * Verify that it will return -1 when there is no matched realm in the NAIRealm element.
+     */
+    @Test
+    public void getEapMethodForNAIRealmWithCarrierInNoMatch() {
+        // Test data.
+        String realm = "test.com";
+        int eapMethodID = EAPConstants.EAP_TTLS;
+        NonEAPInnerAuth authParam = new NonEAPInnerAuth(NonEAPInnerAuth.AUTH_TYPE_MSCHAP);
+        Set<AuthParam> authSet = new HashSet<>();
+        authSet.add(authParam);
+        Map<Integer, Set<AuthParam>> authMap = new HashMap<>();
+        authMap.put(authParam.getAuthTypeID(), authSet);
+
+        // Setup NAI Realm element.
+        EAPMethod method = new EAPMethod(eapMethodID, authMap);
+        NAIRealmData realmData = new NAIRealmData(
+                Arrays.asList(new String[]{realm}), Arrays.asList(new EAPMethod[]{method}));
+        NAIRealmElement element = new NAIRealmElement(
+                Arrays.asList(new NAIRealmData[]{realmData}));
+
+        assertEquals(-1,
+                ANQPMatcher.getCarrierEapMethodFromMatchingNAIRealm(TEST_3GPP_FQDN, element));
     }
 }

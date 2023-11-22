@@ -29,7 +29,7 @@ void ExpectNextWordBreakForCache(size_t offset_in, const char* query_str) {
     size_t size = 0U;
 
     ParseUnicode(buf, BUF_SIZE, query_str, &size, &expected_breakpoint);
-    EXPECT_EQ(expected_breakpoint, getNextWordBreakForCache(buf, offset_in, size))
+    EXPECT_EQ(expected_breakpoint, getNextWordBreakForCache(U16StringPiece(buf, size), offset_in))
             << "Expected position is [" << query_str << "] from offset " << offset_in;
 }
 
@@ -40,7 +40,7 @@ void ExpectPrevWordBreakForCache(size_t offset_in, const char* query_str) {
     size_t size = 0U;
 
     ParseUnicode(buf, BUF_SIZE, query_str, &size, &expected_breakpoint);
-    EXPECT_EQ(expected_breakpoint, getPrevWordBreakForCache(buf, offset_in, size))
+    EXPECT_EQ(expected_breakpoint, getPrevWordBreakForCache(U16StringPiece(buf, size), offset_in))
             << "Expected position is [" << query_str << "] from offset " << offset_in;
 }
 

@@ -48,7 +48,8 @@ public class TestDelegates extends TestCase {
         final String[] classes = CreateInfo.DELEGATE_CLASS_NATIVES;
         mErrors.clear();
         for (String clazz : classes) {
-            loadAndCompareClasses(clazz, clazz + "_Delegate");
+            String targetClassName = clazz.replace('$', '_') + "_Delegate";
+            loadAndCompareClasses(clazz, targetClassName);
         }
         assertTrue(getErrors(), mErrors.isEmpty());
     }

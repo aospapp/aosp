@@ -336,8 +336,13 @@ static jbyteArray android_os_Parcel_createByteArray(JNIEnv* env, jclass clazz, j
                 jbyte* a2 = (jbyte*)env->GetPrimitiveArrayCritical(ret, 0);
                 if (a2) {
                     const void* data = parcel->readInplace(len);
-                    memcpy(a2, data, len);
+                    if (data) {
+                        memcpy(a2, data, len);
+                    }
                     env->ReleasePrimitiveArrayCritical(ret, a2, 0);
+                    if (!data) {
+                        ret = NULL;
+                    }
                 }
             }
         }
@@ -360,9 +365,14 @@ static jboolean android_os_Parcel_readByteArray(JNIEnv* env, jclass clazz, jlong
         jbyte* ar = (jbyte*)env->GetPrimitiveArrayCritical((jarray)dest, 0);
         if (ar) {
             const void* data = parcel->readInplace(len);
-            memcpy(ar, data, len);
+            if (data) {
+                memcpy(ar, data, len);
+                ret = JNI_TRUE;
+            } else {
+                ret = JNI_FALSE;
+            }
+
             env->ReleasePrimitiveArrayCritical((jarray)dest, ar, 0);
-            ret = JNI_TRUE;
         }
     }
     return ret;
@@ -463,95 +473,11 @@ static jobject android_os_Parcel_readFileDescriptor(JNIEnv* env, jclass clazz, j
     if (parcel != NULL) {
         int fd = parcel->readFileDescriptor();
         if (fd < 0) return NULL;
-        fd = dup(fd);
+        fd = fcntl(fd, F_DUPFD_CLOEXEC, 0);
         if (fd < 0) return NULL;
         return jniCreateFileDescriptor(env, fd);
     }
     return NULL;
-}
-
-static jobject android_os_Parcel_openFileDescriptor(JNIEnv* env, jclass clazz,
-                                                    jstring name, jint mode)
-{
-    if (name == NULL) {
-        jniThrowNullPointerException(env, NULL);
-        return NULL;
-    }
-    ScopedUtfChars name8(env, name);
-    if (name8.c_str() == NULL) {
-        return NULL;
-    }
-
-    int flags=0;
-    switch (mode&0x30000000) {
-        case 0:
-        case 0x10000000:
-            flags = O_RDONLY;
-            break;
-        case 0x20000000:
-            flags = O_WRONLY;
-            break;
-        case 0x30000000:
-            flags = O_RDWR;
-            break;
-    }
-
-    if (mode&0x08000000) flags |= O_CREAT;
-    if (mode&0x04000000) flags |= O_TRUNC;
-    if (mode&0x02000000) flags |= O_APPEND;
-
-    int realMode = S_IRWXU|S_IRWXG;
-    if (mode&0x00000001) realMode |= S_IROTH;
-    if (mode&0x00000002) realMode |= S_IWOTH;
-
-    int fd = open(name8.c_str(), flags, realMode);
-    if (fd < 0) {
-        jniThrowException(env, "java/io/FileNotFoundException", strerror(errno));
-        return NULL;
-    }
-    jobject object = jniCreateFileDescriptor(env, fd);
-    if (object == NULL) {
-        close(fd);
-    }
-    return object;
-}
-
-static jobject android_os_Parcel_dupFileDescriptor(JNIEnv* env, jclass clazz, jobject orig)
-{
-    if (orig == NULL) {
-        jniThrowNullPointerException(env, NULL);
-        return NULL;
-    }
-    int origfd = jniGetFDFromFileDescriptor(env, orig);
-    if (origfd < 0) {
-        jniThrowException(env, "java/lang/IllegalArgumentException", "bad FileDescriptor");
-        return NULL;
-    }
-
-    int fd = dup(origfd);
-    if (fd < 0) {
-        jniThrowIOException(env, errno);
-        return NULL;
-    }
-    jobject object = jniCreateFileDescriptor(env, fd);
-    if (object == NULL) {
-        close(fd);
-    }
-    return object;
-}
-
-static void android_os_Parcel_closeFileDescriptor(JNIEnv* env, jclass clazz, jobject object)
-{
-    if (object == NULL) {
-        jniThrowNullPointerException(env, NULL);
-        return;
-    }
-    int fd = jniGetFDFromFileDescriptor(env, object);
-    if (fd >= 0) {
-        jniSetFileDescriptorOfFD(env, object, -1);
-        //ALOGI("Closing ParcelFileDescriptor %d\n", fd);
-        close(fd);
-    }
 }
 
 static jlong android_os_Parcel_create(JNIEnv* env, jclass clazz)
@@ -744,6 +670,24 @@ static jlong android_os_Parcel_getBlobAshmemSize(jlong nativePtr)
     return 0;
 }
 
+static jint android_os_Parcel_readCallingWorkSourceUid(jlong nativePtr)
+{
+    Parcel* parcel = reinterpret_cast<Parcel*>(nativePtr);
+    if (parcel != NULL) {
+        return parcel->readCallingWorkSourceUid();
+    }
+    return IPCThreadState::kUnsetWorkSource;
+}
+
+static jboolean android_os_Parcel_replaceCallingWorkSourceUid(jlong nativePtr, jint uid)
+{
+    Parcel* parcel = reinterpret_cast<Parcel*>(nativePtr);
+    if (parcel != NULL) {
+        return parcel->replaceCallingWorkSourceUid(uid);
+    }
+    return false;
+}
+
 // ----------------------------------------------------------------------------
 
 static const JNINativeMethod gParcelMethods[] = {
@@ -796,10 +740,6 @@ static const JNINativeMethod gParcelMethods[] = {
     {"nativeReadStrongBinder",    "(J)Landroid/os/IBinder;", (void*)android_os_Parcel_readStrongBinder},
     {"nativeReadFileDescriptor",  "(J)Ljava/io/FileDescriptor;", (void*)android_os_Parcel_readFileDescriptor},
 
-    {"openFileDescriptor",        "(Ljava/lang/String;I)Ljava/io/FileDescriptor;", (void*)android_os_Parcel_openFileDescriptor},
-    {"dupFileDescriptor",         "(Ljava/io/FileDescriptor;)Ljava/io/FileDescriptor;", (void*)android_os_Parcel_dupFileDescriptor},
-    {"closeFileDescriptor",       "(Ljava/io/FileDescriptor;)V", (void*)android_os_Parcel_closeFileDescriptor},
-
     {"nativeCreate",              "()J", (void*)android_os_Parcel_create},
     {"nativeFreeBuffer",          "(J)J", (void*)android_os_Parcel_freeBuffer},
     {"nativeDestroy",             "(J)V", (void*)android_os_Parcel_destroy},
@@ -818,6 +758,11 @@ static const JNINativeMethod gParcelMethods[] = {
 
     // @CriticalNative
     {"nativeGetBlobAshmemSize",       "(J)J", (void*)android_os_Parcel_getBlobAshmemSize},
+
+    // @CriticalNative
+    {"nativeReadCallingWorkSourceUid", "(J)I", (void*)android_os_Parcel_readCallingWorkSourceUid},
+    // @CriticalNative
+    {"nativeReplaceCallingWorkSourceUid", "(JI)Z", (void*)android_os_Parcel_replaceCallingWorkSourceUid},
 };
 
 const char* const kParcelPathName = "android/os/Parcel";

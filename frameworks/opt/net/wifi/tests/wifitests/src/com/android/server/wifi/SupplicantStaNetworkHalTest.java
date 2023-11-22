@@ -15,7 +15,12 @@
  */
 package com.android.server.wifi;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.anyString;
@@ -29,16 +34,16 @@ import android.content.Context;
 import android.hardware.wifi.supplicant.V1_0.ISupplicantNetwork;
 import android.hardware.wifi.supplicant.V1_0.ISupplicantStaNetwork;
 import android.hardware.wifi.supplicant.V1_0.ISupplicantStaNetworkCallback;
-import android.hardware.wifi.supplicant.V1_0.ISupplicantStaNetworkCallback
-        .NetworkRequestEapSimGsmAuthParams;
-import android.hardware.wifi.supplicant.V1_0.ISupplicantStaNetworkCallback
-        .NetworkRequestEapSimUmtsAuthParams;
+import android.hardware.wifi.supplicant.V1_0.ISupplicantStaNetworkCallback.NetworkRequestEapSimGsmAuthParams;
+import android.hardware.wifi.supplicant.V1_0.ISupplicantStaNetworkCallback.NetworkRequestEapSimUmtsAuthParams;
 import android.hardware.wifi.supplicant.V1_0.SupplicantStatus;
 import android.hardware.wifi.supplicant.V1_0.SupplicantStatusCode;
 import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiEnterpriseConfig;
 import android.os.RemoteException;
 import android.text.TextUtils;
+
+import androidx.test.filters.SmallTest;
 
 import com.android.internal.R;
 import com.android.server.wifi.util.NativeUtil;
@@ -56,6 +61,7 @@ import java.util.Random;
 /**
  * Unit tests for SupplicantStaNetworkHal
  */
+@SmallTest
 public class SupplicantStaNetworkHalTest {
     private static final String IFACE_NAME = "wlan0";
     private static final Map<String, String> NETWORK_EXTRAS_VALUES = new HashMap<>();
@@ -72,7 +78,7 @@ public class SupplicantStaNetworkHalTest {
     private SupplicantStatus mStatusFailure;
     @Mock private ISupplicantStaNetwork mISupplicantStaNetworkMock;
     @Mock
-    private android.hardware.wifi.supplicant.V1_1.ISupplicantStaNetwork mISupplicantStaNetworkV11;
+    private android.hardware.wifi.supplicant.V1_2.ISupplicantStaNetwork mISupplicantStaNetworkV12;
     @Mock private Context mContext;
     @Mock private WifiMonitor mWifiMonitor;
 
@@ -81,19 +87,20 @@ public class SupplicantStaNetworkHalTest {
     private ISupplicantStaNetworkCallback mISupplicantStaNetworkCallback;
 
     /**
-     * Spy used to return the V1_1 ISupplicantStaNetwork mock object to simulate the 1.1 HAL running
+     * Spy used to return the V1_2 ISupplicantStaNetwork mock object to simulate the 1.2 HAL running
      * on the device.
      */
-    private class SupplicantStaNetworkHalSpyV1_1 extends SupplicantStaNetworkHal {
-        SupplicantStaNetworkHalSpyV1_1(ISupplicantStaNetwork iSupplicantStaNetwork,
+    private class SupplicantStaNetworkHalSpyV1_2 extends SupplicantStaNetworkHal {
+        SupplicantStaNetworkHalSpyV1_2(ISupplicantStaNetwork iSupplicantStaNetwork,
                 String ifaceName,
                 Context context, WifiMonitor monitor) {
             super(iSupplicantStaNetwork, ifaceName, context, monitor);
         }
+
         @Override
-        protected android.hardware.wifi.supplicant.V1_1.ISupplicantStaNetwork
-        getSupplicantStaNetworkForV1_1Mockable() {
-            return mISupplicantStaNetworkV11;
+        protected android.hardware.wifi.supplicant.V1_2.ISupplicantStaNetwork
+                getSupplicantStaNetworkForV1_2Mockable() {
+            return mISupplicantStaNetworkV12;
         }
     }
 
@@ -114,10 +121,46 @@ public class SupplicantStaNetworkHalTest {
      * Tests the saving of WifiConfiguration to wpa_supplicant.
      */
     @Test
+    public void testOweNetworkWifiConfigurationSaveLoad() throws Exception {
+        // Now expose the V1.2 ISupplicantStaNetwork
+        mSupplicantNetwork = new SupplicantStaNetworkHalSpyV1_2(mISupplicantStaNetworkMock,
+                IFACE_NAME, mContext, mWifiMonitor);
+
+        WifiConfiguration config = WifiConfigurationTestUtil.createOweNetwork();
+        config.updateIdentifier = "46";
+        testWifiConfigurationSaveLoad(config);
+    }
+
+    /**
+     * Tests the saving of WifiConfiguration to wpa_supplicant.
+     */
+    @Test
     public void testOpenNetworkWifiConfigurationSaveLoad() throws Exception {
         WifiConfiguration config = WifiConfigurationTestUtil.createOpenHiddenNetwork();
         config.updateIdentifier = "45";
         testWifiConfigurationSaveLoad(config);
+    }
+
+    /**
+     * Tests the saving/loading of WifiConfiguration to wpa_supplicant with SAE password.
+     */
+    @Test
+    public void testSaePasswordNetworkWifiConfigurationSaveLoad() throws Exception {
+        // Now expose the V1.2 ISupplicantStaNetwork
+        mSupplicantNetwork = new SupplicantStaNetworkHalSpyV1_2(mISupplicantStaNetworkMock,
+                IFACE_NAME, mContext, mWifiMonitor);
+
+        WifiConfiguration config = WifiConfigurationTestUtil.createSaeNetwork();
+        testWifiConfigurationSaveLoad(config);
+        verify(mISupplicantStaNetworkV12).setSaePassword(any(String.class));
+        verify(mISupplicantStaNetworkV12, never())
+                .getSaePassword(any(android.hardware.wifi.supplicant.V1_2.ISupplicantStaNetwork
+                        .getSaePasswordCallback.class));
+        verify(mISupplicantStaNetworkV12, never())
+                .getPskPassphrase(any(ISupplicantStaNetwork.getPskPassphraseCallback.class));
+        verify(mISupplicantStaNetworkV12, never()).setPsk(any(byte[].class));
+        verify(mISupplicantStaNetworkV12, never())
+                .getPsk(any(ISupplicantStaNetwork.getPskCallback.class));
     }
 
     /**
@@ -171,7 +214,8 @@ public class SupplicantStaNetworkHalTest {
     @Test
     public void testWepNetworkWifiConfigurationSaveLoad() throws Exception {
         WifiConfiguration config = WifiConfigurationTestUtil.createWepHiddenNetwork();
-        config.BSSID = "34:45:19:09:45";
+        config.BSSID = " *NOT USED* "; // we want the other bssid!
+        config.getNetworkSelectionStatus().setNetworkSelectionBSSID("34:45:19:09:45:66");
         testWifiConfigurationSaveLoad(config);
     }
 
@@ -218,6 +262,61 @@ public class SupplicantStaNetworkHalTest {
         config.enterpriseConfig =
                 WifiConfigurationTestUtil.createTLSWifiEnterpriseConfigWithAkaPhase2();
         testWifiConfigurationSaveLoad(config);
+    }
+
+    /**
+     * Tests the saving/loading of WifiConfiguration to wpa_supplicant with Suite-B-192
+     */
+    @Test
+    public void testEapSuiteBRsaNetworkWifiConfigurationSaveLoad() throws Exception {
+        // Now expose the V1.2 ISupplicantStaNetwork
+        mSupplicantNetwork = new SupplicantStaNetworkHalSpyV1_2(mISupplicantStaNetworkMock,
+                IFACE_NAME, mContext, mWifiMonitor);
+
+        WifiConfiguration config = WifiConfigurationTestUtil.createEapSuiteBNetwork();
+        config.allowedSuiteBCiphers.set(WifiConfiguration.SuiteBCipher.ECDHE_RSA);
+
+        testWifiConfigurationSaveLoad(config);
+        verify(mISupplicantStaNetworkV12, never()).enableSuiteBEapOpenSslCiphers();
+        verify(mISupplicantStaNetworkV12).enableTlsSuiteBEapPhase1Param(anyBoolean());
+
+        verify(mISupplicantStaNetworkV12, never()).setSaePassword(any(String.class));
+        verify(mISupplicantStaNetworkV12, never())
+                .getSaePassword(any(android.hardware.wifi.supplicant.V1_2.ISupplicantStaNetwork
+                        .getSaePasswordCallback.class));
+        verify(mISupplicantStaNetworkV12, never())
+                .getPskPassphrase(any(ISupplicantStaNetwork.getPskPassphraseCallback.class));
+        verify(mISupplicantStaNetworkV12, never()).setPsk(any(byte[].class));
+        verify(mISupplicantStaNetworkV12, never())
+                .getPsk(any(ISupplicantStaNetwork.getPskCallback.class));
+    }
+
+    /**
+     * Tests the saving/loading of WifiConfiguration to wpa_supplicant with Suite-B-192
+     */
+    @Test
+    public void testEapSuiteBEcdsaNetworkWifiConfigurationSaveLoad() throws Exception {
+        // Now expose the V1.2 ISupplicantStaNetwork
+        mSupplicantNetwork = new SupplicantStaNetworkHalSpyV1_2(mISupplicantStaNetworkMock,
+                IFACE_NAME, mContext, mWifiMonitor);
+
+        WifiConfiguration config = WifiConfigurationTestUtil.createEapSuiteBNetwork();
+        config.allowedSuiteBCiphers.set(WifiConfiguration.SuiteBCipher.ECDHE_ECDSA);
+
+        testWifiConfigurationSaveLoad(config);
+        verify(mISupplicantStaNetworkV12).enableSuiteBEapOpenSslCiphers();
+        verify(mISupplicantStaNetworkV12, never())
+                .enableTlsSuiteBEapPhase1Param(any(boolean.class));
+
+        verify(mISupplicantStaNetworkV12, never()).setSaePassword(any(String.class));
+        verify(mISupplicantStaNetworkV12, never())
+                .getSaePassword(any(android.hardware.wifi.supplicant.V1_2.ISupplicantStaNetwork
+                        .getSaePasswordCallback.class));
+        verify(mISupplicantStaNetworkV12, never())
+                .getPskPassphrase(any(ISupplicantStaNetwork.getPskPassphraseCallback.class));
+        verify(mISupplicantStaNetworkV12, never()).setPsk(any(byte[].class));
+        verify(mISupplicantStaNetworkV12, never())
+                .getPsk(any(ISupplicantStaNetwork.getPskCallback.class));
     }
 
     /**
@@ -279,7 +378,7 @@ public class SupplicantStaNetworkHalTest {
     @Test
     public void testInvalidKeyMgmtSaveFailure() throws Exception {
         WifiConfiguration config = WifiConfigurationTestUtil.createWepHiddenNetwork();
-        config.allowedKeyManagement.set(10);
+        config.allowedKeyManagement.set(20);
         try {
             assertFalse(mSupplicantNetwork.saveWifiConfiguration(config));
         } catch (IllegalArgumentException e) {
@@ -289,8 +388,8 @@ public class SupplicantStaNetworkHalTest {
     }
 
     /**
-     * Tests the failure to load invalid key mgmt (unkown bit set in the supplicant network key_mgmt
-     * variable read).
+     * Tests the failure to load invalid key mgmt (unknown bit set in the
+     * supplicant network key_mgmt variable read).
      */
     @Test
     public void testInvalidKeyMgmtLoadFailure() throws Exception {
@@ -629,11 +728,11 @@ public class SupplicantStaNetworkHalTest {
 
         assertTrue(mSupplicantNetwork.sendNetworkEapIdentityResponse(identityStr,
                 encryptedIdentityStr));
-        verify(mISupplicantStaNetworkV11, never()).sendNetworkEapIdentityResponse_1_1(
+        verify(mISupplicantStaNetworkV12, never()).sendNetworkEapIdentityResponse_1_1(
                 any(ArrayList.class), any(ArrayList.class));
 
-        // Now expose the V1.1 ISupplicantStaNetwork
-        mSupplicantNetwork = new SupplicantStaNetworkHalSpyV1_1(mISupplicantStaNetworkMock,
+        // Now expose the V1.2 ISupplicantStaNetwork
+        mSupplicantNetwork = new SupplicantStaNetworkHalSpyV1_2(mISupplicantStaNetworkMock,
                 IFACE_NAME, mContext, mWifiMonitor);
         doAnswer(new AnswerWithArguments() {
             public SupplicantStatus answer(ArrayList<Byte> identity,
@@ -644,7 +743,7 @@ public class SupplicantStaNetworkHalTest {
                         NativeUtil.stringFromByteArrayList(encryptedIdentity));
                 return mStatusSuccess;
             }
-        }).when(mISupplicantStaNetworkV11).sendNetworkEapIdentityResponse_1_1(any(ArrayList.class),
+        }).when(mISupplicantStaNetworkV12).sendNetworkEapIdentityResponse_1_1(any(ArrayList.class),
                 any(ArrayList.class));
         assertTrue(mSupplicantNetwork.sendNetworkEapIdentityResponse(identityStr,
                 encryptedIdentityStr));
@@ -692,6 +791,84 @@ public class SupplicantStaNetworkHalTest {
         assertTrue(mSupplicantNetwork.loadWifiConfiguration(loadConfig, networkExtras));
         // The FT flags should be stripped out when reading it back.
         WifiConfigurationTestUtil.assertConfigurationEqualForSupplicant(config, loadConfig);
+    }
+
+    /**
+     * Tests the addition of SHA256 flags (WPA_PSK_SHA256)
+     */
+    @Test
+    public void testAddPskSha256Flags() throws Exception {
+        WifiConfiguration config = WifiConfigurationTestUtil.createPskNetwork();
+        // Now expose the V1.2 ISupplicantStaNetwork
+        mSupplicantNetwork = new SupplicantStaNetworkHalSpyV1_2(mISupplicantStaNetworkMock,
+                IFACE_NAME, mContext, mWifiMonitor);
+        assertTrue(mSupplicantNetwork.saveWifiConfiguration(config));
+
+        // Check the supplicant variables to ensure that we have added the SHA256 flags.
+        assertTrue((mSupplicantVariables.keyMgmtMask
+                & android.hardware.wifi.supplicant.V1_2.ISupplicantStaNetwork.KeyMgmtMask
+                .WPA_PSK_SHA256) == android.hardware.wifi.supplicant.V1_2.ISupplicantStaNetwork
+                .KeyMgmtMask.WPA_PSK_SHA256);
+
+        WifiConfiguration loadConfig = new WifiConfiguration();
+        Map<String, String> networkExtras = new HashMap<>();
+        assertTrue(mSupplicantNetwork.loadWifiConfiguration(loadConfig, networkExtras));
+        // The SHA256 flags should be stripped out when reading it back.
+        WifiConfigurationTestUtil.assertConfigurationEqualForSupplicant(config, loadConfig);
+    }
+
+    /**
+     * Tests the addition of SHA256 flags (WPA_EAP_SHA256)
+     */
+    @Test
+    public void testAddEapSha256Flags() throws Exception {
+        WifiConfiguration config = WifiConfigurationTestUtil.createEapNetwork();
+        // Now expose the V1.2 ISupplicantStaNetwork
+        mSupplicantNetwork = new SupplicantStaNetworkHalSpyV1_2(mISupplicantStaNetworkMock,
+                IFACE_NAME, mContext, mWifiMonitor);
+        assertTrue(mSupplicantNetwork.saveWifiConfiguration(config));
+
+        // Check the supplicant variables to ensure that we have added the SHA256 flags.
+        assertTrue((mSupplicantVariables.keyMgmtMask
+                & android.hardware.wifi.supplicant.V1_2.ISupplicantStaNetwork.KeyMgmtMask
+                .WPA_EAP_SHA256) == android.hardware.wifi.supplicant.V1_2.ISupplicantStaNetwork
+                .KeyMgmtMask.WPA_EAP_SHA256);
+
+        WifiConfiguration loadConfig = new WifiConfiguration();
+        Map<String, String> networkExtras = new HashMap<>();
+        assertTrue(mSupplicantNetwork.loadWifiConfiguration(loadConfig, networkExtras));
+        // The SHA256 flags should be stripped out when reading it back.
+        WifiConfigurationTestUtil.assertConfigurationEqualForSupplicant(config, loadConfig);
+    }
+
+    /**
+     * Tests the addition of SHA256 flags (WPA_PSK_SHA256) is ignored on HAL v1.1 or lower
+     */
+    @Test
+    public void testAddPskSha256FlagsHal1_1OrLower() throws Exception {
+        WifiConfiguration config = WifiConfigurationTestUtil.createPskNetwork();
+        assertTrue(mSupplicantNetwork.saveWifiConfiguration(config));
+
+        // Check the supplicant variables to ensure that we have NOT added the SHA256 flags.
+        assertFalse((mSupplicantVariables.keyMgmtMask
+                & android.hardware.wifi.supplicant.V1_2.ISupplicantStaNetwork.KeyMgmtMask
+                .WPA_PSK_SHA256) == android.hardware.wifi.supplicant.V1_2.ISupplicantStaNetwork
+                .KeyMgmtMask.WPA_PSK_SHA256);
+    }
+
+    /**
+     * Tests the addition of SHA256 flags (WPA_EAP_SHA256) is ignored on HAL v1.1 or lower
+     */
+    @Test
+    public void testAddEapSha256FlagsHal1_1OrLower() throws Exception {
+        WifiConfiguration config = WifiConfigurationTestUtil.createEapNetwork();
+        assertTrue(mSupplicantNetwork.saveWifiConfiguration(config));
+
+        // Check the supplicant variables to ensure that we have NOT added the SHA256 flags.
+        assertFalse((mSupplicantVariables.keyMgmtMask
+                & android.hardware.wifi.supplicant.V1_2.ISupplicantStaNetwork.KeyMgmtMask
+                .WPA_EAP_SHA256) == android.hardware.wifi.supplicant.V1_2.ISupplicantStaNetwork
+                .KeyMgmtMask.WPA_EAP_SHA256);
     }
 
     /**
@@ -919,6 +1096,22 @@ public class SupplicantStaNetworkHalTest {
         }).when(mISupplicantStaNetworkMock)
                 .getRequirePmf(any(ISupplicantStaNetwork.getRequirePmfCallback.class));
 
+        /** SAE password */
+        doAnswer(new AnswerWithArguments() {
+            public SupplicantStatus answer(String saePassword) throws RemoteException {
+                mSupplicantVariables.pskPassphrase = saePassword;
+                return mStatusSuccess;
+            }
+        }).when(mISupplicantStaNetworkV12).setSaePassword(any(String.class));
+        doAnswer(new AnswerWithArguments() {
+            public void answer(ISupplicantStaNetwork.getPskPassphraseCallback cb)
+                    throws RemoteException {
+                cb.onValues(mStatusSuccess, mSupplicantVariables.pskPassphrase);
+            }
+        }).when(mISupplicantStaNetworkV12)
+                .getSaePassword(any(android.hardware.wifi.supplicant.V1_2.ISupplicantStaNetwork
+                        .getSaePasswordCallback.class));
+
         /** PSK passphrase */
         doAnswer(new AnswerWithArguments() {
             public SupplicantStatus answer(String pskPassphrase) throws RemoteException {
@@ -992,6 +1185,21 @@ public class SupplicantStaNetworkHalTest {
         }).when(mISupplicantStaNetworkMock)
                 .getKeyMgmt(any(ISupplicantStaNetwork.getKeyMgmtCallback.class));
 
+        /** allowedKeyManagement v1.2 */
+        doAnswer(new AnswerWithArguments() {
+            public SupplicantStatus answer(int mask) throws RemoteException {
+                mSupplicantVariables.keyMgmtMask = mask;
+                return mStatusSuccess;
+            }
+        }).when(mISupplicantStaNetworkV12).setKeyMgmt_1_2(any(int.class));
+        doAnswer(new AnswerWithArguments() {
+            public void answer(ISupplicantStaNetwork.getKeyMgmtCallback cb) throws RemoteException {
+                cb.onValues(mStatusSuccess, mSupplicantVariables.keyMgmtMask);
+            }
+        }).when(mISupplicantStaNetworkV12)
+                .getKeyMgmt_1_2(any(android.hardware.wifi.supplicant.V1_2.ISupplicantStaNetwork
+                        .getKeyMgmt_1_2Callback.class));
+
         /** allowedProtocols */
         doAnswer(new AnswerWithArguments() {
             public SupplicantStatus answer(int mask) throws RemoteException {
@@ -1035,6 +1243,22 @@ public class SupplicantStaNetworkHalTest {
         }).when(mISupplicantStaNetworkMock)
                 .getGroupCipher(any(ISupplicantStaNetwork.getGroupCipherCallback.class));
 
+        /** allowedGroupCiphers v1.2*/
+        doAnswer(new AnswerWithArguments() {
+            public SupplicantStatus answer(int mask) throws RemoteException {
+                mSupplicantVariables.groupCipherMask = mask;
+                return mStatusSuccess;
+            }
+        }).when(mISupplicantStaNetworkV12).setGroupCipher_1_2(any(int.class));
+        doAnswer(new AnswerWithArguments() {
+            public void answer(ISupplicantStaNetwork.getGroupCipherCallback cb)
+                    throws RemoteException {
+                cb.onValues(mStatusSuccess, mSupplicantVariables.groupCipherMask);
+            }
+        }).when(mISupplicantStaNetworkV12)
+                .getGroupCipher_1_2(any(android.hardware.wifi.supplicant.V1_2.ISupplicantStaNetwork
+                        .getGroupCipher_1_2Callback.class));
+
         /** allowedPairwiseCiphers */
         doAnswer(new AnswerWithArguments() {
             public SupplicantStatus answer(int mask) throws RemoteException {
@@ -1049,6 +1273,22 @@ public class SupplicantStaNetworkHalTest {
             }
         }).when(mISupplicantStaNetworkMock)
                 .getPairwiseCipher(any(ISupplicantStaNetwork.getPairwiseCipherCallback.class));
+
+        /** allowedPairwiseCiphers v1.2 */
+        doAnswer(new AnswerWithArguments() {
+            public SupplicantStatus answer(int mask) throws RemoteException {
+                mSupplicantVariables.pairwiseCipherMask = mask;
+                return mStatusSuccess;
+            }
+        }).when(mISupplicantStaNetworkV12).setPairwiseCipher_1_2(any(int.class));
+        doAnswer(new AnswerWithArguments() {
+            public void answer(ISupplicantStaNetwork.getPairwiseCipherCallback cb)
+                    throws RemoteException {
+                cb.onValues(mStatusSuccess, mSupplicantVariables.pairwiseCipherMask);
+            }
+        }).when(mISupplicantStaNetworkV12)
+                .getPairwiseCipher_1_2(any(android.hardware.wifi.supplicant.V1_2
+                        .ISupplicantStaNetwork.getPairwiseCipher_1_2Callback.class));
 
         /** metadata: idstr */
         doAnswer(new AnswerWithArguments() {
@@ -1303,7 +1543,7 @@ public class SupplicantStaNetworkHalTest {
             }
         }).when(mISupplicantStaNetworkMock).setProactiveKeyCaching(any(boolean.class));
 
-        /** Callback registeration */
+        /** Callback registration */
         doAnswer(new AnswerWithArguments() {
             public SupplicantStatus answer(ISupplicantStaNetworkCallback cb)
                     throws RemoteException {
@@ -1312,6 +1552,19 @@ public class SupplicantStaNetworkHalTest {
             }
         }).when(mISupplicantStaNetworkMock)
                 .registerCallback(any(ISupplicantStaNetworkCallback.class));
+
+        /** Suite-B*/
+        doAnswer(new AnswerWithArguments() {
+            public SupplicantStatus answer(boolean enable) throws RemoteException {
+                return mStatusSuccess;
+            }
+        }).when(mISupplicantStaNetworkV12).enableTlsSuiteBEapPhase1Param(any(boolean.class));
+
+        doAnswer(new AnswerWithArguments() {
+            public SupplicantStatus answer() throws RemoteException {
+                return mStatusSuccess;
+            }
+        }).when(mISupplicantStaNetworkV12).enableSuiteBEapOpenSslCiphers();
     }
 
     private SupplicantStatus createSupplicantStatus(int code) {
@@ -1327,6 +1580,7 @@ public class SupplicantStaNetworkHalTest {
         mSupplicantNetwork =
                 new SupplicantStaNetworkHal(mISupplicantStaNetworkMock, IFACE_NAME, mContext,
                         mWifiMonitor);
+        mSupplicantNetwork.enableVerboseLogging(true);
     }
 
     // Private class to to store/inspect values set via the HIDL mock.

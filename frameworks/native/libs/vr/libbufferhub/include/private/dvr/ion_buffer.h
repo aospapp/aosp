@@ -20,11 +20,11 @@ class IonBuffer {
             uint64_t usage);
   ~IonBuffer();
 
-  IonBuffer(IonBuffer&& other);
-  IonBuffer& operator=(IonBuffer&& other);
+  IonBuffer(IonBuffer&& other) noexcept;
+  IonBuffer& operator=(IonBuffer&& other) noexcept;
 
   // Returns check this IonBuffer holds a valid Gralloc buffer.
-  bool IsValid() const { return buffer_ && buffer_->initCheck() == NO_ERROR; }
+  bool IsValid() const { return buffer_ && buffer_->initCheck() == OK; }
 
   // Frees the underlying native handle and leaves the instance initialized to
   // empty.

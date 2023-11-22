@@ -26,9 +26,10 @@ import android.app.admin.DeviceAdminInfo;
 import android.app.admin.DevicePolicyManagerInternal;
 import android.content.Context;
 import android.content.pm.PackageManager;
-import android.support.test.filters.SmallTest;
-import android.support.test.runner.AndroidJUnit4;
 import android.telephony.TelephonyManager;
+
+import androidx.test.filters.SmallTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import com.android.server.LocalServices;
 
@@ -160,7 +161,7 @@ public class NetworkStatsAccessTest {
     }
 
     private void setHasCarrierPrivileges(boolean hasPrivileges) {
-        when(mTm.checkCarrierPrivilegesForPackage(TEST_PKG)).thenReturn(
+        when(mTm.checkCarrierPrivilegesForPackageAnyPhone(TEST_PKG)).thenReturn(
                 hasPrivileges ? TelephonyManager.CARRIER_PRIVILEGE_STATUS_HAS_ACCESS
                         : TelephonyManager.CARRIER_PRIVILEGE_STATUS_NO_ACCESS);
     }

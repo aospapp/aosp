@@ -132,7 +132,7 @@ static bool compileBitcode(const std::string &bcFileName,
                            std::vector<const char *> &compileArguments) {
     rsAssert(bitcode && bitcodeSize);
 
-    FILE *bcfile = fopen(bcFileName.c_str(), "w");
+    FILE *bcfile = fopen(bcFileName.c_str(), "we");
     if (!bcfile) {
         ALOGE("Could not write to %s", bcFileName.c_str());
         return false;
@@ -172,7 +172,7 @@ bool isChecksumNeeded(const char *cacheDir) {
 }
 
 bool addFileToChecksum(const char *fileName, uint32_t &checksum) {
-    int FD = open(fileName, O_RDONLY);
+    int FD = open(fileName, O_RDONLY | O_CLOEXEC);
     if (FD == -1) {
         ALOGE("Cannot open file \'%s\' to compute checksum", fileName);
         return false;

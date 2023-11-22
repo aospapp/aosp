@@ -19,7 +19,8 @@ package com.android.internal.telephony;
 import android.os.Bundle;
 import android.os.Parcel;
 import android.telephony.AccessNetworkConstants;
-import android.telephony.NetworkRegistrationState;
+import android.telephony.LteVopsSupportInfo;
+import android.telephony.NetworkRegistrationInfo;
 import android.telephony.ServiceState;
 import android.telephony.TelephonyManager;
 import android.test.suitebuilder.annotation.SmallTest;
@@ -35,6 +36,15 @@ public class ServiceStateTest extends TestCase {
     @SmallTest
     public void testRoaming() {
         ServiceState ss = new ServiceState();
+        // add data registration state
+        NetworkRegistrationInfo nri = new NetworkRegistrationInfo.Builder()
+                .setDomain(NetworkRegistrationInfo.DOMAIN_PS)
+                .setTransportType(AccessNetworkConstants.TRANSPORT_TYPE_WWAN)
+                .setRegistrationState(NetworkRegistrationInfo.REGISTRATION_STATE_ROAMING)
+                .build();
+        ss.addNetworkRegistrationInfo(nri);
+
+        assertTrue(ss.getDataRoamingFromRegistration());
 
         ss.setCdmaDefaultRoamingIndicator(1);
         assertEquals(1, ss.getCdmaDefaultRoamingIndicator());
@@ -51,9 +61,6 @@ public class ServiceStateTest extends TestCase {
         ss.setDataRoamingType(ServiceState.ROAMING_TYPE_DOMESTIC);
         assertTrue(ss.getDataRoaming());
         assertEquals(ServiceState.ROAMING_TYPE_DOMESTIC, ss.getDataRoamingType());
-
-        ss.setDataRoamingFromRegistration(true);
-        assertTrue(ss.getDataRoamingFromRegistration());
 
         ss.setVoiceRoamingType(ServiceState.ROAMING_TYPE_DOMESTIC);
         assertTrue(ss.getVoiceRoaming());
@@ -124,11 +131,22 @@ public class ServiceStateTest extends TestCase {
     public void testRAT() {
         ServiceState ss = new ServiceState();
 
-        ss.setRilDataRadioTechnology(ServiceState.RIL_RADIO_TECHNOLOGY_LTE);
+        NetworkRegistrationInfo nri = new NetworkRegistrationInfo.Builder()
+                .setTransportType(AccessNetworkConstants.TRANSPORT_TYPE_WWAN)
+                .setAccessNetworkTechnology(TelephonyManager.NETWORK_TYPE_LTE)
+                .setDomain(NetworkRegistrationInfo.DOMAIN_PS)
+                .build();
+        ss.addNetworkRegistrationInfo(nri);
         assertEquals(ServiceState.RIL_RADIO_TECHNOLOGY_LTE, ss.getRilDataRadioTechnology());
         assertEquals(TelephonyManager.NETWORK_TYPE_LTE, ss.getDataNetworkType());
 
-        ss.setRilVoiceRadioTechnology(ServiceState.RIL_RADIO_TECHNOLOGY_1xRTT);
+        nri = new NetworkRegistrationInfo.Builder()
+                .setTransportType(AccessNetworkConstants.TRANSPORT_TYPE_WWAN)
+                .setAccessNetworkTechnology(TelephonyManager.NETWORK_TYPE_1xRTT)
+                .setDomain(NetworkRegistrationInfo.DOMAIN_CS)
+                .build();
+        ss.addNetworkRegistrationInfo(nri);
+
         assertEquals(ServiceState.RIL_RADIO_TECHNOLOGY_1xRTT, ss.getRilVoiceRadioTechnology());
         assertEquals(TelephonyManager.NETWORK_TYPE_1xRTT, ss.getVoiceNetworkType());
 
@@ -229,8 +247,6 @@ public class ServiceStateTest extends TestCase {
         ss.setDataRoamingType(ServiceState.ROAMING_TYPE_UNKNOWN);
         ss.setOperatorName("long", "short", "numeric");
         ss.setIsManualSelection(true);
-        ss.setRilVoiceRadioTechnology(ServiceState.RIL_RADIO_TECHNOLOGY_1xRTT);
-        ss.setRilDataRadioTechnology(ServiceState.RIL_RADIO_TECHNOLOGY_EVDO_0);
         ss.setCssIndicator(1);
         ss.setCdmaSystemAndNetworkId(2, 3);
         ss.setCdmaRoamingIndicator(4);
@@ -238,7 +254,6 @@ public class ServiceStateTest extends TestCase {
         ss.setCdmaEriIconIndex(6);
         ss.setCdmaEriIconMode(7);
         ss.setEmergencyOnly(true);
-        ss.setDataRoamingFromRegistration(true);
         ss.setChannelNumber(2100);
         ss.setCellBandwidths(new int[]{1400, 5000, 10000});
 
@@ -253,14 +268,29 @@ public class ServiceStateTest extends TestCase {
     @SmallTest
     public void testBundle() {
         ServiceState ss = new ServiceState();
-        ss.setVoiceRegState(ServiceState.STATE_IN_SERVICE);
-        ss.setDataRegState(ServiceState.STATE_OUT_OF_SERVICE);
+
+        NetworkRegistrationInfo nri = new NetworkRegistrationInfo.Builder()
+                .setTransportType(AccessNetworkConstants.TRANSPORT_TYPE_WWAN)
+                .setAccessNetworkTechnology(TelephonyManager.NETWORK_TYPE_1xRTT)
+                .setRegistrationState(NetworkRegistrationInfo.REGISTRATION_STATE_HOME)
+                .setDomain(NetworkRegistrationInfo.DOMAIN_CS)
+                .build();
+        ss.addNetworkRegistrationInfo(nri);
+
+        nri = new NetworkRegistrationInfo.Builder()
+                .setTransportType(AccessNetworkConstants.TRANSPORT_TYPE_WWAN)
+                .setAccessNetworkTechnology(TelephonyManager.NETWORK_TYPE_EVDO_0)
+                .setRegistrationState(
+                        NetworkRegistrationInfo.REGISTRATION_STATE_NOT_REGISTERED_OR_SEARCHING)
+                .setDomain(NetworkRegistrationInfo.DOMAIN_PS)
+                .build();
+        ss.addNetworkRegistrationInfo(nri);
+
         ss.setVoiceRoamingType(ServiceState.ROAMING_TYPE_INTERNATIONAL);
         ss.setDataRoamingType(ServiceState.ROAMING_TYPE_UNKNOWN);
         ss.setOperatorName("long", "short", "numeric");
         ss.setIsManualSelection(true);
-        ss.setRilVoiceRadioTechnology(ServiceState.RIL_RADIO_TECHNOLOGY_1xRTT);
-        ss.setRilDataRadioTechnology(ServiceState.RIL_RADIO_TECHNOLOGY_EVDO_0);
+
         ss.setCssIndicator(1);
         ss.setCdmaSystemAndNetworkId(2, 3);
         ss.setCdmaRoamingIndicator(4);
@@ -268,7 +298,6 @@ public class ServiceStateTest extends TestCase {
         ss.setCdmaEriIconIndex(6);
         ss.setCdmaEriIconMode(7);
         ss.setEmergencyOnly(true);
-        ss.setDataRoamingFromRegistration(true);
         ss.setChannelNumber(2100);
         ss.setCellBandwidths(new int[]{3, 4, 10});
 
@@ -280,49 +309,57 @@ public class ServiceStateTest extends TestCase {
     }
 
     @SmallTest
-    public void testNetworkRegistrationState() {
-        NetworkRegistrationState wwanVoiceRegState = new NetworkRegistrationState(
-                AccessNetworkConstants.TransportType.WWAN, NetworkRegistrationState.DOMAIN_CS,
+    public void testNetworkRegistrationInfo() {
+        NetworkRegistrationInfo wwanVoiceRegState = new NetworkRegistrationInfo(
+                NetworkRegistrationInfo.DOMAIN_CS, AccessNetworkConstants.TRANSPORT_TYPE_WWAN,
                 0, 0, 0, false,
                 null, null, true, 0, 0, 0);
 
+        LteVopsSupportInfo lteVopsSupportInfo =
+                new LteVopsSupportInfo(LteVopsSupportInfo.LTE_STATUS_NOT_AVAILABLE,
+                        LteVopsSupportInfo.LTE_STATUS_NOT_AVAILABLE);
 
-        NetworkRegistrationState wwanDataRegState = new NetworkRegistrationState(
-                AccessNetworkConstants.TransportType.WWAN, NetworkRegistrationState.DOMAIN_PS,
-                0, 0, 0, false,
-                null, null, 0);
+        NetworkRegistrationInfo wwanDataRegState = new NetworkRegistrationInfo.Builder()
+                .setDomain(NetworkRegistrationInfo.DOMAIN_PS)
+                .setTransportType(AccessNetworkConstants.TRANSPORT_TYPE_WWAN)
+                .build();
 
-        NetworkRegistrationState wlanRegState = new NetworkRegistrationState(
-                AccessNetworkConstants.TransportType.WLAN, NetworkRegistrationState.DOMAIN_PS,
-                0, 0, 0, false,
-                null, null);
+        NetworkRegistrationInfo wlanRegState = new NetworkRegistrationInfo.Builder()
+                .setDomain(NetworkRegistrationInfo.DOMAIN_PS)
+                .setTransportType(AccessNetworkConstants.TRANSPORT_TYPE_WLAN)
+                .build();
 
         ServiceState ss = new ServiceState();
 
-        ss.addNetworkRegistrationState(wwanVoiceRegState);
-        ss.addNetworkRegistrationState(wwanDataRegState);
-        ss.addNetworkRegistrationState(wlanRegState);
+        ss.addNetworkRegistrationInfo(wwanVoiceRegState);
+        ss.addNetworkRegistrationInfo(wwanDataRegState);
+        ss.addNetworkRegistrationInfo(wlanRegState);
 
-        assertEquals(ss.getNetworkRegistrationStates(AccessNetworkConstants.TransportType.WWAN,
-                NetworkRegistrationState.DOMAIN_CS), wwanVoiceRegState);
-        assertEquals(ss.getNetworkRegistrationStates(AccessNetworkConstants.TransportType.WWAN,
-                NetworkRegistrationState.DOMAIN_PS), wwanDataRegState);
-        assertEquals(ss.getNetworkRegistrationStates(AccessNetworkConstants.TransportType.WLAN,
-                NetworkRegistrationState.DOMAIN_PS), wlanRegState);
+        assertEquals(ss.getNetworkRegistrationInfo(NetworkRegistrationInfo.DOMAIN_CS,
+                AccessNetworkConstants.TRANSPORT_TYPE_WWAN), wwanVoiceRegState);
+        assertEquals(ss.getNetworkRegistrationInfo(NetworkRegistrationInfo.DOMAIN_PS,
+                AccessNetworkConstants.TRANSPORT_TYPE_WWAN), wwanDataRegState);
+        assertEquals(ss.getNetworkRegistrationInfo(NetworkRegistrationInfo.DOMAIN_PS,
+                AccessNetworkConstants.TRANSPORT_TYPE_WLAN), wlanRegState);
 
-        wwanDataRegState = new NetworkRegistrationState(
-                AccessNetworkConstants.TransportType.WWAN, NetworkRegistrationState.DOMAIN_PS,
-                0, 0, 0, true,
-                null, null, 0);
-        ss.addNetworkRegistrationState(wwanDataRegState);
-        assertEquals(ss.getNetworkRegistrationStates(AccessNetworkConstants.TransportType.WWAN,
-                NetworkRegistrationState.DOMAIN_PS), wwanDataRegState);
+        wwanDataRegState = new NetworkRegistrationInfo(
+                NetworkRegistrationInfo.DOMAIN_PS, AccessNetworkConstants.TRANSPORT_TYPE_WWAN,
+                0, 0, 0, true, null, null, 0, false, false, false, lteVopsSupportInfo, false);
+        ss.addNetworkRegistrationInfo(wwanDataRegState);
+        assertEquals(ss.getNetworkRegistrationInfo(NetworkRegistrationInfo.DOMAIN_PS,
+                AccessNetworkConstants.TRANSPORT_TYPE_WWAN), wwanDataRegState);
     }
 
     @SmallTest
     public void testDuplexMode_notLte() {
         ServiceState ss = new ServiceState();
-        ss.setRilDataRadioTechnology(ServiceState.RIL_RADIO_TECHNOLOGY_GSM);
+        NetworkRegistrationInfo nri = new NetworkRegistrationInfo.Builder()
+                .setTransportType(AccessNetworkConstants.TRANSPORT_TYPE_WWAN)
+                .setAccessNetworkTechnology(TelephonyManager.NETWORK_TYPE_GSM)
+                .setDomain(NetworkRegistrationInfo.DOMAIN_PS)
+                .build();
+        ss.addNetworkRegistrationInfo(nri);
+
         ss.setChannelNumber(2400);
 
         assertEquals(ss.getDuplexMode(), ServiceState.DUPLEX_MODE_UNKNOWN);
@@ -331,7 +368,13 @@ public class ServiceStateTest extends TestCase {
     @SmallTest
     public void testDuplexMode_invalidEarfcn() {
         ServiceState ss = new ServiceState();
-        ss.setRilDataRadioTechnology(ServiceState.RIL_RADIO_TECHNOLOGY_LTE);
+        NetworkRegistrationInfo nri = new NetworkRegistrationInfo.Builder()
+                .setTransportType(AccessNetworkConstants.TRANSPORT_TYPE_WWAN)
+                .setAccessNetworkTechnology(TelephonyManager.NETWORK_TYPE_LTE)
+                .setDomain(NetworkRegistrationInfo.DOMAIN_PS)
+                .build();
+        ss.addNetworkRegistrationInfo(nri);
+
         ss.setChannelNumber(-1);
 
         assertEquals(ss.getDuplexMode(), ServiceState.DUPLEX_MODE_UNKNOWN);
@@ -344,7 +387,12 @@ public class ServiceStateTest extends TestCase {
     @SmallTest
     public void testDuplexMode_FddChannel() {
         ServiceState ss = new ServiceState();
-        ss.setRilDataRadioTechnology(ServiceState.RIL_RADIO_TECHNOLOGY_LTE);
+        NetworkRegistrationInfo nri = new NetworkRegistrationInfo.Builder()
+                .setTransportType(AccessNetworkConstants.TRANSPORT_TYPE_WWAN)
+                .setAccessNetworkTechnology(TelephonyManager.NETWORK_TYPE_LTE)
+                .setDomain(NetworkRegistrationInfo.DOMAIN_PS)
+                .build();
+        ss.addNetworkRegistrationInfo(nri);
         ss.setChannelNumber(2400); // band 5
 
         assertEquals(ss.getDuplexMode(), ServiceState.DUPLEX_MODE_FDD);
@@ -353,7 +401,12 @@ public class ServiceStateTest extends TestCase {
     @SmallTest
     public void testDuplexMode_TddChannel() {
         ServiceState ss = new ServiceState();
-        ss.setRilDataRadioTechnology(ServiceState.RIL_RADIO_TECHNOLOGY_LTE);
+        NetworkRegistrationInfo nri = new NetworkRegistrationInfo.Builder()
+                .setTransportType(AccessNetworkConstants.TRANSPORT_TYPE_WWAN)
+                .setAccessNetworkTechnology(TelephonyManager.NETWORK_TYPE_LTE)
+                .setDomain(NetworkRegistrationInfo.DOMAIN_PS)
+                .build();
+        ss.addNetworkRegistrationInfo(nri);
         ss.setChannelNumber(36000); // band 33
 
         assertEquals(ss.getDuplexMode(), ServiceState.DUPLEX_MODE_TDD);

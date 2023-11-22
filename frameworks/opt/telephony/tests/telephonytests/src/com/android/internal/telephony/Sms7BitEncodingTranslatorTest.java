@@ -21,7 +21,6 @@ import static org.junit.Assert.fail;
 import static org.mockito.Matchers.anyInt;
 import static org.mockito.Mockito.doReturn;
 
-import android.support.test.filters.FlakyTest;
 import android.test.suitebuilder.annotation.SmallTest;
 
 import org.junit.After;
@@ -32,18 +31,17 @@ import org.mockito.Mock;
 
 import java.io.UnsupportedEncodingException;
 
-@Ignore
 public class Sms7BitEncodingTranslatorTest extends TelephonyTest {
 
     @Mock
-    UiccSmsController mUiccSmsController;
+    SmsController mSmsController;
 
     @Before
     public void setUp() throws Exception {
         logd("+Setup!");
         super.setUp(getClass().getSimpleName());
-        mServiceManagerMockedServices.put("isms", mUiccSmsController);
-        doReturn(false).when(mUiccSmsController).isImsSmsSupportedForSubscriber(anyInt());
+        mServiceManagerMockedServices.put("isms", mSmsController);
+        doReturn(false).when(mSmsController).isImsSmsSupportedForSubscriber(anyInt());
         logd("-Setup!");
     }
 
@@ -52,14 +50,14 @@ public class Sms7BitEncodingTranslatorTest extends TelephonyTest {
         super.tearDown();
     }
 
-    @FlakyTest
+    @Ignore
     @Test
     @SmallTest
     public void testNoTranslate() {
-        assertEquals("123", Sms7BitEncodingTranslator.translate("123"));
+        assertEquals("123", Sms7BitEncodingTranslator.translate("123", false));
     }
 
-    @FlakyTest
+    @Ignore
     @Test
     @SmallTest
     public void testCommonTranslate() {
@@ -70,10 +68,10 @@ public class Sms7BitEncodingTranslatorTest extends TelephonyTest {
         } catch (UnsupportedEncodingException e) {
             fail(e.toString());
         }
-        assertEquals("OIA", Sms7BitEncodingTranslator.translate(s));
+        assertEquals("OIA", Sms7BitEncodingTranslator.translate(s, false));
     }
 
-    @FlakyTest
+    @Ignore
     @Test
     @SmallTest
     public void testGsmTranslate() {
@@ -84,16 +82,13 @@ public class Sms7BitEncodingTranslatorTest extends TelephonyTest {
         } catch (UnsupportedEncodingException e) {
             fail(e.toString());
         }
-        assertEquals("??Ç", Sms7BitEncodingTranslator.translate(s));
+        assertEquals("??Ç", Sms7BitEncodingTranslator.translate(s, false));
     }
 
-    @FlakyTest
+    @Ignore
     @Test
     @SmallTest
     public void testCdmaTranslate() {
-
-        doReturn(PhoneConstants.PHONE_TYPE_CDMA).when(mTelephonyManager).getCurrentPhoneType();
-
         String s = null;
         try {
             s = new String(new byte[]{(byte)0x00, (byte)0xD2,
@@ -101,6 +96,6 @@ public class Sms7BitEncodingTranslatorTest extends TelephonyTest {
         } catch (UnsupportedEncodingException e) {
             fail(e.toString());
         }
-        assertEquals("OUc", Sms7BitEncodingTranslator.translate(s));
+        assertEquals("OUc", Sms7BitEncodingTranslator.translate(s, true));
     }
 }

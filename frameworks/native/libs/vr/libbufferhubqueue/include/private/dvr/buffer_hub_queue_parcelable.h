@@ -28,14 +28,14 @@ class BufferHubQueueParcelable : public Parcelable {
  public:
   BufferHubQueueParcelable() = default;
 
-  BufferHubQueueParcelable(BufferHubQueueParcelable&& other) = default;
-  BufferHubQueueParcelable& operator=(BufferHubQueueParcelable&& other) {
+  BufferHubQueueParcelable(BufferHubQueueParcelable&& other) noexcept = default;
+  BufferHubQueueParcelable& operator=(BufferHubQueueParcelable&& other) noexcept {
     channel_parcelable_ = std::move(other.channel_parcelable_);
     return *this;
   }
 
   // Constructs an parcelable contains the channel parcelable.
-  BufferHubQueueParcelable(
+  explicit BufferHubQueueParcelable(
       std::unique_ptr<pdx::ChannelParcelable> channel_parcelable)
       : channel_parcelable_(std::move(channel_parcelable)) {}
 

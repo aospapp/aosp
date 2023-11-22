@@ -1287,7 +1287,7 @@ void rsDebug(const char *s, const uchar4 *c4) {
     ALOGD("%s {%hhu, %hhu, %hhu, %hhu}  0x%hhx 0x%hhx 0x%hhx 0x%hhx", s, c.x, c.y, c.z, c.w, c.x, c.y, c.z, c.w);
 }
 
-void rsDebug(const char *s, short c) {
+void rsDebug(const char *s, int16_t c) {
     ALOGD("%s %hd  0x%hx", s, c, c);
 }
 
@@ -1306,7 +1306,7 @@ void rsDebug(const char *s, const short4 *c4) {
     ALOGD("%s {%hd, %hd, %hd, %hd}  0x%hx 0x%hx 0x%hx 0x%hx", s, c.x, c.y, c.z, c.w, c.x, c.y, c.z, c.w);
 }
 
-void rsDebug(const char *s, unsigned short c) {
+void rsDebug(const char *s, uint16_t c) {
     ALOGD("%s %hu  0x%hx", s, c, c);
 }
 

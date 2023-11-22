@@ -19,47 +19,89 @@
 
 #include <unordered_map>
 
-#include "minikin/Layout.h"
 #include "minikin/LayoutCache.h"
+#include "minikin/LayoutCore.h"
+#include "minikin/MinikinPaint.h"
 
 namespace minikin {
 
 struct LayoutPieces {
-    struct KeyHasher {
-        std::size_t operator()(const LayoutCacheKey& key) const { return key.hash(); }
+    const static uint32_t kNoPaintId = static_cast<uint32_t>(-1);
+
+    struct Key {
+        Key(const Range& range, HyphenEdit hyphenEdit, bool dir, uint32_t paintId)
+                : range(range), hyphenEdit(hyphenEdit), dir(dir), paintId(paintId) {}
+
+        Range range;
+        HyphenEdit hyphenEdit;
+        bool dir;
+        uint32_t paintId;
+
+        uint32_t hash() const {
+            return Hasher()
+                    .update(range.getStart())
+                    .update(range.getEnd())
+                    .update(hyphenEdit)
+                    .update(dir)
+                    .update(paintId)
+                    .hash();
+        }
+
+        bool operator==(const Key& o) const {
+            return range == o.range && hyphenEdit == o.hyphenEdit && dir == o.dir &&
+                   paintId == o.paintId;
+        }
+
+        uint32_t getMemoryUsage() const {
+            return sizeof(Range) + sizeof(HyphenEdit) + sizeof(bool) + sizeof(uint32_t);
+        }
     };
 
-    LayoutPieces() {}
+    struct KeyHasher {
+        std::size_t operator()(const Key& key) const { return key.hash(); }
+    };
 
-    ~LayoutPieces() {
-        for (const auto it : offsetMap) {
-            const_cast<LayoutCacheKey*>(&it.first)->freeText();
+    struct PaintHasher {
+        std::size_t operator()(const MinikinPaint& paint) const { return paint.hash(); }
+    };
+
+    LayoutPieces() : nextPaintId(0) {}
+    ~LayoutPieces() {}
+
+    uint32_t nextPaintId;
+    std::unordered_map<MinikinPaint, uint32_t, PaintHasher> paintMap;
+    std::unordered_map<Key, LayoutPiece, KeyHasher> offsetMap;
+
+    void insert(const Range& range, HyphenEdit edit, const LayoutPiece& layout, bool dir,
+                const MinikinPaint& paint) {
+        uint32_t paintId = findPaintId(paint);
+        if (paintId == kNoPaintId) {
+            paintId = nextPaintId++;
+            paintMap.insert(std::make_pair(paint, paintId));
         }
-    }
-
-    std::unordered_map<LayoutCacheKey, Layout, KeyHasher> offsetMap;
-
-    void insert(const U16StringPiece& textBuf, const Range& range, const MinikinPaint& paint,
-                bool dir, StartHyphenEdit startEdit, EndHyphenEdit endEdit, const Layout& layout) {
-        auto result = offsetMap.emplace(
-                std::piecewise_construct,
-                std::forward_as_tuple(textBuf, range, paint, dir, startEdit, endEdit),
-                std::forward_as_tuple(layout));
-        if (result.second) {
-            const_cast<LayoutCacheKey*>(&result.first->first)->copyText();
-        }
+        offsetMap.emplace(std::piecewise_construct,
+                          std::forward_as_tuple(range, edit, dir, paintId),
+                          std::forward_as_tuple(layout));
     }
 
     template <typename F>
-    void getOrCreate(const U16StringPiece& textBuf, const Range& range, const MinikinPaint& paint,
-                     bool dir, StartHyphenEdit startEdit, EndHyphenEdit endEdit, F& f) const {
-        auto it = offsetMap.find(LayoutCacheKey(textBuf, range, paint, dir, startEdit, endEdit));
+    void getOrCreate(const U16StringPiece& textBuf, const Range& range, const Range& context,
+                     const MinikinPaint& paint, bool dir, StartHyphenEdit startEdit,
+                     EndHyphenEdit endEdit, uint32_t paintId, F& f) const {
+        const HyphenEdit edit = packHyphenEdit(startEdit, endEdit);
+        auto it = offsetMap.find(Key(range, edit, dir, paintId));
         if (it == offsetMap.end()) {
-            LayoutCache::getInstance().getOrCreate(textBuf, range, paint, dir, startEdit, endEdit,
-                                                   f);
+            LayoutCache::getInstance().getOrCreate(textBuf.substr(context),
+                                                   range - context.getStart(), paint, dir,
+                                                   startEdit, endEdit, f);
         } else {
-            f(it->second);
+            f(it->second, paint);
         }
+    }
+
+    uint32_t findPaintId(const MinikinPaint& paint) const {
+        auto paintIt = paintMap.find(paint);
+        return paintIt == paintMap.end() ? kNoPaintId : paintIt->second;
     }
 
     uint32_t getMemoryUsage() const {
@@ -67,6 +109,7 @@ struct LayoutPieces {
         for (const auto& i : offsetMap) {
             result += i.first.getMemoryUsage() + i.second.getMemoryUsage();
         }
+        result += (sizeof(MinikinPaint) + sizeof(uint32_t)) * paintMap.size();
         return result;
     }
 };

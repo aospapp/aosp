@@ -18,7 +18,7 @@ LOCAL_PATH:= $(call my-dir)
 ## The application with a minimal main dex
 include $(CLEAR_VARS)
 
-LOCAL_STATIC_JAVA_LIBRARIES := android-support-multidex android-support-multidex-instrumentation android-support-test
+LOCAL_STATIC_JAVA_LIBRARIES := android-support-multidex android-support-multidex-instrumentation androidx.test.rules
 LOCAL_MODULE_TAGS := tests
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
@@ -38,16 +38,11 @@ LOCAL_DX_FLAGS := --multi-dex --main-dex-list=$(mainDexList) --minimal-main-dex
 
 LOCAL_MIN_SDK_VERSION := 8
 
-LOCAL_JACK_FLAGS := -D jack.dex.output.policy=minimal-multidex \
-     -D jack.dex.output.multidex.legacy=true
-
 include $(BUILD_PACKAGE)
 
-ifndef LOCAL_JACK_ENABLED
-$(mainDexList): $(full_classes_proguard_jar) | $(MAINDEXCLASSES)
+$(mainDexList): $(full_classes_pre_proguard_jar) $(MAINDEXCLASSES) $(PROGUARD_DEPS)
 	$(hide) mkdir -p $(dir $@)
-	$(MAINDEXCLASSES) $< 1>$@
+	PROGUARD_HOME=$(PROGUARD_HOME) $(MAINDEXCLASSES) $< 1>$@
 	echo "com/android/multidexlegacyandexception/Test.class" >> $@
 
 $(built_dex_intermediate): $(mainDexList)
-endif

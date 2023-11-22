@@ -74,7 +74,7 @@ class WriteOnFdAction : public ActionInterface<WriteOnFdFunction> {
     explicit WriteOnFdAction(const std::string& output) : output_(output) {
     }
     virtual Result Perform(const ArgumentTuple& args) {
-        int fd = ::std::tr1::get<0>(args);
+        int fd = ::testing::get<0>(args);
         android::base::WriteStringToFd(output_, fd);
     }
 
@@ -371,8 +371,8 @@ TEST_F(DumpsysTest, PassAllFlagsToNormalServices) {
                                    IServiceManager::DUMP_FLAG_PRIORITY_NORMAL);
     ExpectCheckService("Locksmith");
     ExpectCheckService("Valet");
-    ExpectDumpWithArgs("Locksmith", {"-a", "--dump-priority", "NORMAL"}, "dump1");
-    ExpectDumpWithArgs("Valet", {"-a", "--dump-priority", "NORMAL"}, "dump2");
+    ExpectDumpWithArgs("Locksmith", {"--dump-priority", "NORMAL", "-a"}, "dump1");
+    ExpectDumpWithArgs("Valet", {"--dump-priority", "NORMAL", "-a"}, "dump2");
 
     CallMain({"--priority", "NORMAL"});
 

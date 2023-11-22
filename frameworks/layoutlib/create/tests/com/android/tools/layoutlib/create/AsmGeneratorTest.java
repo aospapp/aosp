@@ -29,6 +29,7 @@ import org.objectweb.asm.Type;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.InvocationTargetException;
@@ -37,11 +38,9 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.Enumeration;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-import java.util.TreeMap;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
@@ -61,7 +60,7 @@ public class AsmGeneratorTest {
     private File mTempFile;
 
     // ASM internal name for the the class in java package that should be refactored.
-    private static final String JAVA_CLASS_NAME = "java/lang/JavaClass";
+    private static final String JAVA_CLASS_NAME = "notjava.lang.JavaClass";
 
     @Before
     public void setUp() throws Exception {
@@ -69,7 +68,6 @@ public class AsmGeneratorTest {
         URL url = this.getClass().getClassLoader().getResource("data/mock_android.jar");
 
         mOsJarPath = new ArrayList<>();
-        //noinspection ConstantConditions
         mOsJarPath.add(url.getFile());
 
         mTempFile = File.createTempFile("mock", ".jar");
@@ -78,7 +76,7 @@ public class AsmGeneratorTest {
     }
 
     @After
-    public void tearDown() throws Exception {
+    public void tearDown() {
         if (mTempFile != null) {
             //noinspection ResultOfMethodCallIgnored
             mTempFile.delete();
@@ -87,7 +85,7 @@ public class AsmGeneratorTest {
     }
 
     @Test
-    public void testClassRenaming() throws IOException, LogAbortException {
+    public void testClassRenaming() throws IOException {
 
         ICreateInfo ci = new CreateInfoAdapter() {
             @Override
@@ -95,21 +93,21 @@ public class AsmGeneratorTest {
                 // classes to rename (so that we can replace them)
                 return new String[] {
                         "mock_android.view.View", "mock_android.view._Original_View",
-                        "not.an.actual.ClassName", "anoter.fake.NewClassName",
+                        "not.an.actual.ClassName", "another.fake.NewClassName",
                 };
             }
         };
 
-        AsmGenerator agen = new AsmGenerator(mLog, mOsDestJar, ci);
+        AsmGenerator agen = new AsmGenerator(mLog, ci);
 
-        AsmAnalyzer aa = new AsmAnalyzer(mLog, mOsJarPath, agen,
+        AsmAnalyzer aa = new AsmAnalyzer(mLog, mOsJarPath,
                 null,                 // derived from
                 new String[] {        // include classes
                     "**"
                 },
-                Collections.emptySet() /* excluded classes */,
+                new String[]{}  /* excluded classes */,
                 new String[]{} /* include files */);
-        aa.analyze();
+        agen.setAnalysisResult(aa.analyze());
         agen.generate();
 
         Set<String> notRenamed = agen.getClassesNotRenamed();
@@ -118,7 +116,7 @@ public class AsmGeneratorTest {
     }
 
     @Test
-    public void testJavaClassRefactoring() throws IOException, LogAbortException {
+    public void testJavaClassRefactoring() throws IOException {
         ICreateInfo ci = new CreateInfoAdapter() {
             @Override
             public Class<?>[] getInjectedClasses() {
@@ -132,34 +130,33 @@ public class AsmGeneratorTest {
             public String[] getJavaPkgClasses() {
              // classes to refactor (so that we can replace them)
                 return new String[] {
-                        "java.lang.JavaClass", "com.android.tools.layoutlib.create.dataclass.JavaClass",
+                        JAVA_CLASS_NAME, "com.android.tools.layoutlib.create.dataclass.JavaClass",
                 };
             }
 
             @Override
-            public Set<String> getExcludedClasses() {
-                return Collections.singleton("java.lang.JavaClass");
+            public String[] getExcludedClasses() {
+                return new String[]{JAVA_CLASS_NAME};
             }
         };
 
-        AsmGenerator agen = new AsmGenerator(mLog, mOsDestJar, ci);
+        AsmGenerator agen = new AsmGenerator(mLog, ci);
 
-        AsmAnalyzer aa = new AsmAnalyzer(mLog, mOsJarPath, agen,
+        AsmAnalyzer aa = new AsmAnalyzer(mLog, mOsJarPath,
                 null,                 // derived from
                 new String[] {        // include classes
                     "**"
                 },
-                Collections.emptySet(),
+                new String[]{},
                 new String[] {        /* include files */
                     "mock_android/data/data*"
                 });
-        aa.analyze();
-        agen.generate();
-        Map<String, ClassReader> output = new TreeMap<>();
-        Map<String, InputStream> filesFound = new TreeMap<>();
-        parseZip(mOsDestJar, output, filesFound);
+        agen.setAnalysisResult(aa.analyze());
+        Map<String, byte[]> output = agen.generate();
         RecordingClassVisitor cv = new RecordingClassVisitor();
-        for (ClassReader cr: output.values()) {
+        for (Map.Entry<String, byte[]> entry: output.entrySet()) {
+            if (!entry.getKey().endsWith(".class")) continue;
+            ClassReader cr = new ClassReader(entry.getValue());
             cr.accept(cv, 0);
         }
         assertTrue(cv.mVisitedClasses.contains(
@@ -167,11 +164,11 @@ public class AsmGeneratorTest {
         assertFalse(cv.mVisitedClasses.contains(
                 JAVA_CLASS_NAME));
         assertArrayEquals(new String[] {"mock_android/data/dataFile"},
-                filesFound.keySet().toArray());
+                findFileNames(output));
     }
 
     @Test
-    public void testClassRefactoring() throws IOException, LogAbortException {
+    public void testClassRefactoring() throws IOException {
         ICreateInfo ci = new CreateInfoAdapter() {
             @Override
             public Class<?>[] getInjectedClasses() {
@@ -190,21 +187,20 @@ public class AsmGeneratorTest {
             }
         };
 
-        AsmGenerator agen = new AsmGenerator(mLog, mOsDestJar, ci);
+        AsmGenerator agen = new AsmGenerator(mLog, ci);
 
-        AsmAnalyzer aa = new AsmAnalyzer(mLog, mOsJarPath, agen,
+        AsmAnalyzer aa = new AsmAnalyzer(mLog, mOsJarPath,
                 null,                 // derived from
                 new String[] {        // include classes
                         "**"
                 },
-                Collections.emptySet(),
+                new String[]{},
                 new String[] {});
-        aa.analyze();
-        agen.generate();
-        Map<String, ClassReader> output = new TreeMap<>();
-        parseZip(mOsDestJar, output, new TreeMap<>());
+        agen.setAnalysisResult(aa.analyze());
+        Map<String, byte[]> output = agen.generate();
         RecordingClassVisitor cv = new RecordingClassVisitor();
-        for (ClassReader cr: output.values()) {
+        for (byte[] classContent: output.values()) {
+            ClassReader cr = new ClassReader(classContent);
             cr.accept(cv, 0);
         }
         assertTrue(cv.mVisitedClasses.contains(
@@ -214,43 +210,53 @@ public class AsmGeneratorTest {
     }
 
     @Test
-    public void testClassExclusion() throws IOException, LogAbortException {
+    public void testClassExclusion() throws IOException {
         ICreateInfo ci = new CreateInfoAdapter() {
             @Override
-            public Set<String> getExcludedClasses() {
-                Set<String> set = new HashSet<>(2);
-                set.add("mock_android.dummy.InnerTest");
-                set.add("java.lang.JavaClass");
-                return set;
+            public String[] getExcludedClasses() {
+                return new String[] {
+                        "mock_android.dummy2.*",
+                        "mock_android.dummy.**",
+                        "mock_android.util.NotNeeded",
+                        JAVA_CLASS_NAME
+                };
             }
         };
 
-        AsmGenerator agen = new AsmGenerator(mLog, mOsDestJar, ci);
-        Set<String> excludedClasses = ci.getExcludedClasses();
-        AsmAnalyzer aa = new AsmAnalyzer(mLog, mOsJarPath, agen,
+        AsmGenerator agen = new AsmGenerator(mLog, ci);
+        AsmAnalyzer aa = new AsmAnalyzer(mLog, mOsJarPath,
                 null,                 // derived from
                 new String[] {        // include classes
                         "**"
                 },
-                excludedClasses,
+                ci.getExcludedClasses(),
                 new String[] {        /* include files */
                         "mock_android/data/data*"
                 });
-        aa.analyze();
-        agen.generate();
-        Map<String, ClassReader> output = new TreeMap<>();
-        Map<String, InputStream> filesFound = new TreeMap<>();
-        parseZip(mOsDestJar, output, filesFound);
-        for (String s : output.keySet()) {
-            assertFalse(excludedClasses.contains(s));
-        }
+        agen.setAnalysisResult(aa.analyze());
+        Map<String, byte[]> output = agen.generate();
+        // Everything in .dummy.** should be filtered
+        // Only things is .dummy2.* should be filtered
+        assertArrayEquals(new String[] {
+                "mock_android.dummy2.keep.DoNotRemove",
+                "mock_android.util.EmptyArray",
+                "mock_android.view.View",
+                "mock_android.view.ViewGroup",
+                "mock_android.view.ViewGroup$LayoutParams",
+                "mock_android.view.ViewGroup$MarginLayoutParams",
+                "mock_android.widget.LinearLayout",
+                "mock_android.widget.LinearLayout$LayoutParams",
+                "mock_android.widget.TableLayout",
+                "mock_android.widget.TableLayout$LayoutParams"},
+                findClassNames(output)
+        );
         assertArrayEquals(new String[] {"mock_android/data/dataFile"},
-                filesFound.keySet().toArray());
+                findFileNames(output));
     }
 
     @Test
-    public void testMethodInjection() throws IOException, LogAbortException,
-            ClassNotFoundException, IllegalAccessException, InstantiationException,
+    public void testMethodInjection() throws IOException, ClassNotFoundException,
+            IllegalAccessException, InstantiationException,
             NoSuchMethodException, InvocationTargetException {
         ICreateInfo ci = new CreateInfoAdapter() {
             @Override
@@ -260,8 +266,8 @@ public class AsmGeneratorTest {
             }
         };
 
-        AsmGenerator agen = new AsmGenerator(mLog, mOsDestJar, ci);
-        AsmAnalyzer aa = new AsmAnalyzer(mLog, mOsJarPath, agen,
+        AsmGenerator agen = new AsmGenerator(mLog, ci);
+        AsmAnalyzer aa = new AsmAnalyzer(mLog, mOsJarPath,
                 null,                 // derived from
                 new String[] {        // include classes
                         "**"
@@ -270,11 +276,9 @@ public class AsmGeneratorTest {
                 new String[] {        /* include files */
                         "mock_android/data/data*"
                 });
-        aa.analyze();
-        agen.generate();
-        Map<String, ClassReader> output = new TreeMap<>();
-        Map<String, InputStream> filesFound = new TreeMap<>();
-        parseZip(mOsDestJar, output, filesFound);
+        agen.setAnalysisResult(aa.analyze());
+        JarUtil.createJar(new FileOutputStream(mOsDestJar), agen.generate());
+
         final String modifiedClass = "mock_android.util.EmptyArray";
         final String modifiedClassPath = modifiedClass.replace('.', '/').concat(".class");
         ZipFile zipFile = new ZipFile(mOsDestJar);
@@ -310,27 +314,23 @@ public class AsmGeneratorTest {
         return bos.toByteArray();
     }
 
-    private void parseZip(String jarPath,
-            Map<String, ClassReader> classes,
-            Map<String, InputStream> filesFound) throws IOException {
 
-            ZipFile zip = new ZipFile(jarPath);
-            Enumeration<? extends ZipEntry> entries = zip.entries();
-            ZipEntry entry;
-            while (entries.hasMoreElements()) {
-                entry = entries.nextElement();
-                if (entry.getName().endsWith(".class")) {
-                    ClassReader cr = new ClassReader(zip.getInputStream(entry));
-                    String className = classReaderToClassName(cr);
-                    classes.put(className, cr);
-                } else {
-                    filesFound.put(entry.getName(), zip.getInputStream(entry));
-                }
-            }
-
+    private static String[] findClassNames(Map<String, byte[]> content) {
+        return content.entrySet().stream()
+                .filter(entry -> entry.getKey().endsWith(".class"))
+                .map(entry -> classReaderToClassName(new ClassReader(entry.getValue())))
+                .sorted()
+                .toArray(String[]::new);
     }
 
-    private String classReaderToClassName(ClassReader classReader) {
+    private static String[] findFileNames(Map<String, byte[]> content) {
+        return content.keySet().stream()
+                .filter(entry -> !entry.endsWith(".class"))
+                .sorted()
+                .toArray(String[]::new);
+    }
+
+    private static String classReaderToClassName(ClassReader classReader) {
         if (classReader == null) {
             return null;
         } else {

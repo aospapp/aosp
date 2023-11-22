@@ -30,10 +30,13 @@ cc_library_headers {
 cc_library {
     name: "libneuralnetworks",
     defaults: ["neuralnetworks_defaults"],
+    use_version_lib: true,
     host_supported: false,
-    openmp: true,
+    // b/109953668, disable OpenMP
+    // openmp: true,
 
     srcs: [
+        "BurstBuilder.cpp",
         "Callbacks.cpp",
         "CompilationBuilder.cpp",
         "ExecutionBuilder.cpp",
@@ -42,7 +45,8 @@ cc_library {
         "Memory.cpp",
         "ModelBuilder.cpp",
         "NeuralNetworks.cpp",
-        "VersionedIDevice.cpp",
+        "TypeManager.cpp",
+        "VersionedInterfaces.cpp",
     ],
 
     target: {
@@ -50,16 +54,23 @@ cc_library {
             version_script: "libneuralnetworks.map.txt",
             shared_libs: [
                 "libbase",
+                "libbinder",
                 "libcutils",
                 "libhidlbase",
                 "libhidltransport",
                 "libhidlmemory",
                 "liblog",
+                "libnativewindow",
+                "libui",
                 "libutils",
                 "android.hardware.neuralnetworks@1.0",
                 "android.hardware.neuralnetworks@1.1",
+                "android.hardware.neuralnetworks@1.2",
                 "android.hidl.allocator@1.0",
                 "android.hidl.memory@1.0",
+            ],
+            static_libs: [
+                "libcrypto_static",
             ],
         },
         host: {
@@ -72,7 +83,12 @@ cc_library {
         "libneuralnetworks_common",
     ],
 
+    whole_static_libs: [
+        "libprocpartition",
+    ],
+
     shared_libs: [
+        "libfmq",
         "libtextclassifier_hash"
     ],
 

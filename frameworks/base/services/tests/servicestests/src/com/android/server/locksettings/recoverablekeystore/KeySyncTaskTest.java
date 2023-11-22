@@ -20,6 +20,7 @@ import static android.security.keystore.recovery.KeyChainProtectionParams.TYPE_L
 import static android.security.keystore.recovery.KeyChainProtectionParams.UI_FORMAT_PASSWORD;
 import static android.security.keystore.recovery.KeyChainProtectionParams.UI_FORMAT_PATTERN;
 import static android.security.keystore.recovery.KeyChainProtectionParams.UI_FORMAT_PIN;
+
 import static com.android.internal.widget.LockPatternUtils.CREDENTIAL_TYPE_PASSWORD;
 import static com.android.internal.widget.LockPatternUtils.CREDENTIAL_TYPE_PATTERN;
 
@@ -31,7 +32,6 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
-
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
@@ -50,9 +50,10 @@ import android.security.keystore.recovery.KeyDerivationParams;
 import android.security.keystore.recovery.RecoveryController;
 import android.security.keystore.recovery.TrustedRootCertificates;
 import android.security.keystore.recovery.WrappedApplicationKey;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.filters.SmallTest;
-import android.support.test.runner.AndroidJUnit4;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.filters.SmallTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import com.android.server.locksettings.recoverablekeystore.storage.RecoverableKeyStoreDb;
 import com.android.server.locksettings.recoverablekeystore.storage.RecoverySnapshotStorage;
@@ -91,6 +92,9 @@ public class KeySyncTaskTest {
     private static final byte[] TEST_VAULT_HANDLE =
             new byte[]{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17};
     private static final String TEST_APP_KEY_ALIAS = "rcleaver";
+    private static final byte[] TEST_APP_KEY_METADATA_NULL = null;
+    private static final byte[] TEST_APP_KEY_METADATA_NON_NULL =
+            "mdata".getBytes(StandardCharsets.UTF_8);
     private static final int TEST_GENERATION_ID = 2;
     private static final int TEST_CREDENTIAL_TYPE = CREDENTIAL_TYPE_PATTERN;
     private static final String TEST_CREDENTIAL = "pas123";
@@ -135,7 +139,7 @@ public class KeySyncTaskTest {
                 mSnapshotListenersStorage,
                 TEST_USER_ID,
                 TEST_CREDENTIAL_TYPE,
-                TEST_CREDENTIAL,
+                TEST_CREDENTIAL.getBytes(),
                 /*credentialUpdated=*/ false,
                 mPlatformKeyManager,
                 mTestOnlyInsecureCertificateHelper,
@@ -159,17 +163,17 @@ public class KeySyncTaskTest {
 
     @Test
     public void isPin_isTrueForNumericString() {
-        assertTrue(KeySyncTask.isPin("3298432574398654376547"));
+        assertTrue(KeySyncTask.isPin("3298432574398654376547".getBytes()));
     }
 
     @Test
     public void isPin_isFalseForStringContainingLetters() {
-        assertFalse(KeySyncTask.isPin("398i54369548654"));
+        assertFalse(KeySyncTask.isPin("398i54369548654".getBytes()));
     }
 
     @Test
     public void isPin_isFalseForStringContainingSymbols() {
-        assertFalse(KeySyncTask.isPin("-3987543643"));
+        assertFalse(KeySyncTask.isPin("-3987543643".getBytes()));
     }
 
     @Test
@@ -178,8 +182,8 @@ public class KeySyncTaskTest {
         byte[] salt = randomBytes(16);
 
         assertArrayEquals(
-                KeySyncTask.hashCredentialsBySaltedSha256(salt, credentials),
-                KeySyncTask.hashCredentialsBySaltedSha256(salt, credentials));
+                KeySyncTask.hashCredentialsBySaltedSha256(salt, credentials.getBytes()),
+                KeySyncTask.hashCredentialsBySaltedSha256(salt, credentials.getBytes()));
     }
 
     @Test
@@ -188,8 +192,8 @@ public class KeySyncTaskTest {
 
         assertFalse(
                 Arrays.equals(
-                    KeySyncTask.hashCredentialsBySaltedSha256(salt, "password1234"),
-                    KeySyncTask.hashCredentialsBySaltedSha256(salt, "password12345")));
+                    KeySyncTask.hashCredentialsBySaltedSha256(salt, "password1234".getBytes()),
+                    KeySyncTask.hashCredentialsBySaltedSha256(salt, "password12345".getBytes())));
     }
 
     @Test
@@ -198,34 +202,38 @@ public class KeySyncTaskTest {
 
         assertFalse(
                 Arrays.equals(
-                        KeySyncTask.hashCredentialsBySaltedSha256(randomBytes(64), credentials),
-                        KeySyncTask.hashCredentialsBySaltedSha256(randomBytes(64), credentials)));
+                        KeySyncTask.hashCredentialsBySaltedSha256(randomBytes(64),
+                                credentials.getBytes()),
+                        KeySyncTask.hashCredentialsBySaltedSha256(randomBytes(64),
+                                credentials.getBytes())));
     }
 
     @Test
     public void hashCredentialsBySaltedSha256_returnsDifferentHashEvenIfConcatIsSame() {
         assertFalse(
                 Arrays.equals(
-                        KeySyncTask.hashCredentialsBySaltedSha256(utf8Bytes("123"), "4567"),
-                        KeySyncTask.hashCredentialsBySaltedSha256(utf8Bytes("1234"), "567")));
+                        KeySyncTask.hashCredentialsBySaltedSha256(utf8Bytes("123"),
+                                "4567".getBytes()),
+                        KeySyncTask.hashCredentialsBySaltedSha256(utf8Bytes("1234"),
+                                "567".getBytes())));
     }
 
     @Test
     public void getUiFormat_returnsPinIfPin() {
         assertEquals(UI_FORMAT_PIN,
-                KeySyncTask.getUiFormat(CREDENTIAL_TYPE_PASSWORD, "1234"));
+                KeySyncTask.getUiFormat(CREDENTIAL_TYPE_PASSWORD, "1234".getBytes()));
     }
 
     @Test
     public void getUiFormat_returnsPasswordIfPassword() {
         assertEquals(UI_FORMAT_PASSWORD,
-                KeySyncTask.getUiFormat(CREDENTIAL_TYPE_PASSWORD, "1234a"));
+                KeySyncTask.getUiFormat(CREDENTIAL_TYPE_PASSWORD, "1234a".getBytes()));
     }
 
     @Test
     public void getUiFormat_returnsPatternIfPattern() {
         assertEquals(UI_FORMAT_PATTERN,
-                KeySyncTask.getUiFormat(CREDENTIAL_TYPE_PATTERN, "1234"));
+                KeySyncTask.getUiFormat(CREDENTIAL_TYPE_PATTERN, "1234".getBytes()));
 
     }
 
@@ -251,7 +259,7 @@ public class KeySyncTaskTest {
                 TEST_USER_ID,
                 TEST_RECOVERY_AGENT_UID,
                 TEST_APP_KEY_ALIAS,
-                WrappedKey.fromSecretKey(mEncryptKey, applicationKey));
+                WrappedKey.fromSecretKey(mEncryptKey, applicationKey, TEST_APP_KEY_METADATA_NULL));
         when(mSnapshotListenersStorage.hasListener(TEST_RECOVERY_AGENT_UID)).thenReturn(true);
 
         mKeySyncTask.run();
@@ -267,7 +275,7 @@ public class KeySyncTaskTest {
                 TEST_USER_ID,
                 TEST_RECOVERY_AGENT_UID,
                 TEST_APP_KEY_ALIAS,
-                WrappedKey.fromSecretKey(mEncryptKey, applicationKey));
+                WrappedKey.fromSecretKey(mEncryptKey, applicationKey, TEST_APP_KEY_METADATA_NULL));
         mRecoverableKeyStoreDb.setRecoveryServiceCertPath(
                 TEST_USER_ID, TEST_RECOVERY_AGENT_UID, TEST_ROOT_CERT_ALIAS, TestData.CERT_PATH_1);
         when(mSnapshotListenersStorage.hasListener(TEST_RECOVERY_AGENT_UID)).thenReturn(true);
@@ -287,7 +295,7 @@ public class KeySyncTaskTest {
                 mSnapshotListenersStorage,
                 TEST_USER_ID,
                 CREDENTIAL_TYPE_PASSWORD,
-                /*credential=*/ password,
+                /*credential=*/ password.getBytes(),
                 /*credentialUpdated=*/ false,
                 mPlatformKeyManager,
                 mTestOnlyInsecureCertificateHelper,
@@ -328,7 +336,7 @@ public class KeySyncTaskTest {
                 mSnapshotListenersStorage,
                 TEST_USER_ID,
                 CREDENTIAL_TYPE_PATTERN,
-                /*credential=*/ pattern,
+                /*credential=*/ pattern.getBytes(),
                 /*credentialUpdated=*/ false,
                 mPlatformKeyManager,
                 mTestOnlyInsecureCertificateHelper,
@@ -362,7 +370,7 @@ public class KeySyncTaskTest {
                 mSnapshotListenersStorage,
                 TEST_USER_ID,
                 CREDENTIAL_TYPE_PASSWORD,
-                /*credential=*/ shortPassword,
+                /*credential=*/ shortPassword.getBytes(),
                 /*credentialUpdated=*/ false,
                 mPlatformKeyManager,
                 mTestOnlyInsecureCertificateHelper,
@@ -522,7 +530,7 @@ public class KeySyncTaskTest {
         verify(mSnapshotListenersStorage).recoverySnapshotAvailable(TEST_RECOVERY_AGENT_UID);
         byte[] lockScreenHash = KeySyncTask.hashCredentialsBySaltedSha256(
                 keyDerivationParams.getSalt(),
-                TEST_CREDENTIAL);
+                TEST_CREDENTIAL.getBytes());
         Long counterId = mRecoverableKeyStoreDb.getCounterId(TEST_USER_ID, TEST_RECOVERY_AGENT_UID);
         assertThat(counterId).isNotNull();
         byte[] recoveryKey = decryptThmEncryptedKey(
@@ -545,18 +553,20 @@ public class KeySyncTaskTest {
         assertEquals(TEST_APP_KEY_ALIAS, keyData.getAlias());
         assertThat(keyData.getAlias()).isEqualTo(keyData.getAlias());
         byte[] appKey = KeySyncUtils.decryptApplicationKey(
-                recoveryKey, keyData.getEncryptedKeyMaterial());
+                recoveryKey, keyData.getEncryptedKeyMaterial(), TEST_APP_KEY_METADATA_NULL);
         assertThat(appKey).isEqualTo(applicationKey.getEncoded());
     }
 
     @Test
-    public void run_sendsEncryptedKeysIfAvailableToSync_withCertPath() throws Exception {
+    public void run_sendsEncryptedKeysIfAvailableToSync_withCertPath_withNullKeyMetadata()
+            throws Exception {
         mRecoverableKeyStoreDb.setRecoveryServiceCertPath(
                 TEST_USER_ID, TEST_RECOVERY_AGENT_UID, TEST_ROOT_CERT_ALIAS, TestData.CERT_PATH_1);
         mRecoverableKeyStoreDb.setServerParams(
                 TEST_USER_ID, TEST_RECOVERY_AGENT_UID, TEST_VAULT_HANDLE);
         when(mSnapshotListenersStorage.hasListener(TEST_RECOVERY_AGENT_UID)).thenReturn(true);
-        addApplicationKey(TEST_USER_ID, TEST_RECOVERY_AGENT_UID, TEST_APP_KEY_ALIAS);
+        addApplicationKey(TEST_USER_ID, TEST_RECOVERY_AGENT_UID, TEST_APP_KEY_ALIAS,
+                TEST_APP_KEY_METADATA_NULL);
 
         mKeySyncTask.run();
 
@@ -564,6 +574,33 @@ public class KeySyncTaskTest {
         verify(mSnapshotListenersStorage).recoverySnapshotAvailable(TEST_RECOVERY_AGENT_UID);
         List<WrappedApplicationKey> applicationKeys = keyChainSnapshot.getWrappedApplicationKeys();
         assertThat(applicationKeys).hasSize(1);
+        WrappedApplicationKey keyData = applicationKeys.get(0);
+        assertThat(keyData.getAlias()).isEqualTo(TEST_APP_KEY_ALIAS);
+        assertThat(keyData.getMetadata()).isEqualTo(TEST_APP_KEY_METADATA_NULL);
+        assertThat(keyChainSnapshot.getTrustedHardwareCertPath())
+                .isEqualTo(TestData.CERT_PATH_1);
+    }
+
+    @Test
+    public void run_sendsEncryptedKeysIfAvailableToSync_withCertPath_withNonNullKeyMetadata()
+            throws Exception {
+        mRecoverableKeyStoreDb.setRecoveryServiceCertPath(
+                TEST_USER_ID, TEST_RECOVERY_AGENT_UID, TEST_ROOT_CERT_ALIAS, TestData.CERT_PATH_1);
+        mRecoverableKeyStoreDb.setServerParams(
+                TEST_USER_ID, TEST_RECOVERY_AGENT_UID, TEST_VAULT_HANDLE);
+        when(mSnapshotListenersStorage.hasListener(TEST_RECOVERY_AGENT_UID)).thenReturn(true);
+        addApplicationKey(TEST_USER_ID, TEST_RECOVERY_AGENT_UID, TEST_APP_KEY_ALIAS,
+                TEST_APP_KEY_METADATA_NON_NULL);
+
+        mKeySyncTask.run();
+
+        KeyChainSnapshot keyChainSnapshot = mRecoverySnapshotStorage.get(TEST_RECOVERY_AGENT_UID);
+        verify(mSnapshotListenersStorage).recoverySnapshotAvailable(TEST_RECOVERY_AGENT_UID);
+        List<WrappedApplicationKey> applicationKeys = keyChainSnapshot.getWrappedApplicationKeys();
+        assertThat(applicationKeys).hasSize(1);
+        WrappedApplicationKey keyData = applicationKeys.get(0);
+        assertThat(keyData.getAlias()).isEqualTo(TEST_APP_KEY_ALIAS);
+        assertThat(keyData.getMetadata()).isEqualTo(TEST_APP_KEY_METADATA_NON_NULL);
         assertThat(keyChainSnapshot.getTrustedHardwareCertPath())
                 .isEqualTo(TestData.CERT_PATH_1);
     }
@@ -616,7 +653,7 @@ public class KeySyncTaskTest {
                 mSnapshotListenersStorage,
                 TEST_USER_ID,
                 CREDENTIAL_TYPE_PASSWORD,
-                password,
+                password.getBytes(),
                 /*credentialUpdated=*/ false,
                 mPlatformKeyManager,
                 mTestOnlyInsecureCertificateHelper,
@@ -647,7 +684,7 @@ public class KeySyncTaskTest {
                 mSnapshotListenersStorage,
                 TEST_USER_ID,
                 CREDENTIAL_TYPE_PASSWORD,
-                /*credential=*/ pin,
+                /*credential=*/ pin.getBytes(),
                 /*credentialUpdated=*/ false,
                 mPlatformKeyManager,
                 mTestOnlyInsecureCertificateHelper,
@@ -679,7 +716,7 @@ public class KeySyncTaskTest {
                 mSnapshotListenersStorage,
                 TEST_USER_ID,
                 CREDENTIAL_TYPE_PATTERN,
-                "12345",
+                "12345".getBytes(),
                 /*credentialUpdated=*/ false,
                 mPlatformKeyManager,
                 mTestOnlyInsecureCertificateHelper,
@@ -763,7 +800,7 @@ public class KeySyncTaskTest {
           mSnapshotListenersStorage,
           TEST_USER_ID,
           /*credentialType=*/ 3,
-          "12345",
+          "12345".getBytes(),
           /*credentialUpdated=*/ false,
           mPlatformKeyManager,
           mTestOnlyInsecureCertificateHelper,
@@ -788,6 +825,11 @@ public class KeySyncTaskTest {
 
     private SecretKey addApplicationKey(int userId, int recoveryAgentUid, String alias)
             throws Exception{
+        return addApplicationKey(userId, recoveryAgentUid, alias, TEST_APP_KEY_METADATA_NULL);
+    }
+
+    private SecretKey addApplicationKey(int userId, int recoveryAgentUid, String alias,
+            byte[] metadata) throws Exception {
         SecretKey applicationKey = generateKey();
         mRecoverableKeyStoreDb.setServerParams(
                 userId, recoveryAgentUid, TEST_VAULT_HANDLE);
@@ -800,7 +842,7 @@ public class KeySyncTaskTest {
                 userId,
                 recoveryAgentUid,
                 alias,
-                WrappedKey.fromSecretKey(mEncryptKey, applicationKey));
+                WrappedKey.fromSecretKey(mEncryptKey, applicationKey, metadata));
         return applicationKey;
     }
 

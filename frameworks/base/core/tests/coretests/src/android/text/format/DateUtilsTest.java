@@ -22,8 +22,9 @@ import android.content.res.Configuration;
 import android.content.res.Resources;
 import android.os.LocaleList;
 import android.platform.test.annotations.Presubmit;
-import android.support.test.filters.SmallTest;
-import android.support.test.runner.AndroidJUnit4;
+
+import androidx.test.filters.SmallTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.After;
 import org.junit.Before;
@@ -117,7 +118,7 @@ public class DateUtilsTest {
     @Test
     public void testFormatSameDayTime() {
         // This test assumes a default DateFormat.is24Hour setting.
-        DateFormat.is24Hour = null;
+        DateFormat.set24HourTimePref(null);
         Date date = new Date(109, 0, 19, 3, 30, 15);
         long fixedTime = date.getTime();
 

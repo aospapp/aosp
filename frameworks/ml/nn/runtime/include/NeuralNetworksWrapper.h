@@ -22,6 +22,8 @@
 #include "NeuralNetworks.h"
 
 #include <math.h>
+#include <optional>
+#include <string>
 #include <vector>
 
 namespace android {
@@ -35,6 +37,14 @@ enum class Type {
     TENSOR_FLOAT32 = ANEURALNETWORKS_TENSOR_FLOAT32,
     TENSOR_INT32 = ANEURALNETWORKS_TENSOR_INT32,
     TENSOR_QUANT8_ASYMM = ANEURALNETWORKS_TENSOR_QUANT8_ASYMM,
+    BOOL = ANEURALNETWORKS_BOOL,
+    TENSOR_QUANT16_SYMM = ANEURALNETWORKS_TENSOR_QUANT16_SYMM,
+    TENSOR_FLOAT16 = ANEURALNETWORKS_TENSOR_FLOAT16,
+    TENSOR_BOOL8 = ANEURALNETWORKS_TENSOR_BOOL8,
+    FLOAT16 = ANEURALNETWORKS_FLOAT16,
+    TENSOR_QUANT8_SYMM_PER_CHANNEL = ANEURALNETWORKS_TENSOR_QUANT8_SYMM_PER_CHANNEL,
+    TENSOR_QUANT16_ASYMM = ANEURALNETWORKS_TENSOR_QUANT16_ASYMM,
+    TENSOR_QUANT8_SYMM = ANEURALNETWORKS_TENSOR_QUANT8_SYMM,
 };
 
 enum class ExecutePreference {
@@ -52,28 +62,93 @@ enum class Result {
     OP_FAILED = ANEURALNETWORKS_OP_FAILED,
     UNMAPPABLE = ANEURALNETWORKS_UNMAPPABLE,
     BAD_STATE = ANEURALNETWORKS_BAD_STATE,
+    OUTPUT_INSUFFICIENT_SIZE = ANEURALNETWORKS_OUTPUT_INSUFFICIENT_SIZE,
+    UNAVAILABLE_DEVICE = ANEURALNETWORKS_UNAVAILABLE_DEVICE,
+};
+
+struct SymmPerChannelQuantParams {
+    ANeuralNetworksSymmPerChannelQuantParams params;
+    std::vector<float> scales;
+
+    SymmPerChannelQuantParams(std::vector<float> scalesVec, uint32_t channelDim)
+        : scales(std::move(scalesVec)) {
+        params = {
+                .channelDim = channelDim,
+                .scaleCount = static_cast<uint32_t>(scales.size()),
+                .scales = scales.size() > 0 ? scales.data() : nullptr,
+        };
+    }
+
+    SymmPerChannelQuantParams(const SymmPerChannelQuantParams& other)
+        : params(other.params), scales(other.scales) {
+        params.scales = scales.size() > 0 ? scales.data() : nullptr;
+    }
+
+    SymmPerChannelQuantParams& operator=(const SymmPerChannelQuantParams& other) {
+        if (this != &other) {
+            params = other.params;
+            scales = other.scales;
+            params.scales = scales.size() > 0 ? scales.data() : nullptr;
+        }
+        return *this;
+    }
 };
 
 struct OperandType {
     ANeuralNetworksOperandType operandType;
     std::vector<uint32_t> dimensions;
+    std::optional<SymmPerChannelQuantParams> channelQuant;
+
+    OperandType(const OperandType& other)
+        : operandType(other.operandType),
+          dimensions(other.dimensions),
+          channelQuant(other.channelQuant) {
+        operandType.dimensions = dimensions.size() > 0 ? dimensions.data() : nullptr;
+    }
+
+    OperandType& operator=(const OperandType& other) {
+        if (this != &other) {
+            operandType = other.operandType;
+            dimensions = other.dimensions;
+            channelQuant = other.channelQuant;
+            operandType.dimensions = dimensions.size() > 0 ? dimensions.data() : nullptr;
+        }
+        return *this;
+    }
 
     OperandType(Type type, std::vector<uint32_t> d, float scale = 0.0f, int32_t zeroPoint = 0)
-            : dimensions(std::move(d)) {
+        : dimensions(std::move(d)), channelQuant(std::nullopt) {
         operandType = {
-            .type = static_cast<int32_t>(type),
-            .dimensionCount = static_cast<uint32_t>(dimensions.size()),
-            .dimensions = dimensions.size() > 0 ? dimensions.data() : nullptr,
-            .scale = scale,
-            .zeroPoint = zeroPoint,
+                .type = static_cast<int32_t>(type),
+                .dimensionCount = static_cast<uint32_t>(dimensions.size()),
+                .dimensions = dimensions.size() > 0 ? dimensions.data() : nullptr,
+                .scale = scale,
+                .zeroPoint = zeroPoint,
+        };
+    }
+
+    OperandType(Type type, std::vector<uint32_t> data, float scale, int32_t zeroPoint,
+                SymmPerChannelQuantParams&& channelQuant)
+        : dimensions(std::move(data)), channelQuant(std::move(channelQuant)) {
+        operandType = {
+                .type = static_cast<int32_t>(type),
+                .dimensionCount = static_cast<uint32_t>(dimensions.size()),
+                .dimensions = dimensions.size() > 0 ? dimensions.data() : nullptr,
+                .scale = scale,
+                .zeroPoint = zeroPoint,
         };
     }
 };
 
 class Memory {
-public:
+   public:
     Memory(size_t size, int protect, int fd, size_t offset) {
         mValid = ANeuralNetworksMemory_createFromFd(size, protect, fd, offset, &mMemory) ==
+                 ANEURALNETWORKS_NO_ERROR;
+    }
+
+    Memory(AHardwareBuffer* buffer) {
+        mValid = ANeuralNetworksMemory_createFromAHardwareBuffer(buffer, &mMemory) ==
                  ANEURALNETWORKS_NO_ERROR;
     }
 
@@ -103,13 +178,13 @@ public:
     ANeuralNetworksMemory* get() const { return mMemory; }
     bool isValid() const { return mValid; }
 
-private:
+   private:
     ANeuralNetworksMemory* mMemory = nullptr;
     bool mValid = true;
 };
 
 class Model {
-public:
+   public:
     Model() {
         // TODO handle the value returned by this call
         ANeuralNetworksModel_create(&mModel);
@@ -156,6 +231,13 @@ public:
             ANEURALNETWORKS_NO_ERROR) {
             mValid = false;
         }
+        if (type->channelQuant) {
+            if (ANeuralNetworksModel_setOperandSymmPerChannelQuantParams(
+                        mModel, mNextOperandId, &type->channelQuant.value().params) !=
+                ANEURALNETWORKS_NO_ERROR) {
+                mValid = false;
+            }
+        }
         return mNextOperandId++;
     }
 
@@ -185,16 +267,16 @@ public:
     void identifyInputsAndOutputs(const std::vector<uint32_t>& inputs,
                                   const std::vector<uint32_t>& outputs) {
         if (ANeuralNetworksModel_identifyInputsAndOutputs(
-                        mModel, static_cast<uint32_t>(inputs.size()), inputs.data(),
-                        static_cast<uint32_t>(outputs.size()),
-                        outputs.data()) != ANEURALNETWORKS_NO_ERROR) {
+                    mModel, static_cast<uint32_t>(inputs.size()), inputs.data(),
+                    static_cast<uint32_t>(outputs.size()),
+                    outputs.data()) != ANEURALNETWORKS_NO_ERROR) {
             mValid = false;
         }
     }
 
     void relaxComputationFloat32toFloat16(bool isRelax) {
         if (ANeuralNetworksModel_relaxComputationFloat32toFloat16(mModel, isRelax) ==
-                ANEURALNETWORKS_NO_ERROR) {
+            ANEURALNETWORKS_NO_ERROR) {
             mRelaxed = isRelax;
         }
     }
@@ -203,7 +285,7 @@ public:
     bool isValid() const { return mValid; }
     bool isRelaxed() const { return mRelaxed; }
 
-private:
+   protected:
     ANeuralNetworksModel* mModel = nullptr;
     // We keep track of the operand ID as a convenience to the caller.
     uint32_t mNextOperandId = 0;
@@ -212,7 +294,7 @@ private:
 };
 
 class Event {
-public:
+   public:
     Event() {}
     ~Event() { ANeuralNetworksEvent_free(mEvent); }
 
@@ -243,12 +325,12 @@ public:
         mEvent = newEvent;
     }
 
-private:
+   private:
     ANeuralNetworksEvent* mEvent = nullptr;
 };
 
 class Compilation {
-public:
+   public:
     Compilation(const Model* model) {
         int result = ANeuralNetworksCompilation_create(model->getHandle(), &mCompilation);
         if (result != 0) {
@@ -279,19 +361,27 @@ public:
 
     Result setPreference(ExecutePreference preference) {
         return static_cast<Result>(ANeuralNetworksCompilation_setPreference(
-                    mCompilation, static_cast<int32_t>(preference)));
+                mCompilation, static_cast<int32_t>(preference)));
+    }
+
+    Result setCaching(const std::string& cacheDir, const std::vector<uint8_t>& token) {
+        if (token.size() != ANEURALNETWORKS_BYTE_SIZE_OF_CACHE_TOKEN) {
+            return Result::BAD_DATA;
+        }
+        return static_cast<Result>(ANeuralNetworksCompilation_setCaching(
+                mCompilation, cacheDir.c_str(), token.data()));
     }
 
     Result finish() { return static_cast<Result>(ANeuralNetworksCompilation_finish(mCompilation)); }
 
     ANeuralNetworksCompilation* getHandle() const { return mCompilation; }
 
-private:
+   private:
     ANeuralNetworksCompilation* mCompilation = nullptr;
 };
 
 class Execution {
-public:
+   public:
     Execution(const Compilation* compilation) {
         int result = ANeuralNetworksExecution_create(compilation->getHandle(), &mExecution);
         if (result != 0) {
@@ -323,25 +413,25 @@ public:
     Result setInput(uint32_t index, const void* buffer, size_t length,
                     const ANeuralNetworksOperandType* type = nullptr) {
         return static_cast<Result>(
-                    ANeuralNetworksExecution_setInput(mExecution, index, type, buffer, length));
+                ANeuralNetworksExecution_setInput(mExecution, index, type, buffer, length));
     }
 
     Result setInputFromMemory(uint32_t index, const Memory* memory, uint32_t offset,
                               uint32_t length, const ANeuralNetworksOperandType* type = nullptr) {
         return static_cast<Result>(ANeuralNetworksExecution_setInputFromMemory(
-                    mExecution, index, type, memory->get(), offset, length));
+                mExecution, index, type, memory->get(), offset, length));
     }
 
     Result setOutput(uint32_t index, void* buffer, size_t length,
                      const ANeuralNetworksOperandType* type = nullptr) {
         return static_cast<Result>(
-                    ANeuralNetworksExecution_setOutput(mExecution, index, type, buffer, length));
+                ANeuralNetworksExecution_setOutput(mExecution, index, type, buffer, length));
     }
 
     Result setOutputFromMemory(uint32_t index, const Memory* memory, uint32_t offset,
                                uint32_t length, const ANeuralNetworksOperandType* type = nullptr) {
         return static_cast<Result>(ANeuralNetworksExecution_setOutputFromMemory(
-                    mExecution, index, type, memory->get(), offset, length));
+                mExecution, index, type, memory->get(), offset, length));
     }
 
     Result startCompute(Event* event) {
@@ -351,21 +441,23 @@ public:
         return result;
     }
 
-    Result compute() {
-        ANeuralNetworksEvent* event = nullptr;
-        Result result =
-                    static_cast<Result>(ANeuralNetworksExecution_startCompute(mExecution, &event));
-        if (result != Result::NO_ERROR) {
+    Result compute() { return static_cast<Result>(ANeuralNetworksExecution_compute(mExecution)); }
+
+    Result getOutputOperandDimensions(uint32_t index, std::vector<uint32_t>* dimensions) {
+        uint32_t rank = 0;
+        Result result = static_cast<Result>(
+                ANeuralNetworksExecution_getOutputOperandRank(mExecution, index, &rank));
+        dimensions->resize(rank);
+        if ((result != Result::NO_ERROR && result != Result::OUTPUT_INSUFFICIENT_SIZE) ||
+            rank == 0) {
             return result;
         }
-        // TODO how to manage the lifetime of events when multiple waiters is not
-        // clear.
-        result = static_cast<Result>(ANeuralNetworksEvent_wait(event));
-        ANeuralNetworksEvent_free(event);
+        result = static_cast<Result>(ANeuralNetworksExecution_getOutputOperandDimensions(
+                mExecution, index, dimensions->data()));
         return result;
     }
 
-private:
+   private:
     ANeuralNetworksExecution* mExecution = nullptr;
 };
 

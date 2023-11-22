@@ -31,14 +31,15 @@ set -e # fail early
 echo "+ mmma -j32 $ANDROID_BUILD_TOP/frameworks/opt/net/wifi/tests"
 # NOTE Don't actually run the command above since this shell doesn't inherit functions from the
 #      caller.
-make -j32 -C $ANDROID_BUILD_TOP -f build/core/main.mk MODULES-IN-frameworks-opt-net-wifi-tests
+$ANDROID_BUILD_TOP/build/soong/soong_ui.bash --make-mode MODULES-IN-frameworks-opt-net-wifi-tests
+APK_NAME="$(ls -t $(find $OUT -name FrameworksWifiTests.apk) | head -n 1)"
 
 set -x # print commands
 
 adb root
 adb wait-for-device
 
-adb install -r -g "$OUT/data/app/FrameworksWifiTests/FrameworksWifiTests.apk"
+adb install -r -g "$APK_NAME"
 
 adb shell am instrument --no-hidden-api-checks -w "$@" \
   'com.android.server.wifi.test/com.android.server.wifi.CustomTestRunner'

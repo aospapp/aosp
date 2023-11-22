@@ -21,6 +21,7 @@
 #include "tests/common/TestContext.h"
 #include "tests/common/TestScene.h"
 #include "tests/common/scenes/TestSceneBase.h"
+#include "utils/TraceUtils.h"
 
 #include <benchmark/benchmark.h>
 #include <gui/Surface.h>
@@ -81,11 +82,11 @@ void outputBenchmarkReport(const TestScene::Info& info, const TestScene::Options
     // mean and stddev which doesn't make sense for our usage
     std::vector<BenchmarkReporter::Run> reports;
     BenchmarkReporter::Run report;
-    report.benchmark_name = info.name;
+    report.run_name = info.name;
     report.iterations = static_cast<int64_t>(opts.count);
     report.real_accumulated_time = durationInS;
     report.cpu_accumulated_time = durationInS;
-    report.items_per_second = opts.count / durationInS;
+    report.counters["items_per_second"] = opts.count / durationInS;
     reports.push_back(report);
     reporter->ReportRuns(reports);
 
@@ -94,13 +95,13 @@ void outputBenchmarkReport(const TestScene::Info& info, const TestScene::Options
     // in that test case than percentiles.
     if (!opts.renderOffscreen) {
         for (auto& ri : REPORTS) {
-            reports[0].benchmark_name = info.name;
-            reports[0].benchmark_name += ri.suffix;
+            reports[0].run_name = info.name;
+            reports[0].run_name += ri.suffix;
             durationInS = proxy->frameTimePercentile(ri.percentile) / 1000.0;
             reports[0].real_accumulated_time = durationInS;
             reports[0].cpu_accumulated_time = durationInS;
             reports[0].iterations = 1;
-            reports[0].items_per_second = 0;
+            reports[0].counters["items_per_second"] = 0;
             reporter->ReportRuns(reports);
         }
     }
@@ -109,7 +110,7 @@ void outputBenchmarkReport(const TestScene::Info& info, const TestScene::Options
 void run(const TestScene::Info& info, const TestScene::Options& opts,
          benchmark::BenchmarkReporter* reporter) {
     // Switch to the real display
-    gDisplay = getBuiltInDisplay();
+    gDisplay = getInternalDisplay();
 
     Properties::forceDrawFrame = true;
     TestContext testContext;
@@ -132,10 +133,10 @@ void run(const TestScene::Info& info, const TestScene::Options& opts,
     ContextFactory factory;
     std::unique_ptr<RenderProxy> proxy(new RenderProxy(false, rootNode.get(), &factory));
     proxy->loadSystemProperties();
-    proxy->initialize(surface);
+    proxy->setSurface(surface);
     float lightX = width / 2.0;
-    proxy->setup(dp(800.0f), 255 * 0.075, 255 * 0.15);
-    proxy->setLightCenter((Vector3){lightX, dp(-200.0f), dp(800.0f)});
+    proxy->setLightAlpha(255 * 0.075, 255 * 0.15);
+    proxy->setLightGeometry((Vector3){lightX, dp(-200.0f), dp(800.0f)}, dp(800.0f));
 
     // Do a few cold runs then reset the stats so that the caches are all hot
     int warmupFrameCount = 5;
@@ -152,6 +153,11 @@ void run(const TestScene::Info& info, const TestScene::Options& opts,
 
     proxy->resetProfileInfo();
     proxy->fence();
+
+    if (opts.renderAhead) {
+        usleep(33000);
+    }
+    proxy->setRenderAheadDepth(opts.renderAhead);
 
     ModifiedMovingAverage<double> avgMs(opts.reportFrametimeWeight);
 

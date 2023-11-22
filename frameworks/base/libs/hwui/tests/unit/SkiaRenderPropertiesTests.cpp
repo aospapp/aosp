@@ -18,7 +18,6 @@
 #include <gtest/gtest.h>
 
 #include <SkClipStack.h>
-#include <SkLiteRecorder.h>
 #include <SkSurface_Base.h>
 #include <string.h>
 #include "AnimationContext.h"
@@ -45,7 +44,7 @@ static void testProperty(std::function<void(RenderProperties&)> propSetupCallbac
     static const int CANVAS_HEIGHT = 100;
     class PropertyTestCanvas : public TestCanvasBase {
     public:
-        PropertyTestCanvas(std::function<void(const SkCanvas&)> callback)
+        explicit PropertyTestCanvas(std::function<void(const SkCanvas&)> callback)
                 : TestCanvasBase(CANVAS_WIDTH, CANVAS_HEIGHT), mCallback(callback) {}
         void onDrawRect(const SkRect& rect, const SkPaint& paint) override {
             EXPECT_EQ(mDrawCounter++, 0);

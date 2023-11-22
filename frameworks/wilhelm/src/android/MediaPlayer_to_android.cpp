@@ -334,7 +334,8 @@ XAresult android_Player_checkSourceSink(CMediaPlayer *mp) {
         }
     } break;
 
-    case XA_DATALOCATOR_URI: // intended fall-through
+    case XA_DATALOCATOR_URI:
+        FALLTHROUGH_INTENDED;
     case XA_DATALOCATOR_ANDROIDFD:
         break;
 
@@ -378,11 +379,13 @@ XAresult android_Player_create(CMediaPlayer *mp) {
     case XA_DATALOCATOR_ANDROIDBUFFERQUEUE:
         mp->mAndroidObjType = AUDIOVIDEOPLAYER_FROM_TS_ANDROIDBUFFERQUEUE;
         break;
-    case XA_DATALOCATOR_URI: // intended fall-through
+    case XA_DATALOCATOR_URI:
+        FALLTHROUGH_INTENDED;
     case SL_DATALOCATOR_ANDROIDFD:
         mp->mAndroidObjType = AUDIOVIDEOPLAYER_FROM_URIFD;
         break;
-    case XA_DATALOCATOR_ADDRESS: // intended fall-through
+    case XA_DATALOCATOR_ADDRESS:
+        FALLTHROUGH_INTENDED;
     default:
         mp->mAndroidObjType = INVALID_TYPE;
         SL_LOGE("Unable to create MediaPlayer for data source locator 0x%x", sourceLocator);
@@ -446,7 +449,8 @@ XAresult android_Player_realize(CMediaPlayer *mp, SLboolean async) {
         }
         }
         break;
-    case INVALID_TYPE: // intended fall-through
+    case INVALID_TYPE:
+        FALLTHROUGH_INTENDED;
     default:
         SL_LOGE("Unable to realize MediaPlayer, invalid internal Android object type");
         result = XA_RESULT_PARAMETER_INVALID;
@@ -534,7 +538,8 @@ XAresult android_Player_getDuration(IPlay *pPlayItf, XAmillisecond *pDurMsec) {
         }
     } break;
 
-    case AUDIOVIDEOPLAYER_FROM_TS_ANDROIDBUFFERQUEUE: // intended fall-through
+    case AUDIOVIDEOPLAYER_FROM_TS_ANDROIDBUFFERQUEUE:
+        FALLTHROUGH_INTENDED;
     default:
         *pDurMsec = XA_TIME_UNKNOWN;
         break;
@@ -551,7 +556,8 @@ XAresult android_Player_getPosition(IPlay *pPlayItf, XAmillisecond *pPosMsec) {
 
     switch (avp->mAndroidObjType) {
 
-    case AUDIOVIDEOPLAYER_FROM_TS_ANDROIDBUFFERQUEUE: // intended fall-through
+    case AUDIOVIDEOPLAYER_FROM_TS_ANDROIDBUFFERQUEUE:
+        FALLTHROUGH_INTENDED;
     case AUDIOVIDEOPLAYER_FROM_URIFD: {
         int pos = ANDROID_UNKNOWN_TIME;
         if (avp->mAVPlayer != 0) {
@@ -631,9 +637,9 @@ XAresult android_Player_setPlayState(const android::sp<android::GenericPlayer> &
          case ANDROID_UNINITIALIZED:
              *pObjState = ANDROID_PREPARING;
              gp->prepare();
-             // intended fall through
+             FALLTHROUGH_INTENDED;
          case ANDROID_PREPARING:
-             // intended fall through
+             FALLTHROUGH_INTENDED;
          case ANDROID_READY:
              gp->play();
              break;
@@ -663,7 +669,8 @@ XAresult android_Player_seek(CMediaPlayer *mp, SLmillisecond posMsec) {
             mp->mAVPlayer->seek(posMsec);
         }
         break;
-      case AUDIOVIDEOPLAYER_FROM_TS_ANDROIDBUFFERQUEUE: // intended fall-through
+      case AUDIOVIDEOPLAYER_FROM_TS_ANDROIDBUFFERQUEUE:
+        FALLTHROUGH_INTENDED;
       default: {
           result = XA_RESULT_FEATURE_UNSUPPORTED;
       }
@@ -683,7 +690,8 @@ XAresult android_Player_loop(CMediaPlayer *mp, SLboolean loopEnable) {
             mp->mAVPlayer->loop(loopEnable);
         }
         break;
-      case AUDIOVIDEOPLAYER_FROM_TS_ANDROIDBUFFERQUEUE: // intended fall-through
+      case AUDIOVIDEOPLAYER_FROM_TS_ANDROIDBUFFERQUEUE:
+        FALLTHROUGH_INTENDED;
       default: {
           result = XA_RESULT_FEATURE_UNSUPPORTED;
       }
@@ -746,7 +754,7 @@ SLresult android_Player_setNativeWindow(CMediaPlayer *mp, ANativeWindow *nativeW
             result = SL_RESULT_SUCCESS;
             } break;
         case NATIVE_WINDOW_FRAMEBUFFER:              // FramebufferNativeWindow
-            // fall through
+            FALLTHROUGH_INTENDED;
         default:
             SL_LOGE("ANativeWindow * %p has unknown or unsupported concrete type %d",
                     nativeWindow, value);

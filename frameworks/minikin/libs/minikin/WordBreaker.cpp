@@ -19,6 +19,7 @@
 #include <list>
 #include <map>
 
+#include <unicode/ubrk.h>
 #include <unicode/uchar.h>
 #include <unicode/utf16.h>
 
@@ -31,13 +32,13 @@
 namespace minikin {
 
 namespace {
-static icu::BreakIterator* createNewIterator(const Locale& locale) {
+static UBreakIterator* createNewIterator(const Locale& locale) {
     // TODO: handle failure status
     UErrorCode status = U_ZERO_ERROR;
-    return icu::BreakIterator::createLineInstance(
-            locale.isUnsupported() ? icu::Locale::getRoot()
-                                   : icu::Locale::createFromName(locale.getString().c_str()),
-            status);
+    char localeID[ULOC_FULLNAME_CAPACITY] = {};
+    uloc_forLanguageTag(locale.getString().c_str(), localeID, ULOC_FULLNAME_CAPACITY, nullptr,
+                        &status);
+    return ubrk_open(UBreakIteratorType::UBRK_LINE, localeID, nullptr, 0, &status);
 }
 }  // namespace
 
@@ -53,7 +54,7 @@ ICULineBreakerPool::Slot ICULineBreakerPoolImpl::acquire(const Locale& locale) {
     }
 
     // Not found in pool. Create new one.
-    return {id, std::unique_ptr<icu::BreakIterator>(createNewIterator(locale))};
+    return {id, IcuUbrkUniquePtr(createNewIterator(locale))};
 }
 
 void ICULineBreakerPoolImpl::release(ICULineBreakerPool::Slot&& slot) {
@@ -79,7 +80,7 @@ ssize_t WordBreaker::followingWithLocale(const Locale& locale, size_t from) {
     UErrorCode status = U_ZERO_ERROR;
     MINIKIN_ASSERT(mText != nullptr, "setText must be called first");
     // TODO: handle failure status
-    mIcuBreaker.breaker->setText(&mUText, status);
+    ubrk_setUText(mIcuBreaker.breaker.get(), &mUText, &status);
     if (mInEmailOrUrl) {
         // Note:
         // Don't reset mCurrent, mLast, or mScanOffset for keeping email/URL context.
@@ -116,7 +117,7 @@ ssize_t WordBreaker::current() const {
  **/
 static bool isValidBreak(const uint16_t* buf, size_t bufEnd, int32_t i) {
     const size_t position = static_cast<size_t>(i);
-    if (i == icu::BreakIterator::DONE || position == bufEnd) {
+    if (i == UBRK_DONE || position == bufEnd) {
         // If the iterator reaches the end, treat as break.
         return true;
     }
@@ -161,9 +162,9 @@ static bool isValidBreak(const uint16_t* buf, size_t bufEnd, int32_t i) {
 // Customized iteratorNext that takes care of both resets and our modifications
 // to ICU's behavior.
 int32_t WordBreaker::iteratorNext() {
-    int32_t result = mIcuBreaker.breaker->following(mCurrent);
+    int32_t result = ubrk_following(mIcuBreaker.breaker.get(), mCurrent);
     while (!isValidBreak(mText, mTextSize, result)) {
-        result = mIcuBreaker.breaker->next();
+        result = ubrk_next(mIcuBreaker.breaker.get());
     }
     return result;
 }
@@ -211,11 +212,11 @@ void WordBreaker::detectEmailOrUrl() {
             }
         }
         if (state == SAW_AT || state == SAW_COLON_SLASH_SLASH) {
-            if (!mIcuBreaker.breaker->isBoundary(i)) {
+            if (!ubrk_isBoundary(mIcuBreaker.breaker.get(), i)) {
                 // If there are combining marks or such at the end of the URL or the email address,
                 // consider them a part of the URL or the email, and skip to the next actual
                 // boundary.
-                i = mIcuBreaker.breaker->following(i);
+                i = ubrk_following(mIcuBreaker.breaker.get(), i);
             }
             mInEmailOrUrl = true;
         } else {

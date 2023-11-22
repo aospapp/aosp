@@ -24,9 +24,9 @@
 #include <hb-ot.h>
 #include <hb.h>
 #include <log/log.h>
-#include <utils/JenkinsHash.h>
 
 #include "minikin/CmapCoverage.h"
+#include "minikin/FamilyVariant.h"
 #include "minikin/HbUtils.h"
 #include "minikin/MinikinFont.h"
 
@@ -105,17 +105,20 @@ std::unordered_set<AxisTag> Font::getSupportedAxes() const {
 }
 
 FontFamily::FontFamily(std::vector<Font>&& fonts)
-        : FontFamily(Variant::DEFAULT, std::move(fonts)) {}
+        : FontFamily(FamilyVariant::DEFAULT, std::move(fonts)) {}
 
-FontFamily::FontFamily(Variant variant, std::vector<Font>&& fonts)
-        : FontFamily(LocaleListCache::kEmptyListId, variant, std::move(fonts)) {}
+FontFamily::FontFamily(FamilyVariant variant, std::vector<Font>&& fonts)
+        : FontFamily(LocaleListCache::kEmptyListId, variant, std::move(fonts),
+                     false /* isCustomFallback */) {}
 
-FontFamily::FontFamily(uint32_t localeListId, Variant variant, std::vector<Font>&& fonts)
+FontFamily::FontFamily(uint32_t localeListId, FamilyVariant variant, std::vector<Font>&& fonts,
+                       bool isCustomFallback)
         : mLocaleListId(localeListId),
           mVariant(variant),
           mFonts(std::move(fonts)),
           mIsColorEmoji(LocaleListCache::getById(localeListId).getEmojiStyle() ==
-                        EmojiStyle::EMOJI) {
+                        EmojiStyle::EMOJI),
+          mIsCustomFallback(isCustomFallback) {
     MINIKIN_ASSERT(!mFonts.empty(), "FontFamily must contain at least one font.");
     computeCoverage();
 }
@@ -235,7 +238,8 @@ std::shared_ptr<FontFamily> FontFamily::createFamilyWithVariation(
         fonts.push_back(Font::Builder(minikinFont).setStyle(font.style()).build());
     }
 
-    return std::shared_ptr<FontFamily>(new FontFamily(mLocaleListId, mVariant, std::move(fonts)));
+    return std::shared_ptr<FontFamily>(
+            new FontFamily(mLocaleListId, mVariant, std::move(fonts), mIsCustomFallback));
 }
 
 }  // namespace minikin

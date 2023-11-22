@@ -47,13 +47,9 @@
         android:layout_height="match_parent"
         android:paddingStart="@dimen/status_bar_padding_start"
         android:paddingEnd="@dimen/status_bar_padding_end"
+        android:paddingTop="@dimen/status_bar_padding_top"
         android:orientation="horizontal"
         >
-        <ViewStub
-            android:id="@+id/operator_name"
-            android:layout_width="wrap_content"
-            android:layout_height="match_parent"
-            android:layout="@layout/operator_name" />
         <FrameLayout
             android:layout_height="match_parent"
             android:layout_width="0dp"
@@ -70,6 +66,12 @@
                 android:layout_width="match_parent"
                 android:clipChildren="false"
             >
+                <ViewStub
+                    android:id="@+id/operator_name"
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent"
+                    android:layout="@layout/operator_name" />
+
                 <com.android.systemui.statusbar.policy.Clock
                     android:id="@+id/clock"
                     android:layout_width="wrap_content"
@@ -99,6 +101,14 @@
             android:layout_height="match_parent"
             android:gravity="center_horizontal|center_vertical"
         />
+
+        <com.android.systemui.statusbar.AlphaOptimizedFrameLayout
+            android:id="@+id/centered_icon_area"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:orientation="horizontal"
+            android:clipChildren="false"
+            android:gravity="center_horizontal|center_vertical"/>
 
         <com.android.keyguard.AlphaOptimizedLinearLayout android:id="@+id/system_icon_area"
             android:layout_width="0dp"

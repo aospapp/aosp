@@ -39,7 +39,7 @@ class BufferWrapper<T*> {
 
   BufferWrapper(const BufferWrapper& other) { *this = other; }
 
-  BufferWrapper(BufferWrapper&& other) { *this = std::move(other); }
+  BufferWrapper(BufferWrapper&& other) noexcept { *this = std::move(other); }
 
   BufferWrapper& operator=(const BufferWrapper& other) {
     if (&other == this) {
@@ -53,7 +53,7 @@ class BufferWrapper<T*> {
     return *this;
   }
 
-  BufferWrapper& operator=(BufferWrapper&& other) {
+  BufferWrapper& operator=(BufferWrapper&& other) noexcept {
     if (&other == this) {
       return *this;
     } else {
@@ -110,16 +110,16 @@ class BufferWrapper<std::vector<T, Allocator>> {
   using const_iterator = typename BufferType::const_iterator;
 
   BufferWrapper() {}
-  BufferWrapper(const BufferType& buffer) : buffer_(buffer) {}
+  explicit BufferWrapper(const BufferType& buffer) : buffer_(buffer) {}
   BufferWrapper(const BufferType& buffer, const Allocator& allocator)
       : buffer_(buffer, allocator) {}
-  BufferWrapper(BufferType&& buffer) : buffer_(std::move(buffer)) {}
+  explicit BufferWrapper(BufferType&& buffer) : buffer_(std::move(buffer)) {}
   BufferWrapper(BufferType&& buffer, const Allocator& allocator)
       : buffer_(std::move(buffer), allocator) {}
   BufferWrapper(const BufferWrapper&) = default;
-  BufferWrapper(BufferWrapper&&) = default;
+  BufferWrapper(BufferWrapper&&) noexcept = default;
   BufferWrapper& operator=(const BufferWrapper&) = default;
-  BufferWrapper& operator=(BufferWrapper&&) = default;
+  BufferWrapper& operator=(BufferWrapper&&) noexcept = default;
 
   pointer data() { return buffer_.data(); }
   const_pointer data() const { return buffer_.data(); }

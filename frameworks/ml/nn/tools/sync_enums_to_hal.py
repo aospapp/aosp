@@ -7,7 +7,7 @@ Workflow:
   - Edit NeuralNetworks.h
   - run sync_enums_to_hal.py
     - can be run from anywhere, but ANDROID_BUILD_TOP must be set
-    - this resets 1.(0|1)/types.hal to last commit (so you can run
+    - this resets 1.[0-2]/types.hal to last commit (so you can run
       the script multiple times with changes to it in-between), and
     - overwrites types.hal in-place
   - Check the output (git diff)
@@ -44,9 +44,13 @@ class HeaderReader(object):
 
   def put_back(self, no_of_lines=1):
     assert not self.sections[self.current]
-    for i in range(0, no_of_lines):
+    for i in range(no_of_lines):
       line = self.sections[self.current - 1].pop()
       self.sections[self.current].insert(0, line)
+
+  def pop_back(self, no_of_lines=1):
+    for i in range(no_of_lines):
+      self.sections[self.current].pop()
 
   def next_section(self):
     self.current = self.current + 1
@@ -132,9 +136,11 @@ class Types11Reader(HeaderReader):
   OPERATION = 1
   REST = 2
 
+  FILENAME = "hardware/interfaces/neuralnetworks/1.1/types.hal"
+
   def __init__(self):
     super(Types11Reader, self).__init__()
-    self.read("hardware/interfaces/neuralnetworks/1.1/types.hal")
+    self.read(self.FILENAME)
 
   def handle_line(self, line):
     if "enum OperationType" in line:
@@ -146,6 +152,14 @@ class Types11Reader(HeaderReader):
       self.next_section()
       self.put_back()
 
+class Types12Reader(Types11Reader):
+  """ Reader for 1.2 types.hal
+
+      Assumes the structure of the file is the same as in v1.1.
+  """
+
+  FILENAME = "hardware/interfaces/neuralnetworks/1.2/types.hal"
+
 class NeuralNetworksReader(HeaderReader):
   """ Reader for NeuralNetworks.h
 
@@ -156,21 +170,23 @@ class NeuralNetworksReader(HeaderReader):
         } OperandCode;
       - comments
       - typedef enum {
-        < this becomes the OPERATION_V10 section >
-        // TODO: change to __ANDROID_API__ >= __ANDROID_API_P__ once available.
-        #if __ANDROID_API__ > __ANDROID_API_O_MR1__
-        < this becomes the OPERATION_V11 section >
-        #endif
-        };
+        // Operations below are available since API level 27.
+        < this becomes the OPERATION_V1_0 section >
+        // Operations below are available since API level 28.
+        < this becomes the OPERATION_V1_1 section >
+        // Operations below are available since API level 29.
+        < this becomes the OPERATION_V1_2 section >
+        } OperationCode;
       - rest
   """
 
   BEFORE_OPERAND = 0
   OPERAND = 1
   BEFORE_OPERATION = 2
-  OPERATION_V10 = 3
-  OPERATION_V11 = 4
-  REST = 5
+  OPERATION_V1_0 = 3
+  OPERATION_V1_1 = 4
+  OPERATION_V1_2 = 5
+  REST = 6
 
   def __init__(self):
     super(NeuralNetworksReader, self).__init__()
@@ -183,20 +199,24 @@ class NeuralNetworksReader(HeaderReader):
       assert self.current == self.OPERAND
       self.next_section()
       self.put_back()
-    elif self.current == self.OPERATION_V10 and "#if __ANDROID_API__ >" in line:
+    elif "// Operations below are available since API level 27." in line:
+      assert self.current == self.OPERATION_V1_0
+      self.pop_back()
+    elif "// Operations below are available since API level 28." in line:
+      assert self.current == self.OPERATION_V1_0
+      self.pop_back()
       self.next_section()
-      # Get rid of the API divider altogether
-      self.put_back(2)
-      self.sections[self.current] = []
+    elif "// Operations below are available since API level 29." in line:
+      assert self.current == self.OPERATION_V1_1
+      self.pop_back()
+      self.next_section()
     elif line == "} OperationCode;\n":
-      assert self.current == self.OPERATION_V11
+      assert self.current == self.OPERATION_V1_2
       self.next_section()
       self.put_back()
-      # Get rid of API divider #endif
-      self.sections[self.OPERATION_V11].pop()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
   # Reset
   assert os.environ["ANDROID_BUILD_TOP"]
   os.chdir(os.environ["ANDROID_BUILD_TOP"])
@@ -207,6 +227,7 @@ if __name__ == '__main__':
   # Read existing contents
   types10 = Types10Reader()
   types11 = Types11Reader()
+  types12 = Types12Reader()
   nn = NeuralNetworksReader()
 
   # Rewrite from header syntax to HAL and replace types.hal contents
@@ -235,17 +256,20 @@ if __name__ == '__main__':
                           "following values: {0 (NONE), 1 (SAME), 2 (VALID)}")
       hal.append(line)
     return hal
-  types10.sections[types10.OPERATION] = rewrite_operation(nn.sections[nn.OPERATION_V10])
-  types11.sections[types11.OPERATION] = rewrite_operation(nn.sections[nn.OPERATION_V11])
+  types10.sections[types10.OPERATION] = rewrite_operation(nn.sections[nn.OPERATION_V1_0])
+  types11.sections[types11.OPERATION] = rewrite_operation(nn.sections[nn.OPERATION_V1_1])
+  types12.sections[types12.OPERATION] = rewrite_operation(nn.sections[nn.OPERATION_V1_2])
 
   # Write synced contents
   types10.write()
   types11.write()
+  types12.write()
 
   print("")
   print("The files")
   print("  " + types10.filename + " and")
-  print("  " + types11.filename)
+  print("  " + types11.filename + " and")
+  print("  " + types12.filename)
   print("have been rewritten")
   print("")
   print("Check that the change matches your expectations and regenerate the hashes")

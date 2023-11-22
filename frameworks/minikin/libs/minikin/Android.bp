@@ -23,51 +23,37 @@ cc_library {
     name: "libminikin",
     host_supported: true,
     srcs: [
+        "BidiUtils.cpp",
+        "CmapCoverage.cpp",
+        "Emoji.cpp",
+        "FontCollection.cpp",
+        "FontFamily.cpp",
+        "FontUtils.cpp",
+        "GraphemeBreak.cpp",
+        "GreedyLineBreaker.cpp",
         "Hyphenator.cpp",
+        "HyphenatorMap.cpp",
+        "Layout.cpp",
+        "LayoutCore.cpp",
+        "LayoutUtils.cpp",
+        "LineBreaker.cpp",
+        "LineBreakerUtil.cpp",
+        "Locale.cpp",
+        "LocaleListCache.cpp",
+        "MeasuredText.cpp",
+        "Measurement.cpp",
+        "MinikinInternal.cpp",
+        "OptimalLineBreaker.cpp",
+        "SparseBitSet.cpp",
+        "SystemFonts.cpp",
+        "WordBreaker.cpp",
     ],
     cflags: ["-Wall", "-Werror"],
-    target: {
-        android: {
-            srcs: [
-                "BidiUtils.cpp",
-                "CmapCoverage.cpp",
-                "Emoji.cpp",
-                "FontCollection.cpp",
-                "FontFamily.cpp",
-                "FontUtils.cpp",
-                "GraphemeBreak.cpp",
-                "GreedyLineBreaker.cpp",
-                "HyphenatorMap.cpp",
-                "Layout.cpp",
-                "LayoutUtils.cpp",
-                "LineBreaker.cpp",
-                "LineBreakerUtil.cpp",
-                "Locale.cpp",
-                "LocaleListCache.cpp",
-                "MeasuredText.cpp",
-                "Measurement.cpp",
-                "MinikinInternal.cpp",
-                "OptimalLineBreaker.cpp",
-                "SparseBitSet.cpp",
-                "WordBreaker.cpp",
-            ],
-            shared_libs: [
-                "libharfbuzz_ng",
-                "libft2",
-                "libz",
-                "libutils",
-            ],
-            // TODO: clean up Minikin so it doesn't need the freetype include
-            export_shared_lib_headers: ["libft2"],
-
-            sanitize: {
-                misc_undefined: [
-                    "signed-integer-overflow",
-                    // b/26432628.
-                    //"unsigned-integer-overflow",
-                ],
-            },
-        },
+    sanitize: {
+        misc_undefined: [
+            "signed-integer-overflow",
+            "unsigned-integer-overflow",
+        ],
     },
     cppflags: [
         "-Werror",
@@ -83,12 +69,26 @@ cc_library {
     },
     shared_libs: [
         "liblog",
-        "libicuuc",
+        "libandroidicu",
+        "libharfbuzz_ng",
     ],
-    header_libs: ["libminikin_headers"],
+    header_libs: [
+        "libbase_headers",
+        "libminikin_headers",
+        "libutils_headers",
+    ],
     export_header_lib_headers: ["libminikin_headers"],
-    export_shared_lib_headers: ["libicuuc"],
+    export_shared_lib_headers: ["libandroidicu"],
     whole_static_libs: ["libgtest_prod"],
 
     clang: true,
+
+    target: {
+        windows: {
+            enabled: true,
+            cppflags: [
+                "-Wno-thread-safety",
+            ],
+        },
+    },
 }

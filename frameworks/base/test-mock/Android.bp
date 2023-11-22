@@ -16,14 +16,17 @@
 
 // Build the android.test.mock library
 // ===================================
-java_library {
+java_sdk_library {
     name: "android.test.mock",
 
-    java_version: "1.8",
     srcs: ["src/**/*.java"],
 
-    no_framework_libs: true,
-    libs: [
-        "framework",
+    api_packages: [
+        "android.test.mock",
     ],
+
+    srcs_lib: "framework",
+    srcs_lib_whitelist_dirs: ["core/java"],
+    srcs_lib_whitelist_pkgs: ["android"],
+    compile_dex: true,
 }

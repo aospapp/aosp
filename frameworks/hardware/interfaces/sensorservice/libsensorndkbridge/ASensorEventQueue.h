@@ -26,6 +26,8 @@
 #include <sensors/convert.h>
 #include <utils/Mutex.h>
 
+#include <atomic>
+
 struct ALooper;
 
 struct ASensorEventQueue
@@ -52,6 +54,8 @@ struct ASensorEventQueue
 
     int setEventRate(ASensorRef sensor, int32_t samplingPeriodUs);
 
+    int requestAdditionalInfoEvents(bool enable);
+
     ssize_t getEvents(ASensorEvent *events, size_t count);
     int hasEvents() const;
 
@@ -67,6 +71,8 @@ private:
 
     android::Mutex mLock;
     std::vector<sensors_event_t> mQueue;
+
+    std::atomic_bool mRequestAdditionalInfo;
 
     DISALLOW_COPY_AND_ASSIGN(ASensorEventQueue);
 };

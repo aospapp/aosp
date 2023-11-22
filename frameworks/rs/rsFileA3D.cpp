@@ -303,7 +303,7 @@ bool FileA3D::writeFile(const char *filename) {
         return false;
     }
 
-    FILE *writeHandle = fopen(filename, "wb");
+    FILE *writeHandle = fopen(filename, "wbe");
     if (!writeHandle) {
         ALOGE("Couldn't open the file for writing\n");
         return false;

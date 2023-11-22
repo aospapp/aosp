@@ -17,6 +17,7 @@
 //#define LOG_NDEBUG 0
 #define LOG_TAG "NuPlayerDriver"
 #include <inttypes.h>
+#include <android-base/macros.h>
 #include <utils/Log.h>
 #include <cutils/properties.h>
 
@@ -52,6 +53,7 @@ static const char *kPlayerWidth = "android.media.mediaplayer.width";
 static const char *kPlayerHeight = "android.media.mediaplayer.height";
 static const char *kPlayerFrames = "android.media.mediaplayer.frames";
 static const char *kPlayerFramesDropped = "android.media.mediaplayer.dropped";
+static const char *kPlayerFrameRate = "android.media.mediaplayer.fps";
 static const char *kPlayerAMime = "android.media.mediaplayer.audio.mime";
 static const char *kPlayerACodec = "android.media.mediaplayer.audio.codec";
 static const char *kPlayerDuration = "android.media.mediaplayer.durationMs";
@@ -95,7 +97,7 @@ NuPlayerDriver::NuPlayerDriver(pid_t pid)
     mMediaClock->init();
 
     // set up an analytics record
-    mAnalyticsItem = new MediaAnalyticsItem(kKeyPlayer);
+    mAnalyticsItem = MediaAnalyticsItem::create(kKeyPlayer);
 
     mLooper->start(
             false, /* runOnCallingThread */
@@ -327,7 +329,7 @@ status_t NuPlayerDriver::prepareAsync() {
 }
 
 status_t NuPlayerDriver::start() {
-    ALOGD("start(%p), state is %d, eos is %d", this, mState, mAtEOS);
+    ALOGV("start(%p), state is %d, eos is %d", this, mState, mAtEOS);
     Mutex::Autolock autoLock(mLock);
     return start_l();
 }
@@ -344,7 +346,7 @@ status_t NuPlayerDriver::start_l() {
 
             CHECK_EQ(mState, STATE_PREPARED);
 
-            // fall through
+            FALLTHROUGH_INTENDED;
         }
 
         case STATE_PAUSED:
@@ -353,7 +355,7 @@ status_t NuPlayerDriver::start_l() {
         {
             mPlayer->start();
 
-            // fall through
+            FALLTHROUGH_INTENDED;
         }
 
         case STATE_RUNNING:
@@ -382,7 +384,7 @@ status_t NuPlayerDriver::stop() {
     switch (mState) {
         case STATE_RUNNING:
             mPlayer->pause();
-            // fall through
+            FALLTHROUGH_INTENDED;
 
         case STATE_PAUSED:
             mState = STATE_STOPPED;
@@ -469,10 +471,10 @@ status_t NuPlayerDriver::getSyncSettings(AVSyncSettings *sync, float *videoFps) 
 }
 
 status_t NuPlayerDriver::seekTo(int msec, MediaPlayerSeekMode mode) {
-    ALOGD("seekTo(%p) (%d ms, %d) at state %d", this, msec, mode, mState);
+    ALOGV("seekTo(%p) (%d ms, %d) at state %d", this, msec, mode, mState);
     Mutex::Autolock autoLock(mLock);
 
-    int64_t seekTimeUs = msec * 1000ll;
+    int64_t seekTimeUs = msec * 1000LL;
 
     switch (mState) {
         case STATE_PREPARED:
@@ -529,7 +531,7 @@ status_t NuPlayerDriver::getDuration(int *msec) {
         return UNKNOWN_ERROR;
     }
 
-    *msec = (mDurationUs + 500ll) / 1000;
+    *msec = (mDurationUs + 500LL) / 1000;
 
     return OK;
 }
@@ -576,6 +578,10 @@ void NuPlayerDriver::updateMetrics(const char *where) {
                 mAnalyticsItem->setInt64(kPlayerFrames, numFramesTotal);
                 mAnalyticsItem->setInt64(kPlayerFramesDropped, numFramesDropped);
 
+                float frameRate = 0;
+                if (stats->findFloat("frame-rate-total", &frameRate)) {
+                    mAnalyticsItem->setDouble(kPlayerFrameRate, (double) frameRate);
+                }
 
             } else if (mime.startsWith("audio/")) {
                 mAnalyticsItem->setCString(kPlayerAMime, mime.c_str());
@@ -601,6 +607,7 @@ void NuPlayerDriver::updateMetrics(const char *where) {
         mAnalyticsItem->setInt64(kPlayerRebuffering, (mRebufferingTimeUs+500)/1000 );
         mAnalyticsItem->setInt32(kPlayerRebufferingCount, mRebufferingEvents);
         mAnalyticsItem->setInt32(kPlayerRebufferingAtExit, mRebufferingAtExit);
+
     }
 
     mAnalyticsItem->setCString(kPlayerDataSourceType, mPlayer->getDataSourceType());
@@ -628,7 +635,7 @@ void NuPlayerDriver::logMetrics(const char *where) {
 
         // re-init in case we prepare() and start() again.
         delete mAnalyticsItem ;
-        mAnalyticsItem = new MediaAnalyticsItem("nuplayer");
+        mAnalyticsItem = MediaAnalyticsItem::create(kKeyPlayer);
         if (mAnalyticsItem) {
             mAnalyticsItem->setUid(mClientUid);
         }
@@ -737,7 +744,7 @@ status_t NuPlayerDriver::invoke(const Parcel &request, Parcel *reply) {
             int msec = 0;
             // getCurrentPosition should always return OK
             getCurrentPosition(&msec);
-            return mPlayer->selectTrack(trackIndex, true /* select */, msec * 1000ll);
+            return mPlayer->selectTrack(trackIndex, true /* select */, msec * 1000LL);
         }
 
         case INVOKE_ID_UNSELECT_TRACK:
@@ -771,7 +778,7 @@ status_t NuPlayerDriver::setParameter(
 
 status_t NuPlayerDriver::getParameter(int key, Parcel *reply) {
 
-    if (key == FOURCC('m','t','r','X')) {
+    if (key == FOURCC('m','t','r','X') && mAnalyticsItem != NULL) {
         // mtrX -- a play on 'metrics' (not matrix)
         // gather current info all together, parcel it, and send it back
         updateMetrics("api");
@@ -958,7 +965,7 @@ void NuPlayerDriver::notifyListener(
 
 void NuPlayerDriver::notifyListener_l(
         int msg, int ext1, int ext2, const Parcel *in) {
-    ALOGD("notifyListener_l(%p), (%d, %d, %d, %d), loop setting(%d, %d)",
+    ALOGV("notifyListener_l(%p), (%d, %d, %d, %d), loop setting(%d, %d)",
             this, msg, ext1, ext2, (in == NULL ? -1 : (int)in->dataSize()), mAutoLoop, mLooping);
     switch (msg) {
         case MEDIA_PLAYBACK_COMPLETE:
@@ -991,7 +998,7 @@ void NuPlayerDriver::notifyListener_l(
                 mPlayer->pause();
                 mState = STATE_PAUSED;
             }
-            // fall through
+            FALLTHROUGH_INTENDED;
         }
 
         case MEDIA_ERROR:
@@ -999,7 +1006,7 @@ void NuPlayerDriver::notifyListener_l(
             // when we have an error, add it to the analytics for this playback.
             // ext1 is our primary 'error type' value. Only add ext2 when non-zero.
             // [test against msg is due to fall through from previous switch value]
-            if (msg == MEDIA_ERROR) {
+            if (msg == MEDIA_ERROR && mAnalyticsItem != NULL) {
                 mAnalyticsItem->setInt32(kPlayerError, ext1);
                 if (ext2 != 0) {
                     mAnalyticsItem->setInt32(kPlayerErrorCode, ext2);

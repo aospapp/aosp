@@ -3,22 +3,25 @@ java_library_static {
 
     aidl: {
         include_dirs: [
+            "frameworks/base/cmds/idmap2/idmap2d/aidl",
             "frameworks/native/aidl/binder",
+            "frameworks/native/cmds/dumpstate/binder",
             "system/core/storaged/binder",
-            "system/netd/server/binder",
             "system/vold/binder",
+            "system/gsid/aidl",
         ],
     },
     srcs: [
         "java/**/*.java",
-        ":netd_aidl",
-        ":netd_metrics_aidl",
+        ":dumpstate_aidl",
+        ":idmap2_aidl",
         ":installd_aidl",
         ":storaged_aidl",
         ":vold_aidl",
-        ":mediaupdateservice_aidl",
+        ":gsiservice_aidl",
         "java/com/android/server/EventLogTags.logtags",
         "java/com/android/server/am/EventLogTags.logtags",
+        "java/com/android/server/policy/EventLogTags.logtags",
     ],
 
     libs: [
@@ -26,7 +29,10 @@ java_library_static {
         "android.hardware.light-V2.0-java",
         "android.hardware.power-V1.0-java",
         "android.hardware.tv.cec-V1.0-java",
-        "android.hidl.manager-V1.0-java",
+    ],
+
+    required: [
+        "gps_debug.conf",
     ],
 
     static_libs: [
@@ -37,12 +43,17 @@ java_library_static {
         "android.hardware.health-V1.0-java",
         "android.hardware.health-V2.0-java",
         "android.hardware.weaver-V1.0-java",
+        "android.hardware.biometrics.face-V1.0-java",
         "android.hardware.biometrics.fingerprint-V2.1-java",
         "android.hardware.oemlock-V1.0-java",
         "android.hardware.tetheroffload.control-V1.0-java",
         "android.hardware.vibrator-V1.0-java",
         "android.hardware.configstore-V1.0-java",
         "android.hardware.contexthub-V1.0-java",
+        "android.hidl.manager-V1.2-java",
+        "dnsresolver_aidl_interface-V2-java",
+        "netd_aidl_interface-V2-java",
+        "netd_event_listener_interface-java",
     ],
 }
 
@@ -51,7 +62,7 @@ java_genrule {
     srcs: [":services.core.unboosted"],
     tools: ["lockedregioncodeinjection"],
     cmd: "$(location lockedregioncodeinjection) " +
-        "  --targets \"Lcom/android/server/am/ActivityManagerService;,Lcom/android/server/wm/WindowHashMap;\" " +
+        "  --targets \"Lcom/android/server/am/ActivityManagerService;,Lcom/android/server/wm/WindowManagerGlobalLock;\" " +
         "  --pre \"com/android/server/am/ActivityManagerService.boostPriorityForLockedSection,com/android/server/wm/WindowManagerService.boostPriorityForLockedSection\" " +
         "  --post \"com/android/server/am/ActivityManagerService.resetPriorityAfterLockedSection,com/android/server/wm/WindowManagerService.resetPriorityAfterLockedSection\" " +
         "  -o $(out) " +
@@ -62,4 +73,10 @@ java_genrule {
 java_library {
     name: "services.core",
     static_libs: ["services.core.priorityboosted"],
+}
+
+
+prebuilt_etc {
+    name: "gps_debug.conf",
+    src: "java/com/android/server/location/gps_debug.conf",
 }

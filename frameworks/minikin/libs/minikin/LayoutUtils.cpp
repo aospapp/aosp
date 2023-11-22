@@ -48,14 +48,14 @@ static bool isWordBreakBefore(uint16_t c) {
 /**
  * Return offset of previous word break. It is either < offset or == 0.
  */
-size_t getPrevWordBreakForCache(const uint16_t* chars, size_t offset, size_t len) {
+uint32_t getPrevWordBreakForCache(const U16StringPiece& textBuf, uint32_t offset) {
     if (offset == 0) return 0;
-    if (offset > len) offset = len;
-    if (isWordBreakBefore(chars[offset - 1])) {
+    if (offset > textBuf.size()) offset = textBuf.size();
+    if (isWordBreakBefore(textBuf[offset - 1])) {
         return offset - 1;
     }
-    for (size_t i = offset - 1; i > 0; i--) {
-        if (isWordBreakBefore(chars[i]) || isWordBreakAfter(chars[i - 1])) {
+    for (uint32_t i = offset - 1; i > 0; i--) {
+        if (isWordBreakBefore(textBuf[i]) || isWordBreakAfter(textBuf[i - 1])) {
             return i;
         }
     }
@@ -65,20 +65,20 @@ size_t getPrevWordBreakForCache(const uint16_t* chars, size_t offset, size_t len
 /**
  * Return offset of next word break. It is either > offset or == len.
  */
-size_t getNextWordBreakForCache(const uint16_t* chars, size_t offset, size_t len) {
-    if (offset >= len) return len;
-    if (isWordBreakAfter(chars[offset])) {
+uint32_t getNextWordBreakForCache(const U16StringPiece& textBuf, uint32_t offset) {
+    if (offset >= textBuf.size()) return textBuf.size();
+    if (isWordBreakAfter(textBuf[offset])) {
         return offset + 1;
     }
-    for (size_t i = offset + 1; i < len; i++) {
+    for (uint32_t i = offset + 1; i < textBuf.size(); i++) {
         // No need to check isWordBreakAfter(chars[i - 1]) since it is checked
         // in previous iteration.  Note that isWordBreakBefore returns true
         // whenever isWordBreakAfter returns true.
-        if (isWordBreakBefore(chars[i])) {
+        if (isWordBreakBefore(textBuf[i])) {
             return i;
         }
     }
-    return len;
+    return textBuf.size();
 }
 
 }  // namespace minikin

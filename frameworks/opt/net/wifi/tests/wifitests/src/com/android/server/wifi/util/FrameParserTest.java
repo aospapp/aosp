@@ -18,7 +18,7 @@ package com.android.server.wifi.util;
 
 import static org.junit.Assert.assertEquals;
 
-import android.support.test.filters.SmallTest;
+import androidx.test.filters.SmallTest;
 
 import com.android.server.wifi.WifiLoggerHal;
 
@@ -267,6 +267,77 @@ public class FrameParserTest {
                 });
         assertEquals("802.11 Mgmt", parser.mMostSpecificProtocolString);
         assertEquals("Association Request", parser.mTypeString);
+        assertEquals("N/A", parser.mResultString);
+    }
+
+    /** Test that we parse the result code of a deauthentication frame */
+    @Test
+    public void parseDeauthenticationResultCode() {
+        FrameParser parser = new FrameParser(
+                WifiLoggerHal.FRAME_TYPE_80211_MGMT,
+                new byte[]{
+                        (byte) 0xc0,  // type + subtype
+                        0x00,  // flags
+                        0x00, 0x00,  // duration (from host; probably to be filled by firmware)
+                        // addr1 (RA):
+                        (byte) 0xa0, 0x63, (byte) 0x91, (byte) 0xa9, (byte) 0xed, (byte) 0xa1,
+                        // addr2 (TA):
+                        (byte) 0xf4, (byte) 0xf5, (byte) 0xe8, 0x51, (byte) 0x9e, 0x09,
+                        // addr3 (BSSID):
+                        (byte) 0xa0, 0x63, (byte) 0x91, (byte) 0xa9, (byte) 0xed, (byte) 0xa1,
+                        0x70, (byte) 0x80,  // sequence + control
+                        0x03, 0x00,  // reason code
+                });
+        assertEquals("802.11 Mgmt", parser.mMostSpecificProtocolString);
+        assertEquals("Deauthentication", parser.mTypeString);
+        assertEquals(
+                "3: Deauthenticated because sending STA is leaving (or has left) IBSS or ESS",
+                parser.mResultString);
+    }
+
+    /** Test that we parse the result code of a disassociation frame */
+    @Test
+    public void parseDisassociationResultCode() {
+        FrameParser parser = new FrameParser(
+                WifiLoggerHal.FRAME_TYPE_80211_MGMT,
+                new byte[]{
+                        (byte) 0xa0,  // type + subtype
+                        0x00,  // flags
+                        0x00, 0x00,  // duration (from host; probably to be filled by firmware)
+                        // addr1 (RA):
+                        (byte) 0xa0, 0x63, (byte) 0x91, (byte) 0xa9, (byte) 0xed, (byte) 0xa1,
+                        // addr2 (TA):
+                        (byte) 0xf4, (byte) 0xf5, (byte) 0xe8, 0x51, (byte) 0x9e, 0x09,
+                        // addr3 (BSSID):
+                        (byte) 0xa0, 0x63, (byte) 0x91, (byte) 0xa9, (byte) 0xed, (byte) 0xa1,
+                        0x70, (byte) 0x80,  // sequence + control
+                        0x04, 0x00,  // reason code
+                });
+        assertEquals("802.11 Mgmt", parser.mMostSpecificProtocolString);
+        assertEquals("Disassociation", parser.mTypeString);
+        assertEquals("4: Disassociated due to inactivity", parser.mResultString);
+    }
+
+    /** Test that we parse the subtype of an Action No Ack frame */
+    @Test
+    public void parseActionNoAckSubtype() {
+        FrameParser parser = new FrameParser(
+                WifiLoggerHal.FRAME_TYPE_80211_MGMT,
+                new byte[]{
+                        (byte) 0xe0,  // type + subtype
+                        0x00,  // flags
+                        0x00, 0x00,  // duration (from host; probably to be filled by firmware)
+                        // addr1 (RA):
+                        (byte) 0xa0, 0x63, (byte) 0x91, (byte) 0xa9, (byte) 0xed, (byte) 0xa1,
+                        // addr2 (TA):
+                        (byte) 0xf4, (byte) 0xf5, (byte) 0xe8, 0x51, (byte) 0x9e, 0x09,
+                        // addr3 (BSSID):
+                        (byte) 0xa0, 0x63, (byte) 0x91, (byte) 0xa9, (byte) 0xed, (byte) 0xa1,
+                        0x70, (byte) 0x80,  // sequence + control
+                        0x00, 0x00,  // action
+                });
+        assertEquals("802.11 Mgmt", parser.mMostSpecificProtocolString);
+        assertEquals("Action No Ack", parser.mTypeString);
         assertEquals("N/A", parser.mResultString);
     }
 }

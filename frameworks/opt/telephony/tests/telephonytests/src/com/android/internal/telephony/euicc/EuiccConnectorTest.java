@@ -40,7 +40,8 @@ import android.os.test.TestLooper;
 import android.service.euicc.EuiccService;
 import android.service.euicc.IEuiccService;
 import android.service.euicc.IGetEidCallback;
-import android.support.test.runner.AndroidJUnit4;
+
+import androidx.test.runner.AndroidJUnit4;
 
 import com.android.internal.telephony.TelephonyTest;
 
@@ -65,6 +66,8 @@ public class EuiccConnectorTest extends TelephonyTest {
     private TestLooper mLooper;
     private EuiccConnector mConnector;
     @Mock private IEuiccService.Stub mEuiccService;
+
+    private static final int CARD_ID = 15;
 
     @Before
     public void setUp() throws Exception {
@@ -113,7 +116,7 @@ public class EuiccConnectorTest extends TelephonyTest {
                 false /* hasPriority */);
         mConnector = new EuiccConnector(mContext, mLooper.getLooper());
         final AtomicBoolean called = new AtomicBoolean(false);
-        mConnector.getEid(new EuiccConnector.GetEidCommandCallback() {
+        mConnector.getEid(CARD_ID, new EuiccConnector.GetEidCommandCallback() {
             @Override
             public void onGetEidComplete(String eid) {
                 fail("Command should have failed");
@@ -134,7 +137,8 @@ public class EuiccConnectorTest extends TelephonyTest {
                 false /* hasPriority */);
         mConnector = new EuiccConnector(mContext, mLooper.getLooper());
         final AtomicBoolean called = new AtomicBoolean(false);
-        mConnector.switchToSubscription("12345", true, new EuiccConnector.SwitchCommandCallback() {
+        mConnector.switchToSubscription(CARD_ID, "12345", true, new
+                EuiccConnector.SwitchCommandCallback() {
             @Override
             public void onSwitchComplete(int result) {
                 fail("Command should have failed");
@@ -209,7 +213,7 @@ public class EuiccConnectorTest extends TelephonyTest {
             }
         }).when(mEuiccService).getEid(anyInt(), Mockito.<IGetEidCallback>any());
         final AtomicReference<String> eidRef = new AtomicReference<>();
-        mConnector.getEid(new EuiccConnector.GetEidCommandCallback() {
+        mConnector.getEid(CARD_ID, new EuiccConnector.GetEidCommandCallback() {
             @Override
             public void onGetEidComplete(String eid) {
                 if (eidRef.get() != null) {
@@ -235,7 +239,7 @@ public class EuiccConnectorTest extends TelephonyTest {
         doThrow(new RemoteException("failure"))
                 .when(mEuiccService).getEid(anyInt(), Mockito.<IGetEidCallback>any());
         final AtomicBoolean called = new AtomicBoolean(false);
-        mConnector.getEid(new EuiccConnector.GetEidCommandCallback() {
+        mConnector.getEid(CARD_ID, new EuiccConnector.GetEidCommandCallback() {
             @Override
             public void onGetEidComplete(String eid) {
                 fail("Command should have failed");
@@ -257,7 +261,7 @@ public class EuiccConnectorTest extends TelephonyTest {
                 true /* hasPriority */);
         mConnector = new EuiccConnector(mContext, mLooper.getLooper());
         final AtomicBoolean called = new AtomicBoolean(false);
-        mConnector.getEid(new EuiccConnector.GetEidCommandCallback() {
+        mConnector.getEid(CARD_ID, new EuiccConnector.GetEidCommandCallback() {
             @Override
             public void onGetEidComplete(String eid) {
                 fail("Unexpected command success callback");
@@ -287,7 +291,7 @@ public class EuiccConnectorTest extends TelephonyTest {
         ArgumentCaptor<IGetEidCallback> callbackCaptor =
                 ArgumentCaptor.forClass(IGetEidCallback.class);
         doNothing().when(mEuiccService).getEid(anyInt(), callbackCaptor.capture());
-        mConnector.getEid(new EuiccConnector.GetEidCommandCallback() {
+        mConnector.getEid(CARD_ID, new EuiccConnector.GetEidCommandCallback() {
             @Override public void onGetEidComplete(String eid) {}
             @Override public void onEuiccServiceUnavailable() {}
         });
@@ -315,11 +319,11 @@ public class EuiccConnectorTest extends TelephonyTest {
         ArgumentCaptor<IGetEidCallback> callbackCaptor =
                 ArgumentCaptor.forClass(IGetEidCallback.class);
         doNothing().when(mEuiccService).getEid(anyInt(), callbackCaptor.capture());
-        mConnector.getEid(new EuiccConnector.GetEidCommandCallback() {
+        mConnector.getEid(CARD_ID, new EuiccConnector.GetEidCommandCallback() {
             @Override public void onGetEidComplete(String eid) {}
             @Override public void onEuiccServiceUnavailable() {}
         });
-        mConnector.getEid(new EuiccConnector.GetEidCommandCallback() {
+        mConnector.getEid(CARD_ID, new EuiccConnector.GetEidCommandCallback() {
             @Override public void onGetEidComplete(String eid) {}
             @Override public void onEuiccServiceUnavailable() {}
         });

@@ -16,7 +16,6 @@
 
 package com.android.layoutlib.bridge;
 
-import com.android.ide.common.rendering.api.Result;
 import com.android.ide.common.rendering.api.Result.Status;
 
 import org.junit.Test;
@@ -32,6 +31,7 @@ public class BridgeRenderSessionTest {
         assertNotNull(renderSession.getImage());
         assertNotNull(renderSession.getRootViews());
         assertNotNull(renderSession.getSystemRootViews());
-        assertNotNull(renderSession.getDefaultProperties());
+        assertNotNull(renderSession.getDefaultNamespacedProperties());
+        assertNotNull(renderSession.getDefaultNamespacedStyles());
     }
 }

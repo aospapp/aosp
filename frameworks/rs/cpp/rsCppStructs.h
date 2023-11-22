@@ -132,27 +132,27 @@ class UByte4 {
 
 class Short2 {
  public:
-  short x, y;
+  int16_t x, y;
 
-  Short2(short initX, short initY)
+  Short2(int16_t initX, int16_t initY)
     : x(initX), y(initY) {}
   Short2() : x(0), y(0) {}
 };
 
 class Short3 {
  public:
-  short x, y, z;
+  int16_t x, y, z;
 
-  Short3(short initX, short initY, short initZ)
+  Short3(int16_t initX, int16_t initY, int16_t initZ)
     : x(initX), y(initY), z(initZ) {}
   Short3() : x(0), y(0), z(0) {}
 };
 
 class Short4 {
  public:
-  short x, y, z, w;
+  int16_t x, y, z, w;
 
-  Short4(short initX, short initY, short initZ, short initW)
+  Short4(int16_t initX, int16_t initY, int16_t initZ, int16_t initW)
     : x(initX), y(initY), z(initZ), w(initW) {}
   Short4() : x(0), y(0), z(0), w(0) {}
 };

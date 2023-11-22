@@ -39,6 +39,11 @@ message CarrierId {
 
   // [Optional] Carrier attributes to match a carrier. At least one value is required.
   repeated CarrierAttribute carrier_attribute = 3;
+
+  // [Optional] A unique canonical number to represent its parent carrier. The parent-child
+  // relationship can be used to differentiate a single carrier by different networks,
+  // by prepaid v.s. postpaid  or even by 4G v.s. 3G plan.
+  optional int32 parent_canonical_id = 4;
 };
 
 // Attributes used to match a carrier.
@@ -79,5 +84,9 @@ message CarrierAttribute {
   // [Optional] Prefix of Integrated Circuit Card Identifier. Read from subscription EF_ICCID.
   // Sample values: 894430, 894410
   repeated string iccid_prefix = 8;
+
+  // [Optional] Carrier Privilege Access Rule in hex string.
+  // Sample values: 61ed377e85d386a8dfee6b864bd85b0bfaa5af88
+  repeated string privilege_access_rule = 9;
 };
 

@@ -16,7 +16,7 @@
 
 package mock_android.util;
 
-import java.lang.JavaClass;
+import notjava.lang.JavaClass;
 
 public class EmptyArray {
 

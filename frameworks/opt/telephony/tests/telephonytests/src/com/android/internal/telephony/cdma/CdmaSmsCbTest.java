@@ -17,13 +17,14 @@
 package com.android.internal.telephony.cdma;
 
 import android.hardware.radio.V1_0.CdmaSmsMessage;
-import android.support.test.filters.FlakyTest;
 import android.telephony.Rlog;
 import android.telephony.SmsCbCmasInfo;
 import android.telephony.SmsCbMessage;
 import android.telephony.cdma.CdmaSmsCbProgramData;
 import android.test.AndroidTestCase;
 import android.test.suitebuilder.annotation.SmallTest;
+
+import androidx.test.filters.FlakyTest;
 
 import com.android.internal.telephony.GsmAlphabet;
 import com.android.internal.telephony.cdma.sms.BearerData;
@@ -352,7 +353,7 @@ public class CdmaSmsCbTest extends AndroidTestCase {
         SmsMessage msg = createBroadcastSmsMessage(123, 456, BearerData.PRIORITY_NORMAL,
                 BearerData.LANGUAGE_ENGLISH, encoding, TEST_TEXT);
 
-        SmsCbMessage cbMessage = msg.parseBroadcastSms();
+        SmsCbMessage cbMessage = msg.parseBroadcastSms("");
         verifyCbValues(cbMessage);
         assertEquals(123, cbMessage.getServiceCategory());
         assertEquals(456, cbMessage.getSerialNumber());
@@ -384,7 +385,7 @@ public class CdmaSmsCbTest extends AndroidTestCase {
         SmsMessage msg = createBroadcastSmsMessage(987, 654, -1, -1,
                 UserData.ENCODING_IS91_EXTENDED_PROTOCOL, IS91_TEXT);
 
-        SmsCbMessage cbMessage = msg.parseBroadcastSms();
+        SmsCbMessage cbMessage = msg.parseBroadcastSms("");
         verifyCbValues(cbMessage);
         assertEquals(987, cbMessage.getServiceCategory());
         assertEquals(654, cbMessage.getSerialNumber());
@@ -401,7 +402,7 @@ public class CdmaSmsCbTest extends AndroidTestCase {
                 serviceCategory, 1234, BearerData.PRIORITY_EMERGENCY, BearerData.LANGUAGE_ENGLISH,
                 UserData.ENCODING_7BIT_ASCII, body, -1, -1, -1, -1, -1);
 
-        SmsCbMessage cbMessage = msg.parseBroadcastSms();
+        SmsCbMessage cbMessage = msg.parseBroadcastSms("");
         verifyCbValues(cbMessage);
         assertEquals(serviceCategory, cbMessage.getServiceCategory());
         assertEquals(1234, cbMessage.getSerialNumber());
@@ -457,7 +458,7 @@ public class CdmaSmsCbTest extends AndroidTestCase {
                 SmsCbCmasInfo.CMAS_RESPONSE_TYPE_MONITOR, SmsCbCmasInfo.CMAS_SEVERITY_SEVERE,
                 SmsCbCmasInfo.CMAS_URGENCY_EXPECTED, SmsCbCmasInfo.CMAS_CERTAINTY_LIKELY);
 
-        SmsCbMessage cbMessage = msg.parseBroadcastSms();
+        SmsCbMessage cbMessage = msg.parseBroadcastSms("");
         verifyCbValues(cbMessage);
         assertEquals(SmsEnvelope.SERVICE_CATEGORY_CMAS_EXTREME_THREAT,
                 cbMessage.getServiceCategory());
@@ -487,7 +488,7 @@ public class CdmaSmsCbTest extends AndroidTestCase {
                 12345, BearerData.PRIORITY_EMERGENCY, BearerData.LANGUAGE_ENGLISH,
                 0x1F, EXTREME_ALERT, -1, -1, -1, -1, -1);
 
-        SmsCbMessage cbMessage = msg.parseBroadcastSms();
+        SmsCbMessage cbMessage = msg.parseBroadcastSms("");
         assertNull("expected null for unsupported charset", cbMessage);
     }
 
@@ -499,7 +500,7 @@ public class CdmaSmsCbTest extends AndroidTestCase {
                 67890, BearerData.PRIORITY_EMERGENCY, BearerData.LANGUAGE_ENGLISH,
                 UserData.ENCODING_KOREAN, EXTREME_ALERT, -1, -1, -1, -1, -1);
 
-        SmsCbMessage cbMessage = msg.parseBroadcastSms();
+        SmsCbMessage cbMessage = msg.parseBroadcastSms("");
         assertNull("expected null for unsupported charset", cbMessage);
     }
 
@@ -512,7 +513,7 @@ public class CdmaSmsCbTest extends AndroidTestCase {
                 BearerData.PRIORITY_EMERGENCY, BearerData.LANGUAGE_ENGLISH,
                 UserData.ENCODING_7BIT_ASCII, null, -1, -1, -1, -1, -1);
 
-        SmsCbMessage cbMessage = msg.parseBroadcastSms();
+        SmsCbMessage cbMessage = msg.parseBroadcastSms("");
         verifyCbValues(cbMessage);
         assertEquals(SmsEnvelope.SERVICE_CATEGORY_CMAS_PRESIDENTIAL_LEVEL_ALERT,
                 cbMessage.getServiceCategory());
@@ -546,7 +547,7 @@ public class CdmaSmsCbTest extends AndroidTestCase {
                 int category = 0x0ff0 + r.nextInt(32);  // half CMAS, half non-CMAS
                 CdmaSmsMessage cdmaSmsMessage = createBroadcastParcel(category);
                 SmsMessage msg = createMessageFromParcel(cdmaSmsMessage, data);
-                SmsCbMessage cbMessage = msg.parseBroadcastSms();
+                SmsCbMessage cbMessage = msg.parseBroadcastSms("");
                 // with random input, cbMessage will almost always be null (log when it isn't)
                 if (cbMessage != null) {
                     Rlog.d("CdmaSmsCbTest", "success: " + cbMessage);
@@ -580,7 +581,7 @@ public class CdmaSmsCbTest extends AndroidTestCase {
                 }
 
                 SmsMessage msg = createMessageFromParcel(cdmaSmsMessage, bos.toByteArray());
-                SmsCbMessage cbMessage = msg.parseBroadcastSms();
+                SmsCbMessage cbMessage = msg.parseBroadcastSms("");
             } catch (Exception e) {
                 Rlog.d("CdmaSmsCbTest", "exception thrown", e);
                 fail("Exception in decoder at run " + run + " length " + len + ": " + e);
@@ -743,7 +744,7 @@ public class CdmaSmsCbTest extends AndroidTestCase {
         CdmaSmsMessage cdmaSmsMessage = createBroadcastParcel(SmsEnvelope.SERVICE_CATEGORY_CMAS_TEST_MESSAGE);
         SmsMessage msg = createMessageFromParcel(cdmaSmsMessage, CMAS_TEST_BEARER_DATA);
 
-        SmsCbMessage cbMessage = msg.parseBroadcastSms();
+        SmsCbMessage cbMessage = msg.parseBroadcastSms("");
         assertNotNull("expected non-null for bearer data", cbMessage);
         assertEquals("geoScope", cbMessage.getGeographicalScope(), 1);
         assertEquals("serialNumber", cbMessage.getSerialNumber(), 51072);

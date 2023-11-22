@@ -30,9 +30,12 @@ import android.content.Context;
 import android.database.ContentObserver;
 import android.net.wifi.ScanResult;
 import android.net.wifi.WifiConfiguration;
+import android.net.wifi.WifiNetworkSuggestion;
 import android.net.wifi.WifiScanner;
 import android.os.test.TestLooper;
 import android.provider.Settings;
+
+import androidx.test.filters.SmallTest;
 
 import com.android.server.wifi.util.ScanResultUtil;
 
@@ -50,11 +53,13 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.Set;
 
 /**
  * Unit tests for {@link WakeupController}.
  */
+@SmallTest
 public class WakeupControllerTest {
 
     private static final String SAVED_SSID = "test scan ssid";
@@ -68,11 +73,13 @@ public class WakeupControllerTest {
     @Mock private WifiInjector mWifiInjector;
     @Mock private WifiScanner mWifiScanner;
     @Mock private WifiConfigManager mWifiConfigManager;
+    @Mock private WifiNetworkSuggestionsManager mWifiNetworkSuggestionsManager;
     @Mock private FrameworkFacade mFrameworkFacade;
     @Mock private WifiSettingsStore mWifiSettingsStore;
     @Mock private WifiWakeMetrics mWifiWakeMetrics;
     @Mock private WifiController mWifiController;
     @Mock private WifiNative mWifiNative;
+    @Mock private Clock mClock;
 
     private TestLooper mLooper;
     private WakeupController mWakeupController;
@@ -105,7 +112,7 @@ public class WakeupControllerTest {
         scanResults[0] = mTestScanResult;
         mTestScanDatas = new WifiScanner.ScanData[1];
         mTestScanDatas[0] = new WifiScanner.ScanData(0 /* id */, 0 /* flags */,
-                0 /* bucketsScanned */, true /* allChannelsScanned */, scanResults);
+                0 /* bucketsScanned */, WifiScanner.WIFI_BAND_BOTH /* bandScanned */, scanResults);
     }
 
     /** Initializes the wakeupcontroller in the given {@code enabled} state. */
@@ -125,9 +132,11 @@ public class WakeupControllerTest {
                 mWakeupOnboarding,
                 mWifiConfigManager,
                 mWifiConfigStore,
+                mWifiNetworkSuggestionsManager,
                 mWifiWakeMetrics,
                 mWifiInjector,
-                mFrameworkFacade);
+                mFrameworkFacade,
+                mClock);
 
         ArgumentCaptor<WakeupConfigStoreData> captor =
                 ArgumentCaptor.forClass(WakeupConfigStoreData.class);
@@ -140,7 +149,7 @@ public class WakeupControllerTest {
 
     private void readUserStore() {
         try {
-            mWakeupConfigStoreData.deserializeData(null, 0, false);
+            mWakeupConfigStoreData.deserializeData(null, 0);
         } catch (XmlPullParserException | IOException e) {
             // unreachable
         }
@@ -150,6 +159,14 @@ public class WakeupControllerTest {
         ScanResult scanResult = new ScanResult();
         scanResult.SSID = ssid;
         scanResult.capabilities = "";
+        scanResult.frequency = frequency;
+        return scanResult;
+    }
+
+    private ScanResult createOweScanResult(String ssid, int frequency) {
+        ScanResult scanResult = new ScanResult();
+        scanResult.SSID = ssid;
+        scanResult.capabilities = "OWE";
         scanResult.frequency = frequency;
         return scanResult;
     }
@@ -313,7 +330,7 @@ public class WakeupControllerTest {
         openNetwork.getNetworkSelectionStatus().setHasEverConnected(true);
         WifiConfiguration wepNetwork = WifiConfigurationTestUtil.createWepNetwork();
         wepNetwork.getNetworkSelectionStatus().setHasEverConnected(true);
-        when(mWifiConfigManager.getSavedNetworks())
+        when(mWifiConfigManager.getSavedNetworks(anyInt()))
                 .thenReturn(Arrays.asList(openNetwork, wepNetwork));
 
         // scan results from most recent scan
@@ -326,6 +343,89 @@ public class WakeupControllerTest {
         // intersection of most recent scan + saved configs
         Set<ScanResultMatchInfo> expectedMatchInfos =
                 Collections.singleton(ScanResultMatchInfo.fromScanResult(savedScanResult));
+
+        initializeWakeupController(true /* enabled */);
+        mWakeupController.start();
+        verify(mWakeupLock).setLock(eq(expectedMatchInfos));
+        verify(mWifiWakeMetrics).recordStartEvent(expectedMatchInfos.size());
+    }
+
+    /**
+     * Verify that the wakeup lock is initialized with the intersection of ScanResults and network
+     * suggestions.
+     */
+    @Test
+    public void startInitializesWakeupLockWithNetworkSuggestions() {
+        String ssid1 = "ssid 1";
+        String ssid2 = "ssid 2";
+        String quotedSsid = ScanResultUtil.createQuotedSSID(ssid1);
+
+        // suggestions
+        WifiConfiguration openNetwork = WifiConfigurationTestUtil.createOpenNetwork(quotedSsid);
+        WifiNetworkSuggestion openNetworkSuggestion =
+                new WifiNetworkSuggestion(openNetwork, false, false, -1, "");
+        WifiConfiguration wepNetwork = WifiConfigurationTestUtil.createWepNetwork();
+        WifiNetworkSuggestion wepNetworkSuggestion =
+                new WifiNetworkSuggestion(wepNetwork, false, false, -1, "");
+        when(mWifiNetworkSuggestionsManager.getAllNetworkSuggestions())
+                .thenReturn(new HashSet<>(Arrays.asList(
+                        openNetworkSuggestion, wepNetworkSuggestion)));
+
+        // scan results from most recent scan
+        ScanResult savedScanResult = createOpenScanResult(ssid1, 2412 /* frequency */);
+        ScanResult unsavedScanResult = createOpenScanResult(ssid2, 2412 /* frequency */);
+
+        when(mWifiScanner.getSingleScanResults())
+                .thenReturn(Arrays.asList(savedScanResult, unsavedScanResult));
+
+        // intersection of most recent scan + saved configs
+        Set<ScanResultMatchInfo> expectedMatchInfos =
+                Collections.singleton(ScanResultMatchInfo.fromScanResult(savedScanResult));
+
+        initializeWakeupController(true /* enabled */);
+        mWakeupController.start();
+        verify(mWakeupLock).setLock(eq(expectedMatchInfos));
+        verify(mWifiWakeMetrics).recordStartEvent(expectedMatchInfos.size());
+    }
+
+    /**
+     * Verify that the wakeup lock is initialized with the intersection of ScanResults and saved
+     * networks/network suggestions.
+     */
+    @Test
+    public void startInitializesWakeupLockWithSavedScanResultsAndNetworkSuggestions() {
+        String ssid1 = "ssid 1";
+        String ssid2 = "ssid 2";
+        String ssid3 = "ssid 3";
+        String quotedSsid1 = ScanResultUtil.createQuotedSSID(ssid1);
+        String quotedSsid2 = ScanResultUtil.createQuotedSSID(ssid2);
+
+        // saved config + suggestion
+        WifiConfiguration openNetwork = WifiConfigurationTestUtil.createOpenNetwork(quotedSsid1);
+        openNetwork.getNetworkSelectionStatus().setHasEverConnected(true);
+        when(mWifiConfigManager.getSavedNetworks(anyInt()))
+                .thenReturn(Arrays.asList(openNetwork));
+
+        WifiConfiguration oweNetwork = WifiConfigurationTestUtil.createOweNetwork(quotedSsid2);
+        WifiNetworkSuggestion oweNetworkSuggestion =
+                new WifiNetworkSuggestion(oweNetwork, false, false, -1, "");
+        when(mWifiNetworkSuggestionsManager.getAllNetworkSuggestions())
+                .thenReturn(new HashSet<>(Arrays.asList(oweNetworkSuggestion)));
+
+        // scan results from most recent scan
+        ScanResult savedScanResult = createOpenScanResult(ssid1, 2412 /* frequency */);
+        ScanResult suggestionScanResult = createOweScanResult(ssid2, 2412 /* frequency */);
+        ScanResult unknownScanResult = createOpenScanResult(ssid3, 2412 /* frequency */);
+
+        when(mWifiScanner.getSingleScanResults())
+                .thenReturn(Arrays.asList(savedScanResult, suggestionScanResult,
+                        unknownScanResult));
+
+        // intersection of most recent scan + saved configs/suggestions
+        Set<ScanResultMatchInfo> expectedMatchInfos = new HashSet<ScanResultMatchInfo>() {{
+                    add(ScanResultMatchInfo.fromScanResult(savedScanResult));
+                    add(ScanResultMatchInfo.fromScanResult(suggestionScanResult));
+                }};
 
         initializeWakeupController(true /* enabled */);
         mWakeupController.start();
@@ -349,7 +449,7 @@ public class WakeupControllerTest {
                 .createOpenNetwork(ScanResultUtil.createQuotedSSID(ssid24));
         openNetwork24.getNetworkSelectionStatus().setHasEverConnected(true);
 
-        when(mWifiConfigManager.getSavedNetworks())
+        when(mWifiConfigManager.getSavedNetworks(anyInt()))
                 .thenReturn(Arrays.asList(openNetworkDfs, openNetwork24));
 
         // scan results from most recent scan
@@ -373,12 +473,12 @@ public class WakeupControllerTest {
      * Verify that onResults updates the WakeupLock.
      */
     @Test
-    public void onResultsUpdatesWakeupLock() {
+    public void onResultsUpdatesWakeupLockForSavedNetworks() {
         // saved config
         WifiConfiguration openNetwork = WifiConfigurationTestUtil
                 .createOpenNetwork(ScanResultUtil.createQuotedSSID(SAVED_SSID));
         openNetwork.getNetworkSelectionStatus().setHasEverConnected(true);
-        when(mWifiConfigManager.getSavedNetworks())
+        when(mWifiConfigManager.getSavedNetworks(anyInt()))
                 .thenReturn(Collections.singletonList(openNetwork));
 
         initializeWakeupController(true /* enabled */);
@@ -397,6 +497,34 @@ public class WakeupControllerTest {
         verify(mWakeupLock).update(eq(Collections.singleton(expectedMatchInfo)));
     }
 
+    /**
+     * Verify that onResults updates the WakeupLock.
+     */
+    @Test
+    public void onResultsUpdatesWakeupLockForNetworkSuggestions() {
+        // suggestions
+        WifiConfiguration openNetwork = WifiConfigurationTestUtil
+                .createOpenNetwork(ScanResultUtil.createQuotedSSID(SAVED_SSID));
+        WifiNetworkSuggestion openNetworkSuggestion =
+                new WifiNetworkSuggestion(openNetwork, false, false, -1, "");
+        when(mWifiNetworkSuggestionsManager.getAllNetworkSuggestions())
+                .thenReturn(new HashSet<>(Collections.singletonList(openNetworkSuggestion)));
+
+        initializeWakeupController(true /* enabled */);
+        mWakeupController.start();
+
+        ArgumentCaptor<WifiScanner.ScanListener> scanListenerArgumentCaptor =
+                ArgumentCaptor.forClass(WifiScanner.ScanListener.class);
+
+        verify(mWifiScanner).registerScanListener(scanListenerArgumentCaptor.capture());
+        WifiScanner.ScanListener scanListener = scanListenerArgumentCaptor.getValue();
+
+        // incoming scan results
+        scanListener.onResults(mTestScanDatas);
+
+        ScanResultMatchInfo expectedMatchInfo = ScanResultMatchInfo.fromScanResult(mTestScanResult);
+        verify(mWakeupLock).update(eq(Collections.singleton(expectedMatchInfo)));
+    }
 
     /**
      * Verify that onResults filters out unsaved networks when updating the WakeupLock.
@@ -404,7 +532,7 @@ public class WakeupControllerTest {
     @Test
     public void onResultsUpdatesWakeupLockWithOnlySavedNetworks() {
         // no saved configs
-        when(mWifiConfigManager.getSavedNetworks()).thenReturn(Collections.emptyList());
+        when(mWifiConfigManager.getSavedNetworks(anyInt())).thenReturn(Collections.emptyList());
 
         initializeWakeupController(true /* enabled */);
         mWakeupController.start();
@@ -560,5 +688,58 @@ public class WakeupControllerTest {
         ContentObserver contentObserver = argumentCaptor.getValue();
         contentObserver.onChange(false /* selfChange */);
         verify(mWakeupOnboarding).setOnboarded();
+    }
+
+    /**
+     * When Wifi disconnects from a network, and within LAST_DISCONNECT_TIMEOUT_MILLIS Wifi is
+     * disabled, then the last connected Wifi network should be added to the wakeup lock.
+     *
+     * This simulates when a Wifi network sporadically connects and disconnects. During the
+     * disconnected phase, the user forcibly disables Wifi to stop this intermittent behavior. Then,
+     * we should add the network to the wake lock to ensure Wifi Wake does not automatically
+     * reconnect to this network.
+     *
+     * Also verifies that after the above flow, when Wifi is re-enabled, then disabled again, the
+     * last connected network should be reset and no networks should be added to the wakeup lock.
+     */
+    @Test
+    public void lastConnectedNetworkAddedToLock() {
+        when(mClock.getElapsedSinceBootMillis()).thenReturn(0L,
+                (long) (0.8 * WakeupController.LAST_DISCONNECT_TIMEOUT_MILLIS));
+        ScanResultMatchInfo matchInfo = ScanResultMatchInfo.fromScanResult(mTestScanResult);
+        when(mWifiConfigManager.getSavedNetworks(anyInt())).thenReturn(Collections.emptyList());
+        when(mWifiScanner.getSingleScanResults()).thenReturn(Collections.emptyList());
+        initializeWakeupController(true);
+
+        mWakeupController.setLastDisconnectInfo(matchInfo);
+        mWakeupController.start();
+
+        verify(mWakeupLock).setLock(eq(Collections.singleton(matchInfo)));
+
+        mWakeupController.stop();
+        mWakeupController.reset();
+        mWakeupController.start();
+
+        verify(mWakeupLock).setLock(eq(Collections.emptySet()));
+    }
+
+    /**
+     * When Wifi disconnects from a network, and Wifi is disabled after more than
+     * LAST_DISCONNECT_TIMEOUT_MILLIS, the last connected Wifi network should not be added to the
+     * wakeup lock.
+     */
+    @Test
+    public void expiredLastConnectedNetworkNotAddedToLock() {
+        when(mClock.getElapsedSinceBootMillis()).thenReturn(0L,
+                (long) (1.2 * WakeupController.LAST_DISCONNECT_TIMEOUT_MILLIS));
+        ScanResultMatchInfo matchInfo = ScanResultMatchInfo.fromScanResult(mTestScanResult);
+        when(mWifiConfigManager.getSavedNetworks(anyInt())).thenReturn(Collections.emptyList());
+        when(mWifiScanner.getSingleScanResults()).thenReturn(Collections.emptyList());
+        initializeWakeupController(true);
+
+        mWakeupController.setLastDisconnectInfo(matchInfo);
+        mWakeupController.start();
+
+        verify(mWakeupLock).setLock(eq(Collections.emptySet()));
     }
 }

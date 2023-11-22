@@ -26,6 +26,7 @@
 
 #include "minikin/FontCollection.h"
 #include "minikin/Macros.h"
+#include "minikin/MinikinPaint.h"
 
 #include "FontTestUtils.h"
 #include "MinikinInternal.h"
@@ -73,15 +74,13 @@ static void thread_main(int tid) {
 
         for (int j = 0; j < LAYOUT_COUNT_PER_COLLECTION; ++j) {
             // Generates 10 of 3-letter words so that the word sometimes hit the cache.
-            Layout layout;
             std::vector<uint16_t> text = generateTestText(&mt, 3, 10);
-            layout.doLayout(text, Range(0, text.size()), Bidi::LTR, paint, StartHyphenEdit::NO_EDIT,
-                            EndHyphenEdit::NO_EDIT);
-            std::vector<float> advances(text.size());
-            layout.getAdvances(advances.data());
-            for (size_t k = 0; k < advances.size(); ++k) {
+            Layout layout(text, Range(0, text.size()), Bidi::LTR, paint, StartHyphenEdit::NO_EDIT,
+                          EndHyphenEdit::NO_EDIT);
+            for (size_t k = 0; k < text.size(); ++k) {
                 // All characters in Ascii.ttf has 1.0em horizontal advance.
-                LOG_ALWAYS_FATAL_IF(advances[k] != 10.0f, "Memory corruption detected.");
+                LOG_ALWAYS_FATAL_IF(layout.getCharAdvance(k) != 10.0f,
+                                    "Memory corruption detected.");
             }
         }
     }

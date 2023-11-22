@@ -21,15 +21,18 @@ import android.app.Fragment;
 import android.app.FragmentController;
 import android.app.FragmentHostCallback;
 import android.app.FragmentManagerNonConfig;
+import android.content.Context;
 import android.graphics.PixelFormat;
+import android.os.Bundle;
 import android.os.Handler;
 import android.os.Parcelable;
-import android.support.test.InstrumentationRegistry;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.WindowManager;
 import android.view.WindowManager.LayoutParams;
 import android.widget.FrameLayout;
+
+import androidx.test.InstrumentationRegistry;
 
 import org.junit.After;
 import org.junit.Before;
@@ -49,7 +52,7 @@ public abstract class BaseFragmentTest {
 
     private static final int VIEW_ID = 42;
     private final Class<? extends Fragment> mCls;
-    private Handler mHandler;
+    protected Handler mHandler;
     protected FrameLayout mView;
     protected FragmentController mFragments;
     protected Fragment mFragment;
@@ -75,7 +78,7 @@ public abstract class BaseFragmentTest {
         TestableLooper.get(this).runWithLooper(() -> {
             mHandler = new Handler();
 
-            mFragment = mCls.newInstance();
+            mFragment = instantiate(mContext, mCls.getName(), null);
             mFragments = FragmentController.createController(new HostCallbacks());
             mFragments.attachHost(null);
             mFragments.getFragmentManager().beginTransaction()
@@ -187,6 +190,13 @@ public abstract class BaseFragmentTest {
         TestableLooper.get(this).processAllMessages();
     }
 
+    /**
+     * Method available for override to replace fragment instantiation.
+     */
+    protected Fragment instantiate(Context context, String className, @Nullable Bundle arguments) {
+        return Fragment.instantiate(context, className, arguments);
+    }
+
     private View findViewById(int id) {
         return mView.findViewById(id);
     }
@@ -203,6 +213,11 @@ public abstract class BaseFragmentTest {
 
         @Override
         public void onDump(String prefix, FileDescriptor fd, PrintWriter writer, String[] args) {
+        }
+
+        @Override
+        public Fragment instantiate(Context context, String className, Bundle arguments) {
+            return BaseFragmentTest.this.instantiate(context, className, arguments);
         }
 
         @Override

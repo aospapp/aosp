@@ -21,12 +21,14 @@ import static org.mockito.Mockito.*;
 
 import android.os.IBinder;
 import android.os.RemoteException;
-import android.support.test.filters.SmallTest;
+
+import androidx.test.filters.SmallTest;
 
 import com.android.internal.app.IBatteryStats;
 
 import org.junit.Before;
 import org.junit.Test;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
@@ -35,6 +37,9 @@ import org.mockito.MockitoAnnotations;
  */
 @SmallTest
 public class WifiMulticastLockManagerTest {
+    private static final String WL_1_TAG = "Wakelock-1";
+    private static final String WL_2_TAG = "Wakelock-2";
+
     @Mock WifiMulticastLockManager.FilterController mHandler;
     @Mock IBatteryStats mBatteryStats;
     WifiMulticastLockManager mManager;
@@ -64,7 +69,7 @@ public class WifiMulticastLockManagerTest {
     @Test
     public void oneLock() throws RemoteException {
         IBinder binder = mock(IBinder.class);
-        mManager.acquireLock(binder, "Test");
+        mManager.acquireLock(binder, WL_1_TAG);
         assertTrue(mManager.isMulticastEnabled());
         verify(mHandler).stopFilteringMulticastPackets();
         mManager.initializeFiltering();
@@ -72,9 +77,95 @@ public class WifiMulticastLockManagerTest {
         verify(mBatteryStats).noteWifiMulticastEnabled(anyInt());
         verify(mBatteryStats, times(0)).noteWifiMulticastDisabled(anyInt());
 
-        mManager.releaseLock();
+        mManager.releaseLock(WL_1_TAG);
         verify(mBatteryStats).noteWifiMulticastDisabled(anyInt());
         assertFalse(mManager.isMulticastEnabled());
     }
-}
 
+    /**
+     * Test behavior when one lock is aquired then released with the wrong tag.
+     */
+    @Test
+    public void oneLock_wrongName() throws RemoteException {
+        IBinder binder = mock(IBinder.class);
+        mManager.acquireLock(binder, WL_1_TAG);
+        assertTrue(mManager.isMulticastEnabled());
+        verify(mHandler).stopFilteringMulticastPackets();
+        mManager.initializeFiltering();
+        verify(mHandler, never()).startFilteringMulticastPackets();
+        verify(mBatteryStats).noteWifiMulticastEnabled(anyInt());
+        verify(mBatteryStats, never()).noteWifiMulticastDisabled(anyInt());
+
+        mManager.releaseLock(WL_2_TAG);
+        verify(mBatteryStats, never()).noteWifiMulticastDisabled(anyInt());
+        assertTrue(mManager.isMulticastEnabled());
+    }
+
+    /**
+     * Test behavior when multiple locks are aquired then released in nesting order.
+     */
+    @Test
+    public void multipleLocksInOrder() throws RemoteException {
+        IBinder binder = mock(IBinder.class);
+
+        InOrder inOrderHandler = inOrder(mHandler);
+        InOrder inOrderBatteryStats = inOrder(mBatteryStats);
+
+        mManager.acquireLock(binder, WL_1_TAG);
+        inOrderHandler.verify(mHandler).stopFilteringMulticastPackets();
+        inOrderBatteryStats.verify(mBatteryStats).noteWifiMulticastEnabled(anyInt());
+        assertTrue(mManager.isMulticastEnabled());
+
+        mManager.acquireLock(binder, WL_2_TAG);
+        inOrderHandler.verify(mHandler).stopFilteringMulticastPackets();
+        inOrderBatteryStats.verify(mBatteryStats).noteWifiMulticastEnabled(anyInt());
+        assertTrue(mManager.isMulticastEnabled());
+
+        mManager.initializeFiltering();
+        inOrderHandler.verify(mHandler, never()).startFilteringMulticastPackets();
+
+        mManager.releaseLock(WL_2_TAG);
+        inOrderHandler.verify(mHandler, never()).startFilteringMulticastPackets();
+        inOrderBatteryStats.verify(mBatteryStats).noteWifiMulticastDisabled(anyInt());
+        assertTrue(mManager.isMulticastEnabled());
+
+        mManager.releaseLock(WL_1_TAG);
+        inOrderHandler.verify(mHandler).startFilteringMulticastPackets();
+        inOrderBatteryStats.verify(mBatteryStats).noteWifiMulticastDisabled(anyInt());
+        assertFalse(mManager.isMulticastEnabled());
+    }
+
+    /**
+     * Test behavior when multiple locks are aquired then released out of nesting order.
+     */
+    @Test
+    public void multipleLocksOutOfOrder() throws RemoteException {
+        IBinder binder = mock(IBinder.class);
+
+        InOrder inOrderHandler = inOrder(mHandler);
+        InOrder inOrderBatteryStats = inOrder(mBatteryStats);
+
+        mManager.acquireLock(binder, WL_1_TAG);
+        inOrderHandler.verify(mHandler).stopFilteringMulticastPackets();
+        inOrderBatteryStats.verify(mBatteryStats).noteWifiMulticastEnabled(anyInt());
+        assertTrue(mManager.isMulticastEnabled());
+
+        mManager.acquireLock(binder, WL_2_TAG);
+        inOrderHandler.verify(mHandler).stopFilteringMulticastPackets();
+        inOrderBatteryStats.verify(mBatteryStats).noteWifiMulticastEnabled(anyInt());
+        assertTrue(mManager.isMulticastEnabled());
+
+        mManager.initializeFiltering();
+        inOrderHandler.verify(mHandler, never()).startFilteringMulticastPackets();
+
+        mManager.releaseLock(WL_1_TAG);
+        inOrderHandler.verify(mHandler, never()).startFilteringMulticastPackets();
+        inOrderBatteryStats.verify(mBatteryStats).noteWifiMulticastDisabled(anyInt());
+        assertTrue(mManager.isMulticastEnabled());
+
+        mManager.releaseLock(WL_2_TAG);
+        inOrderHandler.verify(mHandler).startFilteringMulticastPackets();
+        inOrderBatteryStats.verify(mBatteryStats).noteWifiMulticastDisabled(anyInt());
+        assertFalse(mManager.isMulticastEnabled());
+    }
+}

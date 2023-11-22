@@ -106,14 +106,14 @@ void ConfigManager::UpdateConfig(const ConfigKey& key, const StatsdConfig& confi
         // Add to set.
         mConfigs[key.GetUid()].insert(key);
 
-        for (sp<ConfigListener> listener : mListeners) {
+        for (const sp<ConfigListener>& listener : mListeners) {
             broadcastList.push_back(listener);
         }
     }
 
     const int64_t timestampNs = getElapsedRealtimeNs();
     // Tell everyone
-    for (sp<ConfigListener> listener : broadcastList) {
+    for (const sp<ConfigListener>& listener : broadcastList) {
         listener->OnConfigUpdated(timestampNs, key, config);
     }
 }
@@ -128,16 +128,37 @@ void ConfigManager::RemoveConfigReceiver(const ConfigKey& key) {
     mConfigReceivers.erase(key);
 }
 
+void ConfigManager::SetActiveConfigsChangedReceiver(const int uid,
+                                                    const sp<IBinder>& intentSender) {
+    lock_guard<mutex> lock(mMutex);
+    mActiveConfigsChangedReceivers[uid] = intentSender;
+}
+
+void ConfigManager::RemoveActiveConfigsChangedReceiver(const int uid) {
+    lock_guard<mutex> lock(mMutex);
+    mActiveConfigsChangedReceivers.erase(uid);
+}
+
 void ConfigManager::RemoveConfig(const ConfigKey& key) {
     vector<sp<ConfigListener>> broadcastList;
     {
         lock_guard <mutex> lock(mMutex);
 
-        auto uidIt = mConfigs.find(key.GetUid());
+        auto uid = key.GetUid();
+        auto uidIt = mConfigs.find(uid);
         if (uidIt != mConfigs.end() && uidIt->second.find(key) != uidIt->second.end()) {
             // Remove from map
             uidIt->second.erase(key);
-            for (sp<ConfigListener> listener : mListeners) {
+
+            // No more configs for this uid, lets remove the active configs callback.
+            if (uidIt->second.empty()) {
+                auto itActiveConfigsChangedReceiver = mActiveConfigsChangedReceivers.find(uid);
+                    if (itActiveConfigsChangedReceiver != mActiveConfigsChangedReceivers.end()) {
+                        mActiveConfigsChangedReceivers.erase(itActiveConfigsChangedReceiver);
+                    }
+            }
+
+            for (const sp<ConfigListener>& listener : mListeners) {
                 broadcastList.push_back(listener);
             }
         }
@@ -153,7 +174,7 @@ void ConfigManager::RemoveConfig(const ConfigKey& key) {
         remove_saved_configs(key);
     }
 
-    for (sp<ConfigListener> listener:broadcastList) {
+    for (const sp<ConfigListener>& listener:broadcastList) {
         listener->OnConfigRemoved(key);
     }
 }
@@ -181,9 +202,14 @@ void ConfigManager::RemoveConfigs(int uid) {
                 mConfigReceivers.erase(*it);
         }
 
+        auto itActiveConfigsChangedReceiver = mActiveConfigsChangedReceivers.find(uid);
+        if (itActiveConfigsChangedReceiver != mActiveConfigsChangedReceivers.end()) {
+            mActiveConfigsChangedReceivers.erase(itActiveConfigsChangedReceiver);
+        }
+
         mConfigs.erase(uidIt);
 
-        for (sp<ConfigListener> listener : mListeners) {
+        for (const sp<ConfigListener>& listener : mListeners) {
             broadcastList.push_back(listener);
         }
     }
@@ -191,7 +217,7 @@ void ConfigManager::RemoveConfigs(int uid) {
     // Remove separately so if they do anything in the callback they can't mess up our iteration.
     for (auto& key : removed) {
         // Tell everyone
-        for (sp<ConfigListener> listener:broadcastList) {
+        for (const sp<ConfigListener>& listener:broadcastList) {
             listener->OnConfigRemoved(key);
         }
     }
@@ -213,7 +239,8 @@ void ConfigManager::RemoveAllConfigs() {
         }
 
         mConfigReceivers.clear();
-        for (sp<ConfigListener> listener : mListeners) {
+        mActiveConfigsChangedReceivers.clear();
+        for (const sp<ConfigListener>& listener : mListeners) {
             broadcastList.push_back(listener);
         }
     }
@@ -221,7 +248,7 @@ void ConfigManager::RemoveAllConfigs() {
     // Remove separately so if they do anything in the callback they can't mess up our iteration.
     for (auto& key : removed) {
         // Tell everyone
-        for (sp<ConfigListener> listener:broadcastList) {
+        for (const sp<ConfigListener>& listener:broadcastList) {
             listener->OnConfigRemoved(key);
         }
     }
@@ -244,6 +271,17 @@ const sp<android::IBinder> ConfigManager::GetConfigReceiver(const ConfigKey& key
 
     auto it = mConfigReceivers.find(key);
     if (it == mConfigReceivers.end()) {
+        return nullptr;
+    } else {
+        return it->second;
+    }
+}
+
+const sp<android::IBinder> ConfigManager::GetActiveConfigsChangedReceiver(const int uid) const {
+    lock_guard<mutex> lock(mMutex);
+
+    auto it = mActiveConfigsChangedReceivers.find(uid);
+    if (it == mActiveConfigsChangedReceivers.end()) {
         return nullptr;
     } else {
         return it->second;

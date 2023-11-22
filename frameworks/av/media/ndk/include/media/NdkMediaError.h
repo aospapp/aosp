@@ -14,6 +14,14 @@
  * limitations under the License.
  */
 
+/**
+ * @addtogroup Media
+ * @{
+ */
+
+/**
+ * @file NdkMediaError.h
+ */
 
 /*
  * This file defines an NDK API.
@@ -55,6 +63,7 @@ typedef enum {
     AMEDIA_ERROR_INVALID_OPERATION     = AMEDIA_ERROR_BASE - 5,
     AMEDIA_ERROR_END_OF_STREAM         = AMEDIA_ERROR_BASE - 6,
     AMEDIA_ERROR_IO                    = AMEDIA_ERROR_BASE - 7,
+    AMEDIA_ERROR_WOULD_BLOCK           = AMEDIA_ERROR_BASE - 8,
 
     AMEDIA_DRM_ERROR_BASE              = -20000,
     AMEDIA_DRM_NOT_PROVISIONED         = AMEDIA_DRM_ERROR_BASE - 1,
@@ -79,3 +88,5 @@ typedef enum {
 __END_DECLS
 
 #endif // _NDK_MEDIA_ERROR_H
+
+/** @} */

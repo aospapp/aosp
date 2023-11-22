@@ -725,7 +725,7 @@ bool Slang::compile(
           if ((Opts.mOutputType == Slang::OT_Bitcode) &&
               (Opts.mBitcodeStorage == BCST_JAVA_CODE) &&
               !generateJavaBitcodeAccessor(Opts.mJavaReflectionPathBase,
-                                           RealPackageName.c_str(),
+                                           RealPackageName,
                                            mRSContext->getLicenseNote())) {
             return false;
           }

@@ -84,6 +84,7 @@ import static junit.framework.Assert.assertTrue;
 
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.eq;
+import static org.mockito.Mockito.atLeast;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
@@ -92,6 +93,7 @@ import static org.mockito.Mockito.verify;
 
 import android.content.Context;
 import android.content.pm.ApplicationInfo;
+import android.hardware.radio.V1_0.Carrier;
 import android.hardware.radio.V1_0.CdmaSmsMessage;
 import android.hardware.radio.V1_0.DataProfileInfo;
 import android.hardware.radio.V1_0.GsmSmsMessage;
@@ -104,33 +106,41 @@ import android.hardware.radio.V1_0.RadioResponseType;
 import android.hardware.radio.V1_0.SmsWriteArgs;
 import android.hardware.radio.deprecated.V1_0.IOemHook;
 import android.net.ConnectivityManager;
+import android.net.LinkAddress;
+import android.net.NetworkUtils;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.IPowerManager;
 import android.os.Message;
 import android.os.PowerManager;
 import android.os.WorkSource;
-import android.support.test.filters.FlakyTest;
+import android.service.carrier.CarrierIdentifier;
 import android.telephony.AccessNetworkConstants;
 import android.telephony.CellIdentityCdma;
 import android.telephony.CellIdentityGsm;
 import android.telephony.CellIdentityLte;
+import android.telephony.CellIdentityTdscdma;
 import android.telephony.CellIdentityWcdma;
 import android.telephony.CellInfo;
 import android.telephony.CellInfoCdma;
 import android.telephony.CellInfoGsm;
 import android.telephony.CellInfoLte;
+import android.telephony.CellInfoTdscdma;
 import android.telephony.CellInfoWcdma;
 import android.telephony.CellSignalStrengthCdma;
 import android.telephony.CellSignalStrengthGsm;
 import android.telephony.CellSignalStrengthLte;
+import android.telephony.CellSignalStrengthTdscdma;
 import android.telephony.CellSignalStrengthWcdma;
 import android.telephony.SmsManager;
 import android.telephony.TelephonyManager;
+import android.telephony.data.ApnSetting;
+import android.telephony.data.DataCallResponse;
 import android.telephony.data.DataProfile;
 
+import androidx.test.filters.FlakyTest;
+
 import com.android.internal.telephony.RIL.RilHandler;
-import com.android.internal.telephony.dataconnection.ApnSetting;
 import com.android.internal.telephony.dataconnection.DcTracker;
 
 import org.junit.After;
@@ -142,6 +152,7 @@ import org.mockito.MockitoAnnotations;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 public class RILTest extends TelephonyTest {
 
@@ -151,12 +162,17 @@ public class RILTest extends TelephonyTest {
     // refer to RIL#DEFAULT_WAKE_LOCK_TIMEOUT_MS
     private static final int DEFAULT_WAKE_LOCK_TIMEOUT_MS = 60000;
 
+    // timer for CountDownLatch timeout
+    private static final int WAIT_TIMER = 10; //
+
     @Mock
     private ConnectivityManager mConnectionManager;
     @Mock
     private IRadio mRadioProxy;
     @Mock
     private IOemHook mOemHookProxy;
+
+    private HalVersion mRadioVersion = new HalVersion(1, 0);
 
     private RilHandler mRilHandler;
     private RIL mRILInstance;
@@ -174,10 +190,10 @@ public class RILTest extends TelephonyTest {
     private static final int CI = 268435456;
     private static final int CID = 65535;
     private static final int CQI = 2147483647;
-    private static final int DBM = 74;
+    private static final int DBM = -74;
     private static final int EARFCN = 262140;
     private static final int BANDWIDTH = 5000;
-    private static final int ECIO = 124;
+    private static final int ECIO = -124;
     private static final String EMPTY_ALPHA_LONG = "";
     private static final String EMPTY_ALPHA_SHORT = "";
     private static final int LAC = 65535;
@@ -191,24 +207,30 @@ public class RILTest extends TelephonyTest {
     private static final int PCI = 503;
     private static final int PSC = 500;
     private static final int RIL_TIMESTAMP_TYPE_OEM_RIL = 3;
-    private static final int RSSNR = 2147483647;
-    private static final int RSRP = 96;
-    private static final int RSRQ = 10;
+    private static final int RSSNR = CellInfo.UNAVAILABLE;
+    private static final int RSRP = -96;
+    private static final int RSRQ = -10;
+    private static final int RSCP = -94;
+    private static final int RSCP_ASU = 26;
+    private static final int ECNO = -21;
+    private static final int ECNO_ASU = 6;
     private static final int SIGNAL_NOISE_RATIO = 6;
-    private static final int SIGNAL_STRENGTH = 24;
+    private static final int RSSI = -65;
+    private static final int RSSI_ASU = 24;
     private static final int SYSTEM_ID = 65533;
     private static final int TAC = 65535;
-    private static final int TIME_ADVANCE = 4;
+    private static final int TIMING_ADVANCE = 4;
     private static final long TIMESTAMP = 215924934;
     private static final int UARFCN = 690;
     private static final int TYPE_CDMA = 2;
     private static final int TYPE_GSM = 1;
     private static final int TYPE_LTE = 3;
     private static final int TYPE_WCDMA = 4;
+    private static final int TYPE_TD_SCDMA = 5;
 
     private static final int PROFILE_ID = 0;
     private static final String APN = "apn";
-    private static final String PROTOCOL = "IPV6";
+    private static final int PROTOCOL = ApnSetting.PROTOCOL_IPV6;
     private static final int AUTH_TYPE = 0;
     private static final String USER_NAME = "username";
     private static final String PASSWORD = "password";
@@ -217,13 +239,11 @@ public class RILTest extends TelephonyTest {
     private static final int MAX_CONNS = 3;
     private static final int WAIT_TIME = 10;
     private static final boolean APN_ENABLED = true;
-    private static final int SUPPORTED_APNT_YPES_BITMAP = 123456;
-    private static final String ROAMING_PROTOCOL = "IPV6";
-    private static final int BEARER_BITMAP = 123123;
+    private static final int SUPPORTED_APNT_YPES_BITMAK = 123456;
+    private static final int ROAMING_PROTOCOL = ApnSetting.PROTOCOL_IPV6;
+    private static final int BEARER_BITMASK = 123123;
     private static final int MTU = 1234;
-    private static final String MVNO_TYPE = "";
-    private static final String MVNO_MATCH_DATA = "";
-    private static final boolean MODEM_COGNITIVE = true;
+    private static final boolean PERSISTENT = true;
 
     private class RILTestHandler extends HandlerThread {
 
@@ -249,6 +269,11 @@ public class RILTest extends TelephonyTest {
             mRILUnderTest = spy(mRILInstance);
             doReturn(mRadioProxy).when(mRILUnderTest).getRadioProxy(any());
             doReturn(mOemHookProxy).when(mRILUnderTest).getOemHookProxy(any());
+
+            try {
+                replaceInstance(RIL.class, "mRadioVersion", mRILUnderTest, mRadioVersion);
+            } catch (Exception e) {
+            }
 
             mRilHandler = mRILUnderTest.getRilHandler();
 
@@ -279,7 +304,40 @@ public class RILTest extends TelephonyTest {
     @After
     public void tearDown() throws Exception {
         mTestHandler.quit();
+        mTestHandler.join();
         super.tearDown();
+    }
+
+    @Test
+    public void testRadioErrorWithWakelockTimeout() throws Exception {
+        RadioBugDetector detector = mRILInstance.getRadioBugDetector();
+        int wakelockTimeoutThreshold = detector.getWakelockTimeoutThreshold();
+        for (int i = 0; i < wakelockTimeoutThreshold; i++) {
+            invokeMethod(
+                    mRILInstance,
+                    "obtainRequest",
+                    new Class<?>[]{Integer.TYPE, Message.class, WorkSource.class},
+                    new Object[]{RIL_REQUEST_GET_SIM_STATUS, obtainMessage(), new WorkSource()});
+        }
+
+        waitForHandlerActionDelayed(mRilHandler, WAIT_TIMER, DEFAULT_WAKE_LOCK_TIMEOUT_MS);
+        assertTrue(1 == detector.getWakelockTimoutCount());
+    }
+
+    @FlakyTest
+    @Test
+    public void testRadioErrorWithContinuousSystemErr() throws Exception {
+        RadioBugDetector detector = mRILUnderTest.getRadioBugDetector();
+        int systemErrorThreshold = detector.getSystemErrorThreshold();
+        for (int i = 0; i < systemErrorThreshold; i++) {
+            mRILUnderTest.getIccCardStatus(obtainMessage());
+            verify(mRadioProxy, atLeast(1)).getIccCardStatus(mSerialNumberCaptor.capture());
+            verifyRILErrorResponse(mRILUnderTest, mSerialNumberCaptor.getValue(),
+                    RIL_REQUEST_GET_SIM_STATUS, RadioError.SYSTEM_ERR);
+        }
+
+        int status = detector.getRadioBugStatus();
+        assertTrue(status == RadioBugDetector.RADIO_BUG_REPETITIVE_SYSTEM_ERROR);
     }
 
     @FlakyTest
@@ -692,11 +750,12 @@ public class RILTest extends TelephonyTest {
     @FlakyTest
     @Test
     public void testSetInitialAttachApn() throws Exception {
-        ApnSetting apnSetting = new ApnSetting(
-                -1, "22210", "Vodafone IT", "web.omnitel.it", "", "",
-                "", "", "", "", "", 0, new String[]{"DUN"}, "IP", "IP", true, 0, 0,
-                0, false, 0, 0, 0, 0, "", "");
-        DataProfile dataProfile = DcTracker.createDataProfile(apnSetting, apnSetting.profileId);
+        ApnSetting apnSetting = ApnSetting.makeApnSetting(
+                -1, "22210", "Vodafone IT", "web.omnitel.it", null, -1,
+                null, null, -1, "", "", 0, ApnSetting.TYPE_DUN, ApnSetting.PROTOCOL_IP,
+                ApnSetting.PROTOCOL_IP, true, 0, 0, false, 0, 0, 0, 0, -1, "");
+        DataProfile dataProfile = DcTracker.createDataProfile(
+                apnSetting, apnSetting.getProfileId(), false);
         boolean isRoaming = false;
 
         mRILUnderTest.setInitialAttachApn(dataProfile, isRoaming, obtainMessage());
@@ -704,10 +763,10 @@ public class RILTest extends TelephonyTest {
                 mSerialNumberCaptor.capture(),
                 eq((DataProfileInfo) invokeMethod(
                         mRILInstance,
-                        "convertToHalDataProfile",
+                        "convertToHalDataProfile10",
                         new Class<?>[] {DataProfile.class},
                         new Object[] {dataProfile})),
-                eq(dataProfile.isModemCognitive()),
+                eq(dataProfile.isPersistent()),
                 eq(isRoaming));
         verifyRILResponse(
                 mRILUnderTest, mSerialNumberCaptor.getValue(), RIL_REQUEST_SET_INITIAL_ATTACH_APN);
@@ -823,7 +882,7 @@ public class RILTest extends TelephonyTest {
     public void testNvWriteItem() throws Exception {
         int itemId = 1;
         String itemValue = "value";
-        mRILUnderTest.nvWriteItem(itemId, itemValue, obtainMessage());
+        mRILUnderTest.nvWriteItem(itemId, itemValue, obtainMessage(), new WorkSource());
         NvWriteItem item = new NvWriteItem();
         item.itemId = itemId;
         item.value = itemValue;
@@ -836,7 +895,7 @@ public class RILTest extends TelephonyTest {
     @Test
     public void testNvReadItem() throws Exception {
         int itemId = 1;
-        mRILUnderTest.nvReadItem(itemId, obtainMessage());
+        mRILUnderTest.nvReadItem(itemId, obtainMessage(), new WorkSource());
         verify(mRadioProxy).nvReadItem(mSerialNumberCaptor.capture(), eq(itemId));
         verifyRILResponse(
                 mRILUnderTest, mSerialNumberCaptor.getValue(), RIL_REQUEST_NV_READ_ITEM);
@@ -936,7 +995,7 @@ public class RILTest extends TelephonyTest {
     @FlakyTest
     @Test
     public void testGetModemActivityInfo() throws Exception {
-        mRILUnderTest.getModemActivityInfo(obtainMessage());
+        mRILUnderTest.getModemActivityInfo(obtainMessage(), new WorkSource());
         verify(mRadioProxy).getModemActivityInfo(mSerialNumberCaptor.capture());
         verifyRILResponse(
                 mRILUnderTest, mSerialNumberCaptor.getValue(), RIL_REQUEST_GET_ACTIVITY_INFO);
@@ -945,7 +1004,7 @@ public class RILTest extends TelephonyTest {
     @FlakyTest
     @Test
     public void testGetModemActivityInfoTimeout() {
-        mRILUnderTest.getModemActivityInfo(obtainMessage());
+        mRILUnderTest.getModemActivityInfo(obtainMessage(), new WorkSource());
         assertEquals(1, mRILUnderTest.getRilRequestList().size());
         waitForHandlerActionDelayed(mRilHandler, 10, DEFAULT_BLOCKING_MESSAGE_RESPONSE_TIMEOUT_MS);
         assertEquals(0, mRILUnderTest.getRilRequestList().size());
@@ -978,7 +1037,8 @@ public class RILTest extends TelephonyTest {
     @FlakyTest
     @Test
     public void testSetSimCardPowerForPowerDownState() throws Exception {
-        mRILUnderTest.setSimCardPower(TelephonyManager.CARD_POWER_DOWN, obtainMessage());
+        mRILUnderTest.setSimCardPower(TelephonyManager.CARD_POWER_DOWN, obtainMessage(),
+                new WorkSource());
         verify(mRadioProxy).setSimCardPower(mSerialNumberCaptor.capture(), eq(false));
         verifyRILResponse(
                 mRILUnderTest, mSerialNumberCaptor.getValue(), RIL_REQUEST_SET_SIM_CARD_POWER);
@@ -987,7 +1047,8 @@ public class RILTest extends TelephonyTest {
     @FlakyTest
     @Test
     public void testSetSimCardPowerForPowerUpState() throws Exception {
-        mRILUnderTest.setSimCardPower(TelephonyManager.CARD_POWER_UP, obtainMessage());
+        mRILUnderTest.setSimCardPower(TelephonyManager.CARD_POWER_UP, obtainMessage(),
+                new WorkSource());
         verify(mRadioProxy).setSimCardPower(mSerialNumberCaptor.capture(), eq(true));
         verifyRILResponse(
                 mRILUnderTest, mSerialNumberCaptor.getValue(), RIL_REQUEST_SET_SIM_CARD_POWER);
@@ -1013,7 +1074,7 @@ public class RILTest extends TelephonyTest {
                 mRILInstance,
                 "obtainRequest",
                 new Class<?>[] {Integer.TYPE, Message.class, WorkSource.class},
-                new Object[] {RIL_REQUEST_GET_SIM_STATUS, obtainMessage(), null});
+                new Object[] {RIL_REQUEST_GET_SIM_STATUS, obtainMessage(), new WorkSource()});
 
         // The wake lock should be held when obtain a RIL request.
         assertTrue(mRILInstance.getWakeLock(RIL.FOR_WAKELOCK).isHeld());
@@ -1060,6 +1121,22 @@ public class RILTest extends TelephonyTest {
         assertFalse(ril.getWakeLock(RIL.FOR_WAKELOCK).isHeld());
     }
 
+    private static void verifyRILErrorResponse(RIL ril, int serial, int requestType, int error) {
+        RadioResponseInfo responseInfo =
+                createFakeRadioResponseInfo(serial, error, RadioResponseType.SOLICITED);
+
+        RILRequest rr = ril.processResponse(responseInfo);
+        assertNotNull(rr);
+
+        assertEquals(serial, rr.getSerial());
+        assertEquals(requestType, rr.getRequest());
+        assertTrue(ril.getWakeLock(RIL.FOR_WAKELOCK).isHeld());
+
+        ril.processResponseDone(rr, responseInfo, null);
+        assertEquals(0, ril.getRilRequestList().size());
+        assertFalse(ril.getWakeLock(RIL.FOR_WAKELOCK).isHeld());
+    }
+
     private static RadioResponseInfo createFakeRadioResponseInfo(int serial, int error, int type) {
         RadioResponseInfo respInfo = new RadioResponseInfo();
         respInfo.serial = serial;
@@ -1077,12 +1154,12 @@ public class RILTest extends TelephonyTest {
         lte.cellIdentityLte.earfcn = EARFCN;
         lte.cellIdentityLte.mcc = MCC_STR;
         lte.cellIdentityLte.mnc = MNC_STR;
-        lte.signalStrengthLte.signalStrength = SIGNAL_STRENGTH;
-        lte.signalStrengthLte.rsrp = RSRP;
-        lte.signalStrengthLte.rsrq = RSRQ;
+        lte.signalStrengthLte.signalStrength = RSSI_ASU;
+        lte.signalStrengthLte.rsrp = -RSRP;
+        lte.signalStrengthLte.rsrq = -RSRQ;
         lte.signalStrengthLte.rssnr = RSSNR;
         lte.signalStrengthLte.cqi = CQI;
-        lte.signalStrengthLte.timingAdvance = TIME_ADVANCE;
+        lte.signalStrengthLte.timingAdvance = TIMING_ADVANCE;
         android.hardware.radio.V1_0.CellInfo record = new android.hardware.radio.V1_0.CellInfo();
         record.cellInfoType = TYPE_LTE;
         record.registered = false;
@@ -1100,14 +1177,14 @@ public class RILTest extends TelephonyTest {
         CellInfoLte expected = new CellInfoLte();
         expected.setRegistered(false);
         expected.setTimeStamp(TIMESTAMP);
-        expected.setTimeStampType(RIL_TIMESTAMP_TYPE_OEM_RIL);
         CellIdentityLte cil = new CellIdentityLte(CI, PCI, TAC, EARFCN, Integer.MAX_VALUE, MCC_STR,
                 MNC_STR, EMPTY_ALPHA_LONG, EMPTY_ALPHA_SHORT);
         CellSignalStrengthLte css = new CellSignalStrengthLte(
-                SIGNAL_STRENGTH, -RSRP, -RSRQ, RSSNR, CQI, TIME_ADVANCE);
+                RSSI, RSRP, RSRQ, RSSNR, CQI, TIMING_ADVANCE);
         expected.setCellIdentity(cil);
         expected.setCellSignalStrength(css);
         expected.setCellConnectionStatus(CellInfo.CONNECTION_UNKNOWN);
+        cellInfoLte.setTimeStamp(TIMESTAMP); // override the timestamp
         assertEquals(expected, cellInfoLte);
     }
 
@@ -1121,9 +1198,9 @@ public class RILTest extends TelephonyTest {
         cellinfo.cellIdentityGsm.arfcn = ARFCN;
         cellinfo.cellIdentityGsm.mcc = MCC_STR;
         cellinfo.cellIdentityGsm.mnc = MNC_STR;
-        cellinfo.signalStrengthGsm.signalStrength = SIGNAL_STRENGTH;
+        cellinfo.signalStrengthGsm.signalStrength = RSSI_ASU;
         cellinfo.signalStrengthGsm.bitErrorRate = BIT_ERROR_RATE;
-        cellinfo.signalStrengthGsm.timingAdvance = TIME_ADVANCE;
+        cellinfo.signalStrengthGsm.timingAdvance = TIMING_ADVANCE;
         android.hardware.radio.V1_0.CellInfo record = new android.hardware.radio.V1_0.CellInfo();
         record.cellInfoType = TYPE_GSM;
         record.registered = false;
@@ -1141,14 +1218,14 @@ public class RILTest extends TelephonyTest {
         CellInfoGsm expected = new CellInfoGsm();
         expected.setRegistered(false);
         expected.setTimeStamp(TIMESTAMP);
-        expected.setTimeStampType(RIL_TIMESTAMP_TYPE_OEM_RIL);
         CellIdentityGsm ci = new CellIdentityGsm(
                 LAC, CID, ARFCN, BSIC, MCC_STR, MNC_STR, EMPTY_ALPHA_LONG, EMPTY_ALPHA_SHORT);
         CellSignalStrengthGsm cs = new CellSignalStrengthGsm(
-                SIGNAL_STRENGTH, BIT_ERROR_RATE, TIME_ADVANCE);
+                RSSI, BIT_ERROR_RATE, TIMING_ADVANCE);
         expected.setCellIdentity(ci);
         expected.setCellSignalStrength(cs);
         expected.setCellConnectionStatus(CellInfo.CONNECTION_UNKNOWN);
+        cellInfoGsm.setTimeStamp(TIMESTAMP); // override the timestamp
         assertEquals(expected, cellInfoGsm);
     }
 
@@ -1162,7 +1239,7 @@ public class RILTest extends TelephonyTest {
         cellinfo.cellIdentityWcdma.uarfcn = UARFCN;
         cellinfo.cellIdentityWcdma.mcc = MCC_STR;
         cellinfo.cellIdentityWcdma.mnc = MNC_STR;
-        cellinfo.signalStrengthWcdma.signalStrength = SIGNAL_STRENGTH;
+        cellinfo.signalStrengthWcdma.signalStrength = RSSI_ASU;
         cellinfo.signalStrengthWcdma.bitErrorRate = BIT_ERROR_RATE;
         android.hardware.radio.V1_0.CellInfo record = new android.hardware.radio.V1_0.CellInfo();
         record.cellInfoType = TYPE_WCDMA;
@@ -1181,14 +1258,56 @@ public class RILTest extends TelephonyTest {
         CellInfoWcdma expected = new CellInfoWcdma();
         expected.setRegistered(false);
         expected.setTimeStamp(TIMESTAMP);
-        expected.setTimeStampType(RIL_TIMESTAMP_TYPE_OEM_RIL);
         CellIdentityWcdma ci = new CellIdentityWcdma(
                 LAC, CID, PSC, UARFCN, MCC_STR, MNC_STR, EMPTY_ALPHA_LONG, EMPTY_ALPHA_SHORT);
-        CellSignalStrengthWcdma cs = new CellSignalStrengthWcdma(SIGNAL_STRENGTH, BIT_ERROR_RATE);
+        CellSignalStrengthWcdma cs = new CellSignalStrengthWcdma(
+                RSSI, BIT_ERROR_RATE, Integer.MAX_VALUE, Integer.MAX_VALUE);
         expected.setCellIdentity(ci);
         expected.setCellSignalStrength(cs);
         expected.setCellConnectionStatus(CellInfo.CONNECTION_UNKNOWN);
+        cellInfoWcdma.setTimeStamp(TIMESTAMP); // override the timestamp
         assertEquals(expected, cellInfoWcdma);
+    }
+
+    @Test
+    public void testConvertHalCellInfoListForTdscdma() throws Exception {
+        android.hardware.radio.V1_2.CellInfoTdscdma cellinfo =
+                new android.hardware.radio.V1_2.CellInfoTdscdma();
+        cellinfo.cellIdentityTdscdma.base.lac = LAC;
+        cellinfo.cellIdentityTdscdma.base.cid = CID;
+        cellinfo.cellIdentityTdscdma.base.cpid = PSC;
+        cellinfo.cellIdentityTdscdma.uarfcn = UARFCN;
+        cellinfo.cellIdentityTdscdma.base.mcc = MCC_STR;
+        cellinfo.cellIdentityTdscdma.base.mnc = MNC_STR;
+        cellinfo.signalStrengthTdscdma.signalStrength = RSSI_ASU;
+        cellinfo.signalStrengthTdscdma.bitErrorRate = BIT_ERROR_RATE;
+        cellinfo.signalStrengthTdscdma.rscp = RSCP_ASU;
+        android.hardware.radio.V1_2.CellInfo record = new android.hardware.radio.V1_2.CellInfo();
+        record.cellInfoType = TYPE_TD_SCDMA;
+        record.registered = false;
+        record.timeStampType = RIL_TIMESTAMP_TYPE_OEM_RIL;
+        record.timeStamp = TIMESTAMP;
+        record.tdscdma.add(cellinfo);
+        ArrayList<android.hardware.radio.V1_2.CellInfo> records =
+                new ArrayList<android.hardware.radio.V1_2.CellInfo>();
+        records.add(record);
+
+        ArrayList<CellInfo> ret = RIL.convertHalCellInfoList_1_2(records);
+
+        assertEquals(1, ret.size());
+        CellInfoTdscdma cellInfoTdscdma = (CellInfoTdscdma) ret.get(0);
+        CellInfoTdscdma expected = new CellInfoTdscdma();
+        expected.setRegistered(false);
+        expected.setTimeStamp(TIMESTAMP);
+        expected.setCellConnectionStatus(CellInfo.CONNECTION_NONE);
+        CellIdentityTdscdma ci = new CellIdentityTdscdma(
+                MCC_STR, MNC_STR, LAC, CID, PSC, UARFCN, EMPTY_ALPHA_LONG, EMPTY_ALPHA_SHORT);
+        CellSignalStrengthTdscdma cs = new CellSignalStrengthTdscdma(
+                RSSI, BIT_ERROR_RATE, RSCP);
+        expected.setCellIdentity(ci);
+        expected.setCellSignalStrength(cs);
+        cellInfoTdscdma.setTimeStamp(TIMESTAMP); // override the timestamp
+        assertEquals(expected, cellInfoTdscdma);
     }
 
     @Test
@@ -1200,10 +1319,10 @@ public class RILTest extends TelephonyTest {
         cellinfo.cellIdentityCdma.baseStationId = BASESTATION_ID;
         cellinfo.cellIdentityCdma.longitude = LONGITUDE;
         cellinfo.cellIdentityCdma.latitude = LATITUDE;
-        cellinfo.signalStrengthCdma.dbm = DBM;
-        cellinfo.signalStrengthCdma.ecio = ECIO;
-        cellinfo.signalStrengthEvdo.dbm = DBM;
-        cellinfo.signalStrengthEvdo.ecio = ECIO;
+        cellinfo.signalStrengthCdma.dbm = -DBM;
+        cellinfo.signalStrengthCdma.ecio = -ECIO;
+        cellinfo.signalStrengthEvdo.dbm = -DBM;
+        cellinfo.signalStrengthEvdo.ecio = -ECIO;
         cellinfo.signalStrengthEvdo.signalNoiseRatio = SIGNAL_NOISE_RATIO;
         android.hardware.radio.V1_0.CellInfo record = new android.hardware.radio.V1_0.CellInfo();
         record.cellInfoType = TYPE_CDMA;
@@ -1222,7 +1341,6 @@ public class RILTest extends TelephonyTest {
         CellInfoCdma expected = new CellInfoCdma();
         expected.setRegistered(false);
         expected.setTimeStamp(TIMESTAMP);
-        expected.setTimeStampType(RIL_TIMESTAMP_TYPE_OEM_RIL);
         CellIdentityCdma ci = new CellIdentityCdma(
                 NETWORK_ID, SYSTEM_ID, BASESTATION_ID, LONGITUDE, LATITUDE,
                 EMPTY_ALPHA_LONG, EMPTY_ALPHA_SHORT);
@@ -1231,6 +1349,7 @@ public class RILTest extends TelephonyTest {
         expected.setCellIdentity(ci);
         expected.setCellSignalStrength(cs);
         expected.setCellConnectionStatus(CellInfo.CONNECTION_UNKNOWN);
+        cellInfoCdma.setTimeStamp(TIMESTAMP); // override the timestamp
         assertEquals(expected, cellInfoCdma);
     }
 
@@ -1243,14 +1362,14 @@ public class RILTest extends TelephonyTest {
         CellInfoLte expected = new CellInfoLte();
         expected.setRegistered(false);
         expected.setTimeStamp(TIMESTAMP);
-        expected.setTimeStampType(RIL_TIMESTAMP_TYPE_OEM_RIL);
         CellIdentityLte cil = new CellIdentityLte(
                 CI, PCI, TAC, EARFCN, BANDWIDTH, MCC_STR, MNC_STR, ALPHA_LONG, ALPHA_SHORT);
         CellSignalStrengthLte css = new CellSignalStrengthLte(
-                SIGNAL_STRENGTH, -RSRP, -RSRQ, RSSNR, CQI, TIME_ADVANCE);
+                RSSI, RSRP, RSRQ, RSSNR, CQI, TIMING_ADVANCE);
         expected.setCellIdentity(cil);
         expected.setCellSignalStrength(css);
         expected.setCellConnectionStatus(CellInfo.CONNECTION_NONE);
+        cellInfoLte.setTimeStamp(TIMESTAMP); // override the timestamp
         assertEquals(expected, cellInfoLte);
     }
 
@@ -1264,14 +1383,14 @@ public class RILTest extends TelephonyTest {
         CellInfoLte expected = new CellInfoLte();
         expected.setRegistered(false);
         expected.setTimeStamp(TIMESTAMP);
-        expected.setTimeStampType(RIL_TIMESTAMP_TYPE_OEM_RIL);
         CellIdentityLte cil = new CellIdentityLte(CI, PCI, TAC, EARFCN, BANDWIDTH, MCC_STR, MNC_STR,
                 EMPTY_ALPHA_LONG, EMPTY_ALPHA_SHORT);
         CellSignalStrengthLte css = new CellSignalStrengthLte(
-                SIGNAL_STRENGTH, -RSRP, -RSRQ, RSSNR, CQI, TIME_ADVANCE);
+                RSSI, RSRP, RSRQ, RSSNR, CQI, TIMING_ADVANCE);
         expected.setCellIdentity(cil);
         expected.setCellSignalStrength(css);
         expected.setCellConnectionStatus(CellInfo.CONNECTION_NONE);
+        cellInfoLte.setTimeStamp(TIMESTAMP); // override the timestamp
         assertEquals(expected, cellInfoLte);
     }
 
@@ -1287,14 +1406,14 @@ public class RILTest extends TelephonyTest {
         CellInfoLte expected = new CellInfoLte();
         expected.setRegistered(false);
         expected.setTimeStamp(TIMESTAMP);
-        expected.setTimeStampType(RIL_TIMESTAMP_TYPE_OEM_RIL);
         CellIdentityLte cil = new CellIdentityLte(
                 CI, PCI, TAC, EARFCN, BANDWIDTH, null, null, ALPHA_LONG, ALPHA_SHORT);
         CellSignalStrengthLte css = new CellSignalStrengthLte(
-                SIGNAL_STRENGTH, -RSRP, -RSRQ, RSSNR, CQI, TIME_ADVANCE);
+                RSSI, RSRP, RSRQ, RSSNR, CQI, TIMING_ADVANCE);
         expected.setCellIdentity(cil);
         expected.setCellSignalStrength(css);
         expected.setCellConnectionStatus(CellInfo.CONNECTION_NONE);
+        cellInfoLte.setTimeStamp(TIMESTAMP); // override the timestamp
         assertEquals(expected, cellInfoLte);
     }
 
@@ -1307,14 +1426,14 @@ public class RILTest extends TelephonyTest {
         CellInfoGsm expected = new CellInfoGsm();
         expected.setRegistered(false);
         expected.setTimeStamp(TIMESTAMP);
-        expected.setTimeStampType(RIL_TIMESTAMP_TYPE_OEM_RIL);
         CellIdentityGsm ci = new CellIdentityGsm(
                 LAC, CID, ARFCN, BSIC, MCC_STR, MNC_STR, ALPHA_LONG, ALPHA_SHORT);
         CellSignalStrengthGsm cs = new CellSignalStrengthGsm(
-                SIGNAL_STRENGTH, BIT_ERROR_RATE, TIME_ADVANCE);
+                RSSI, BIT_ERROR_RATE, TIMING_ADVANCE);
         expected.setCellIdentity(ci);
         expected.setCellSignalStrength(cs);
         expected.setCellConnectionStatus(CellInfo.CONNECTION_NONE);
+        cellInfoGsm.setTimeStamp(TIMESTAMP); // override the timestamp
         assertEquals(expected, cellInfoGsm);
     }
 
@@ -1328,14 +1447,14 @@ public class RILTest extends TelephonyTest {
         CellInfoGsm expected = new CellInfoGsm();
         expected.setRegistered(false);
         expected.setTimeStamp(TIMESTAMP);
-        expected.setTimeStampType(RIL_TIMESTAMP_TYPE_OEM_RIL);
         CellIdentityGsm ci = new CellIdentityGsm(
                 LAC, CID, ARFCN, BSIC, MCC_STR, MNC_STR, EMPTY_ALPHA_LONG, EMPTY_ALPHA_SHORT);
         CellSignalStrengthGsm cs = new CellSignalStrengthGsm(
-                SIGNAL_STRENGTH, BIT_ERROR_RATE, TIME_ADVANCE);
+                RSSI, BIT_ERROR_RATE, TIMING_ADVANCE);
         expected.setCellIdentity(ci);
         expected.setCellSignalStrength(cs);
         expected.setCellConnectionStatus(CellInfo.CONNECTION_NONE);
+        cellInfoGsm.setTimeStamp(TIMESTAMP); // override the timestamp
         assertEquals(expected, cellInfoGsm);
     }
 
@@ -1351,14 +1470,14 @@ public class RILTest extends TelephonyTest {
         CellInfoGsm expected = new CellInfoGsm();
         expected.setRegistered(false);
         expected.setTimeStamp(TIMESTAMP);
-        expected.setTimeStampType(RIL_TIMESTAMP_TYPE_OEM_RIL);
         CellIdentityGsm ci = new CellIdentityGsm(
                 LAC, CID, ARFCN, BSIC, null, null, ALPHA_LONG, ALPHA_SHORT);
         CellSignalStrengthGsm cs = new CellSignalStrengthGsm(
-                SIGNAL_STRENGTH, BIT_ERROR_RATE, TIME_ADVANCE);
+                RSSI, BIT_ERROR_RATE, TIMING_ADVANCE);
         expected.setCellIdentity(ci);
         expected.setCellConnectionStatus(CellInfo.CONNECTION_NONE);
         expected.setCellSignalStrength(cs);
+        cellInfoGsm.setTimeStamp(TIMESTAMP); // override the timestamp
         assertEquals(expected, cellInfoGsm);
     }
 
@@ -1372,13 +1491,14 @@ public class RILTest extends TelephonyTest {
         CellInfoWcdma expected = new CellInfoWcdma();
         expected.setRegistered(false);
         expected.setTimeStamp(TIMESTAMP);
-        expected.setTimeStampType(RIL_TIMESTAMP_TYPE_OEM_RIL);
         CellIdentityWcdma ci = new CellIdentityWcdma(
                 LAC, CID, PSC, UARFCN, MCC_STR, MNC_STR, ALPHA_LONG, ALPHA_SHORT);
-        CellSignalStrengthWcdma cs = new CellSignalStrengthWcdma(SIGNAL_STRENGTH, BIT_ERROR_RATE);
+        CellSignalStrengthWcdma cs =
+                new CellSignalStrengthWcdma(RSSI, BIT_ERROR_RATE, RSCP, ECNO);
         expected.setCellIdentity(ci);
         expected.setCellSignalStrength(cs);
         expected.setCellConnectionStatus(CellInfo.CONNECTION_NONE);
+        cellInfoWcdma.setTimeStamp(TIMESTAMP); // override the timestamp
         assertEquals(expected, cellInfoWcdma);
     }
 
@@ -1392,13 +1512,14 @@ public class RILTest extends TelephonyTest {
         CellInfoWcdma expected = new CellInfoWcdma();
         expected.setRegistered(false);
         expected.setTimeStamp(TIMESTAMP);
-        expected.setTimeStampType(RIL_TIMESTAMP_TYPE_OEM_RIL);
         CellIdentityWcdma ci = new CellIdentityWcdma(
                 LAC, CID, PSC, UARFCN, MCC_STR, MNC_STR, EMPTY_ALPHA_LONG, EMPTY_ALPHA_SHORT);
-        CellSignalStrengthWcdma cs = new CellSignalStrengthWcdma(SIGNAL_STRENGTH, BIT_ERROR_RATE);
+        CellSignalStrengthWcdma cs = new CellSignalStrengthWcdma(
+                RSSI, BIT_ERROR_RATE, RSCP, ECNO);
         expected.setCellIdentity(ci);
         expected.setCellSignalStrength(cs);
         expected.setCellConnectionStatus(CellInfo.CONNECTION_NONE);
+        cellInfoWcdma.setTimeStamp(TIMESTAMP); // override the timestamp
         assertEquals(expected, cellInfoWcdma);
     }
 
@@ -1414,13 +1535,14 @@ public class RILTest extends TelephonyTest {
         CellInfoWcdma expected = new CellInfoWcdma();
         expected.setRegistered(false);
         expected.setTimeStamp(TIMESTAMP);
-        expected.setTimeStampType(RIL_TIMESTAMP_TYPE_OEM_RIL);
         CellIdentityWcdma ci = new CellIdentityWcdma(
                 LAC, CID, PSC, UARFCN, null, null, ALPHA_LONG, ALPHA_SHORT);
-        CellSignalStrengthWcdma cs = new CellSignalStrengthWcdma(SIGNAL_STRENGTH, BIT_ERROR_RATE);
+        CellSignalStrengthWcdma cs = new CellSignalStrengthWcdma(
+                RSSI, BIT_ERROR_RATE, RSCP, ECNO);
         expected.setCellIdentity(ci);
         expected.setCellSignalStrength(cs);
         expected.setCellConnectionStatus(CellInfo.CONNECTION_NONE);
+        cellInfoWcdma.setTimeStamp(TIMESTAMP); // override the timestamp
         assertEquals(expected, cellInfoWcdma);
     }
 
@@ -1433,7 +1555,6 @@ public class RILTest extends TelephonyTest {
         CellInfoCdma expected = new CellInfoCdma();
         expected.setRegistered(false);
         expected.setTimeStamp(TIMESTAMP);
-        expected.setTimeStampType(RIL_TIMESTAMP_TYPE_OEM_RIL);
         CellIdentityCdma ci = new CellIdentityCdma(
                 NETWORK_ID, SYSTEM_ID, BASESTATION_ID, LONGITUDE, LATITUDE,
                 ALPHA_LONG, ALPHA_SHORT);
@@ -1442,6 +1563,7 @@ public class RILTest extends TelephonyTest {
         expected.setCellIdentity(ci);
         expected.setCellSignalStrength(cs);
         expected.setCellConnectionStatus(CellInfo.CONNECTION_NONE);
+        cellInfoCdma.setTimeStamp(TIMESTAMP); // override the timestamp
         assertEquals(expected, cellInfoCdma);
     }
 
@@ -1454,7 +1576,6 @@ public class RILTest extends TelephonyTest {
         CellInfoCdma expected = new CellInfoCdma();
         expected.setRegistered(false);
         expected.setTimeStamp(TIMESTAMP);
-        expected.setTimeStampType(RIL_TIMESTAMP_TYPE_OEM_RIL);
         CellIdentityCdma ci = new CellIdentityCdma(
                 NETWORK_ID, SYSTEM_ID, BASESTATION_ID, LONGITUDE, LATITUDE,
                 EMPTY_ALPHA_LONG, EMPTY_ALPHA_SHORT);
@@ -1463,7 +1584,59 @@ public class RILTest extends TelephonyTest {
         expected.setCellIdentity(ci);
         expected.setCellSignalStrength(cs);
         expected.setCellConnectionStatus(CellInfo.CONNECTION_NONE);
+        cellInfoCdma.setTimeStamp(TIMESTAMP); // override the timestamp
         assertEquals(expected, cellInfoCdma);
+    }
+
+    @Test
+    public void testConvertDataCallResult() throws Exception {
+        // Test V1.0 SetupDataCallResult
+        android.hardware.radio.V1_0.SetupDataCallResult result10 =
+                new android.hardware.radio.V1_0.SetupDataCallResult();
+        result10.status = android.hardware.radio.V1_0.DataCallFailCause.NONE;
+        result10.suggestedRetryTime = -1;
+        result10.cid = 0;
+        result10.active = 2;
+        result10.type = "IPV4V6";
+        result10.ifname = "ifname";
+        result10.addresses = "10.0.2.15 2607:fb90:a620:651d:eabe:f8da:c107:44be/64";
+        result10.dnses = "10.0.2.3 fd00:976a::9";
+        result10.gateways = "10.0.2.15 fe80::2";
+        result10.pcscf = "fd00:976a:c206:20::6   fd00:976a:c206:20::9    fd00:976a:c202:1d::9";
+        result10.mtu = 1500;
+
+        DataCallResponse response = new DataCallResponse(0, -1, 0, 2, ApnSetting.PROTOCOL_IPV4V6,
+                "ifname",
+                Arrays.asList(new LinkAddress(NetworkUtils.numericToInetAddress("10.0.2.15"), 32),
+                        new LinkAddress("2607:fb90:a620:651d:eabe:f8da:c107:44be/64")),
+                Arrays.asList(NetworkUtils.numericToInetAddress("10.0.2.3"),
+                        NetworkUtils.numericToInetAddress("fd00:976a::9")),
+                Arrays.asList(NetworkUtils.numericToInetAddress("10.0.2.15"),
+                        NetworkUtils.numericToInetAddress("fe80::2")),
+                Arrays.asList(NetworkUtils.numericToInetAddress("fd00:976a:c206:20::6"),
+                        NetworkUtils.numericToInetAddress("fd00:976a:c206:20::9"),
+                        NetworkUtils.numericToInetAddress("fd00:976a:c202:1d::9")), 1500);
+
+        assertEquals(response, RIL.convertDataCallResult(result10));
+
+        // Test V1.4 SetupDataCallResult
+        android.hardware.radio.V1_4.SetupDataCallResult result14 =
+                new android.hardware.radio.V1_4.SetupDataCallResult();
+        result14.cause = android.hardware.radio.V1_4.DataCallFailCause.NONE;
+        result14.suggestedRetryTime = -1;
+        result14.cid = 0;
+        result14.active = android.hardware.radio.V1_4.DataConnActiveStatus.ACTIVE;
+        result14.type = android.hardware.radio.V1_4.PdpProtocolType.IPV4V6;
+        result14.ifname = "ifname";
+        result14.addresses = new ArrayList<>(
+                Arrays.asList("10.0.2.15", "2607:fb90:a620:651d:eabe:f8da:c107:44be/64"));
+        result14.dnses = new ArrayList<>(Arrays.asList("10.0.2.3", "fd00:976a::9"));
+        result14.gateways = new ArrayList<>(Arrays.asList("10.0.2.15", "fe80::2"));
+        result14.pcscf = new ArrayList<>(Arrays.asList(
+                "fd00:976a:c206:20::6", "fd00:976a:c206:20::9", "fd00:976a:c202:1d::9"));
+        result14.mtu = 1500;
+
+        assertEquals(response, RIL.convertDataCallResult(result14));
     }
 
     @Test
@@ -1490,24 +1663,89 @@ public class RILTest extends TelephonyTest {
         assertEquals("100:foo", request.getWorkSourceClientId());
     }
 
-    private ArrayList<CellInfo> getCellInfoListForLTE(
-            String mcc, String mnc, String alphaLong, String alphaShort) {
-        android.hardware.radio.V1_2.CellInfoLte lte = new android.hardware.radio.V1_2.CellInfoLte();
+    @Test
+    public void testCellInfoTimestamp_1_4() {
+        ArrayList<android.hardware.radio.V1_4.CellInfo> records =
+                new ArrayList<android.hardware.radio.V1_4.CellInfo>();
+
+        for (int i = 0; i < 5 /* arbitrary */; i++) {
+            android.hardware.radio.V1_4.CellInfo record =
+                    new android.hardware.radio.V1_4.CellInfo();
+            record.info = new android.hardware.radio.V1_4.CellInfo.Info();
+            record.info.lte(new android.hardware.radio.V1_4.CellInfoLte());
+            initializeCellInfoLte_1_2(record.info.lte().base);
+            record.info.lte().base.cellIdentityLte.base.ci += i; // make them marginally unique
+
+            records.add(record);
+        }
+        List<CellInfo> cil = RIL.convertHalCellInfoList_1_4(records);
+
+        // Check that all timestamps are set to a valid number and are equal
+        final long ts = cil.get(0).getTimeStamp();
+        for (CellInfo ci : cil) {
+            assertTrue(ci.getTimeStamp() > 0 && ci.getTimeStamp() != Long.MAX_VALUE);
+            assertEquals(ci.getTimeStamp(), ts);
+        }
+    }
+
+    @Test
+    public void testCellInfoTimestamp_1_2() {
+        ArrayList<android.hardware.radio.V1_2.CellInfo> records =
+                new ArrayList<android.hardware.radio.V1_2.CellInfo>();
+
+        for (int i = 0; i < 5 /* arbitrary */; i++) {
+            android.hardware.radio.V1_2.CellInfo record =
+                    new android.hardware.radio.V1_2.CellInfo();
+            record.cellInfoType = TYPE_LTE;
+            record.timeStamp = Long.MAX_VALUE;
+            record.registered = false;
+            record.timeStampType = RIL_TIMESTAMP_TYPE_OEM_RIL;
+            record.lte.add(new android.hardware.radio.V1_2.CellInfoLte());
+            initializeCellInfoLte_1_2(record.lte.get(0));
+            record.lte.get(0).cellIdentityLte.base.ci += i; // make them marginally unique
+
+            records.add(record);
+        }
+        List<CellInfo> cil = RIL.convertHalCellInfoList_1_2(records);
+
+        // Check that all timestamps are set to a valid number and are equal
+        final long ts = cil.get(0).getTimeStamp();
+        for (CellInfo ci : cil) {
+            assertTrue(ci.getTimeStamp() > 0 && ci.getTimeStamp() != Long.MAX_VALUE);
+            assertEquals(ci.getTimeStamp(), ts);
+        }
+    }
+
+    private static void initializeCellInfoLte_1_2(android.hardware.radio.V1_2.CellInfoLte lte) {
         lte.cellIdentityLte.base.ci = CI;
         lte.cellIdentityLte.base.pci = PCI;
         lte.cellIdentityLte.base.tac = TAC;
         lte.cellIdentityLte.base.earfcn = EARFCN;
         lte.cellIdentityLte.bandwidth = BANDWIDTH;
-        lte.cellIdentityLte.base.mcc = mcc;
-        lte.cellIdentityLte.base.mnc = mnc;
-        lte.cellIdentityLte.operatorNames.alphaLong = alphaLong;
-        lte.cellIdentityLte.operatorNames.alphaShort = alphaShort;
-        lte.signalStrengthLte.signalStrength = SIGNAL_STRENGTH;
-        lte.signalStrengthLte.rsrp = RSRP;
-        lte.signalStrengthLte.rsrq = RSRQ;
+        lte.signalStrengthLte.signalStrength = RSSI_ASU;
+        lte.signalStrengthLte.rsrp = -RSRP;
+        lte.signalStrengthLte.rsrq = -RSRQ;
         lte.signalStrengthLte.rssnr = RSSNR;
         lte.signalStrengthLte.cqi = CQI;
-        lte.signalStrengthLte.timingAdvance = TIME_ADVANCE;
+        lte.signalStrengthLte.timingAdvance = TIMING_ADVANCE;
+
+        lte.cellIdentityLte.operatorNames.alphaLong = ALPHA_LONG;
+        lte.cellIdentityLte.operatorNames.alphaShort = ALPHA_SHORT;
+        lte.cellIdentityLte.base.mcc = MCC_STR;
+        lte.cellIdentityLte.base.mnc = MNC_STR;
+    }
+
+    private ArrayList<CellInfo> getCellInfoListForLTE(
+            String mcc, String mnc, String alphaLong, String alphaShort) {
+        android.hardware.radio.V1_2.CellInfoLte lte = new android.hardware.radio.V1_2.CellInfoLte();
+
+        initializeCellInfoLte_1_2(lte);
+        // Override the defaults for test-specific purposes
+        lte.cellIdentityLte.operatorNames.alphaLong = alphaLong;
+        lte.cellIdentityLte.operatorNames.alphaShort = alphaShort;
+        lte.cellIdentityLte.base.mcc = mcc;
+        lte.cellIdentityLte.base.mnc = mnc;
+
         android.hardware.radio.V1_2.CellInfo record = new android.hardware.radio.V1_2.CellInfo();
         record.cellInfoType = TYPE_LTE;
         record.registered = false;
@@ -1533,9 +1771,9 @@ public class RILTest extends TelephonyTest {
         cellinfo.cellIdentityGsm.base.mnc = mnc;
         cellinfo.cellIdentityGsm.operatorNames.alphaLong = alphaLong;
         cellinfo.cellIdentityGsm.operatorNames.alphaShort = alphaShort;
-        cellinfo.signalStrengthGsm.signalStrength = SIGNAL_STRENGTH;
+        cellinfo.signalStrengthGsm.signalStrength = RSSI_ASU;
         cellinfo.signalStrengthGsm.bitErrorRate = BIT_ERROR_RATE;
-        cellinfo.signalStrengthGsm.timingAdvance = TIME_ADVANCE;
+        cellinfo.signalStrengthGsm.timingAdvance = TIMING_ADVANCE;
         android.hardware.radio.V1_2.CellInfo record = new android.hardware.radio.V1_2.CellInfo();
         record.cellInfoType = TYPE_GSM;
         record.registered = false;
@@ -1562,10 +1800,10 @@ public class RILTest extends TelephonyTest {
         cellinfo.cellIdentityWcdma.base.mnc = mnc;
         cellinfo.cellIdentityWcdma.operatorNames.alphaLong = alphaLong;
         cellinfo.cellIdentityWcdma.operatorNames.alphaShort = alphaShort;
-        cellinfo.signalStrengthWcdma.base.signalStrength = SIGNAL_STRENGTH;
+        cellinfo.signalStrengthWcdma.base.signalStrength = RSSI_ASU;
         cellinfo.signalStrengthWcdma.base.bitErrorRate = BIT_ERROR_RATE;
-        cellinfo.signalStrengthWcdma.rscp = 10;
-        cellinfo.signalStrengthWcdma.ecno = 5;
+        cellinfo.signalStrengthWcdma.rscp = RSCP_ASU;
+        cellinfo.signalStrengthWcdma.ecno = ECNO_ASU;
         android.hardware.radio.V1_2.CellInfo record = new android.hardware.radio.V1_2.CellInfo();
         record.cellInfoType = TYPE_WCDMA;
         record.registered = false;
@@ -1590,10 +1828,10 @@ public class RILTest extends TelephonyTest {
         cellinfo.cellIdentityCdma.base.latitude = LATITUDE;
         cellinfo.cellIdentityCdma.operatorNames.alphaLong = alphaLong;
         cellinfo.cellIdentityCdma.operatorNames.alphaShort = alphaShort;
-        cellinfo.signalStrengthCdma.dbm = DBM;
-        cellinfo.signalStrengthCdma.ecio = ECIO;
-        cellinfo.signalStrengthEvdo.dbm = DBM;
-        cellinfo.signalStrengthEvdo.ecio = ECIO;
+        cellinfo.signalStrengthCdma.dbm = -DBM;
+        cellinfo.signalStrengthCdma.ecio = -ECIO;
+        cellinfo.signalStrengthEvdo.dbm = -DBM;
+        cellinfo.signalStrengthEvdo.ecio = -ECIO;
         cellinfo.signalStrengthEvdo.signalNoiseRatio = SIGNAL_NOISE_RATIO;
         android.hardware.radio.V1_2.CellInfo record = new android.hardware.radio.V1_2.CellInfo();
         record.cellInfoType = TYPE_CDMA;
@@ -1609,69 +1847,29 @@ public class RILTest extends TelephonyTest {
         return RIL.convertHalCellInfoList_1_2(records);
     }
 
-    public android.telephony.SignalStrength getTdScdmaSignalStrength_1_0(int tdscdmaNegDbm) {
-        android.hardware.radio.V1_0.SignalStrength halSs =
-                new android.hardware.radio.V1_0.SignalStrength();
-        halSs.lte.signalStrength = SIGNAL_STRENGTH;
-        halSs.lte.rsrp = RSRP;
-        halSs.lte.rsrq = RSRQ;
-        halSs.lte.rssnr = RSSNR;
-        halSs.gw.signalStrength = SIGNAL_STRENGTH;
-        halSs.gw.bitErrorRate = BIT_ERROR_RATE;
-        halSs.cdma.dbm = DBM;
-        halSs.cdma.ecio = ECIO;
-        halSs.evdo.dbm = DBM;
-        halSs.evdo.ecio = ECIO;
-        halSs.evdo.signalNoiseRatio = SIGNAL_NOISE_RATIO;
-        halSs.tdScdma.rscp = tdscdmaNegDbm;
-        android.telephony.SignalStrength ss = RIL.convertHalSignalStrength(halSs);
-        // FIXME: We should not need to call validateInput here b/74115980.
-        ss.validateInput();
-        return ss;
-    }
-
-    public android.telephony.SignalStrength getTdScdmaSignalStrength_1_2(int tdscdmaAsu) {
-        android.hardware.radio.V1_2.SignalStrength halSs =
-                new android.hardware.radio.V1_2.SignalStrength();
-        halSs.lte.signalStrength = SIGNAL_STRENGTH;
-        halSs.lte.rsrp = RSRP;
-        halSs.lte.rsrq = RSRQ;
-        halSs.lte.rssnr = RSSNR;
-        halSs.gsm.signalStrength = SIGNAL_STRENGTH;
-        halSs.gsm.bitErrorRate = BIT_ERROR_RATE;
-        halSs.cdma.dbm = DBM;
-        halSs.cdma.ecio = ECIO;
-        halSs.evdo.dbm = DBM;
-        halSs.evdo.ecio = ECIO;
-        halSs.evdo.signalNoiseRatio = SIGNAL_NOISE_RATIO;
-        halSs.wcdma.base.signalStrength = 99;
-        halSs.wcdma.rscp = 255;
-        halSs.tdScdma.rscp = tdscdmaAsu;
-        android.telephony.SignalStrength ss = RIL.convertHalSignalStrength_1_2(halSs);
-        // FIXME: We should not need to call validateInput here b/74115980
-        // but unless we call it, we have to pass Integer.MAX_VALUE for wcdma RSCP,
-        // which is outside the allowable range for the HAL. This value is being
-        // coerced inside SignalStrength.validateInput().
-        ss.validateInput();
-        return ss;
-    }
-
     @Test
-    public void testHalSignalStrengthTdScdma() throws Exception {
-        // Check that the minimum value is the same.
-        assertEquals(getTdScdmaSignalStrength_1_0(120), getTdScdmaSignalStrength_1_2(0));
-        // Check that the maximum common value is the same.
-        assertEquals(getTdScdmaSignalStrength_1_0(25), getTdScdmaSignalStrength_1_2(95));
-        // Check that an invalid value is the same.
-        assertEquals(getTdScdmaSignalStrength_1_0(-1), getTdScdmaSignalStrength_1_2(255));
-    }
-
-    @Test
+    @FlakyTest
     public void testSetupDataCall() throws Exception {
+        DataProfile dp = new DataProfile.Builder()
+                .setProfileId(PROFILE_ID)
+                .setApn(APN)
+                .setProtocolType(PROTOCOL)
+                .setAuthType(AUTH_TYPE)
+                .setUserName(USER_NAME)
+                .setPassword(PASSWORD)
+                .setType(TYPE)
+                .setMaxConnectionsTime(MAX_CONNS_TIME)
+                .setMaxConnections(MAX_CONNS)
+                .setWaitTime(WAIT_TIME)
+                .enable(APN_ENABLED)
+                .setSupportedApnTypesBitmask(SUPPORTED_APNT_YPES_BITMAK)
+                .setRoamingProtocolType(ROAMING_PROTOCOL)
+                .setBearerBitmask(BEARER_BITMASK)
+                .setMtu(MTU)
+                .setPersistent(PERSISTENT)
+                .setPreferred(false)
+                .build();
 
-        DataProfile dp = new DataProfile(PROFILE_ID, APN, PROTOCOL, AUTH_TYPE, USER_NAME, PASSWORD,
-                TYPE, MAX_CONNS_TIME, MAX_CONNS, WAIT_TIME, APN_ENABLED, SUPPORTED_APNT_YPES_BITMAP,
-                ROAMING_PROTOCOL, BEARER_BITMAP, MTU, MVNO_TYPE, MVNO_MATCH_DATA, MODEM_COGNITIVE);
         mRILUnderTest.setupDataCall(AccessNetworkConstants.AccessNetworkType.EUTRAN, dp, false,
                 false, 0, null, obtainMessage());
         ArgumentCaptor<DataProfileInfo> dpiCaptor = ArgumentCaptor.forClass(DataProfileInfo.class);
@@ -1683,7 +1881,7 @@ public class RILTest extends TelephonyTest {
         DataProfileInfo dpi = dpiCaptor.getValue();
         assertEquals(PROFILE_ID, dpi.profileId);
         assertEquals(APN, dpi.apn);
-        assertEquals(PROTOCOL, dpi.protocol);
+        assertEquals(PROTOCOL, ApnSetting.getProtocolIntFromString(dpi.protocol));
         assertEquals(AUTH_TYPE, dpi.authType);
         assertEquals(USER_NAME, dpi.user);
         assertEquals(PASSWORD, dpi.password);
@@ -1692,11 +1890,55 @@ public class RILTest extends TelephonyTest {
         assertEquals(MAX_CONNS, dpi.maxConns);
         assertEquals(WAIT_TIME, dpi.waitTime);
         assertEquals(APN_ENABLED, dpi.enabled);
-        assertEquals(SUPPORTED_APNT_YPES_BITMAP, dpi.supportedApnTypesBitmap);
-        assertEquals(ROAMING_PROTOCOL, dpi.protocol);
-        assertEquals(BEARER_BITMAP, dpi.bearerBitmap);
+        assertEquals(SUPPORTED_APNT_YPES_BITMAK, dpi.supportedApnTypesBitmap);
+        assertEquals(ROAMING_PROTOCOL, ApnSetting.getProtocolIntFromString(dpi.protocol));
+        assertEquals(BEARER_BITMASK, dpi.bearerBitmap);
         assertEquals(MTU, dpi.mtu);
-        assertEquals(0, dpi.mvnoType);
-        assertEquals(MVNO_MATCH_DATA, dpi.mvnoMatchData);
+    }
+
+    @Test
+    public void testCreateCarrierRestrictionList() {
+        ArrayList<CarrierIdentifier> carriers = new ArrayList<>();
+        carriers.add(new CarrierIdentifier("110", "120", null, null, null, null));
+        carriers.add(new CarrierIdentifier("210", "220", "SPN", null, null, null));
+        carriers.add(new CarrierIdentifier("310", "320", null, "012345", null, null));
+        carriers.add(new CarrierIdentifier("410", "420", null, null, "GID1", null));
+        carriers.add(new CarrierIdentifier("510", "520", null, null, null, "GID2"));
+
+        Carrier c1 = new Carrier();
+        c1.mcc = "110";
+        c1.mnc = "120";
+        c1.matchType = CarrierIdentifier.MatchType.ALL;
+        Carrier c2 = new Carrier();
+        c2.mcc = "210";
+        c2.mnc = "220";
+        c2.matchType = CarrierIdentifier.MatchType.SPN;
+        c2.matchData = "SPN";
+        Carrier c3 = new Carrier();
+        c3.mcc = "310";
+        c3.mnc = "320";
+        c3.matchType = CarrierIdentifier.MatchType.IMSI_PREFIX;
+        c3.matchData = "012345";
+        Carrier c4 = new Carrier();
+        c4.mcc = "410";
+        c4.mnc = "420";
+        c4.matchType = CarrierIdentifier.MatchType.GID1;
+        c4.matchData = "GID1";
+        Carrier c5 = new Carrier();
+        c5.mcc = "510";
+        c5.mnc = "520";
+        c5.matchType = CarrierIdentifier.MatchType.GID2;
+        c5.matchData = "GID2";
+
+        ArrayList<Carrier> expected = new ArrayList<>();
+        expected.add(c1);
+        expected.add(c2);
+        expected.add(c3);
+        expected.add(c4);
+        expected.add(c5);
+
+        ArrayList<Carrier> result = RIL.createCarrierRestrictionList(carriers);
+
+        assertTrue(result.equals(expected));
     }
 }

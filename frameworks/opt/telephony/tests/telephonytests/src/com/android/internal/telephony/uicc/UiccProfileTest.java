@@ -30,12 +30,14 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Message;
 import android.os.PersistableBundle;
-import android.support.test.filters.SmallTest;
 import android.telephony.CarrierConfigManager;
+
+import androidx.test.filters.SmallTest;
 
 import com.android.internal.telephony.IccCardConstants.State;
 import com.android.internal.telephony.TelephonyTest;
@@ -428,6 +430,45 @@ public class UiccProfileTest extends TelephonyTest {
 
     @Test
     @SmallTest
+    public void testUpdateUiccProfileApplicationWithDuplicateAppsInDifferentOrder() {
+        /* update app status and index */
+        IccCardApplicationStatus umtsApp = composeUiccApplicationStatus(
+                IccCardApplicationStatus.AppType.APPTYPE_USIM,
+                IccCardApplicationStatus.AppState.APPSTATE_READY, "0xA2");
+        IccCardApplicationStatus imsApp = composeUiccApplicationStatus(
+                IccCardApplicationStatus.AppType.APPTYPE_ISIM,
+                IccCardApplicationStatus.AppState.APPSTATE_READY, "0xA1");
+        IccCardApplicationStatus unknownApp = composeUiccApplicationStatus(
+                IccCardApplicationStatus.AppType.APPTYPE_UNKNOWN,
+                IccCardApplicationStatus.AppState.APPSTATE_UNKNOWN, "0xA2");
+        IccCardApplicationStatus umtsAppDup = composeUiccApplicationStatus(
+                IccCardApplicationStatus.AppType.APPTYPE_USIM,
+                AppState.APPSTATE_DETECTED, "0xA2");
+        mIccCardStatus.mApplications = new IccCardApplicationStatus[]{umtsAppDup, imsApp, umtsApp,
+                unknownApp};
+        mIccCardStatus.mCdmaSubscriptionAppIndex = -1;
+        mIccCardStatus.mImsSubscriptionAppIndex = 0;
+        mIccCardStatus.mGsmUmtsSubscriptionAppIndex = 2;
+        Message mProfileUpdate = mHandler.obtainMessage(UICCPROFILE_UPDATE_APPLICATION_EVENT);
+        setReady(false);
+        mProfileUpdate.sendToTarget();
+
+        waitUntilReady();
+
+        /* wait for the carrier privilege rules to be loaded */
+        waitForMs(50);
+        assertEquals(4, mUiccProfile.getNumApplications());
+
+        mUiccProfile.mHandler.sendMessage(
+                mUiccProfile.mHandler.obtainMessage(UiccProfile.EVENT_APP_READY));
+        waitForMs(SCARY_SLEEP_MS);
+        // state is loaded as all records are loaded right away as SimulatedCommands returns
+        // response for them right away. Ideally applications and records should be mocked.
+        assertEquals(State.LOADED, mUiccProfile.getState());
+    }
+
+    @Test
+    @SmallTest
     public void testUpdateUiccProfileApplicationNoApplication() {
         mIccCardStatus.mApplications = new IccCardApplicationStatus[]{};
         mIccCardStatus.mCdmaSubscriptionAppIndex = -1;
@@ -475,6 +516,65 @@ public class UiccProfileTest extends TelephonyTest {
         waitForMs(SCARY_SLEEP_MS);
         // state is loaded since there is no applications.
         assertEquals(State.NOT_READY, mUiccProfile.getState());
+    }
+
+    private void testWithCsimApp() {
+        /* update app status and index */
+        IccCardApplicationStatus umtsApp = composeUiccApplicationStatus(
+                IccCardApplicationStatus.AppType.APPTYPE_USIM,
+                AppState.APPSTATE_READY, "0xA2");
+        IccCardApplicationStatus imsApp = composeUiccApplicationStatus(
+                IccCardApplicationStatus.AppType.APPTYPE_ISIM,
+                AppState.APPSTATE_READY, "0xA1");
+        IccCardApplicationStatus cdmaApp = composeUiccApplicationStatus(
+                IccCardApplicationStatus.AppType.APPTYPE_CSIM,
+                AppState.APPSTATE_DETECTED, "0xA2");
+        mIccCardStatus.mApplications = new IccCardApplicationStatus[]{imsApp, umtsApp, cdmaApp};
+        mIccCardStatus.mCdmaSubscriptionAppIndex = 2;
+        mIccCardStatus.mImsSubscriptionAppIndex = 0;
+        mIccCardStatus.mGsmUmtsSubscriptionAppIndex = 1;
+
+        Message mProfileUpdate = mHandler.obtainMessage(UICCPROFILE_UPDATE_APPLICATION_EVENT);
+        setReady(false);
+        mProfileUpdate.sendToTarget();
+
+        waitUntilReady();
+
+        /* wait for the carrier privilege rules to be loaded */
+        waitForMs(50);
+        assertEquals(3, mUiccProfile.getNumApplications());
+
+        mUiccProfile.mHandler.sendMessage(
+                mUiccProfile.mHandler.obtainMessage(UiccProfile.EVENT_APP_READY));
+        waitForMs(SCARY_SLEEP_MS);
+    }
+
+    @Test
+    @SmallTest
+    public void testUpdateUiccProfileApplicationCdmaSupported() {
+        // CDMA supported
+        doReturn(true)
+            .when(mPackageManager).hasSystemFeature(PackageManager.FEATURE_TELEPHONY_CDMA);
+
+        testWithCsimApp();
+
+        // CDMA is supported and CSIM app is not ready, so state should be NOT_READY
+        assertEquals(State.NOT_READY, mUiccProfile.getState());
+    }
+
+    @Test
+    @SmallTest
+    public void testUpdateUiccProfileApplicationCdmaNotSupported() {
+        // CDMA not supported
+        doReturn(false)
+            .when(mPackageManager).hasSystemFeature(PackageManager.FEATURE_TELEPHONY_CDMA);
+
+        testWithCsimApp();
+
+        // state is loaded as all records are loaded right away as SimulatedCommands returns
+        // response for them right away. Ideally applications and records should be mocked.
+        // CSIM is not ready but that should not matter since CDMA is not supported.
+        assertEquals(State.LOADED, mUiccProfile.getState());
     }
 
     @Test

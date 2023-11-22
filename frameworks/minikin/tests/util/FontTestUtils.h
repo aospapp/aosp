@@ -59,7 +59,16 @@ std::shared_ptr<FontFamily> buildFontFamily(const std::string& filePath);
 /**
  * Build new FontFamily from single file with locale.
  */
-std::shared_ptr<FontFamily> buildFontFamily(const std::string& filePath, const std::string& lang);
+std::shared_ptr<FontFamily> buildFontFamily(const std::string& filePath, const std::string& lang,
+                                            bool isCustomFallback);
+
+/**
+ * Build new FontFamily from single file with locale.
+ */
+inline std::shared_ptr<FontFamily> buildFontFamily(const std::string& filePath,
+                                                   const std::string& lang) {
+    return buildFontFamily(filePath, lang, false /* isCustomFallback */);
+}
 
 }  // namespace minikin
 #endif  // MINIKIN_FONT_TEST_UTILS_H

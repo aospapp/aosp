@@ -15,12 +15,15 @@
 cc_test {
     name: "SurfaceFlinger_test",
     defaults: ["surfaceflinger_defaults"],
-    tags: ["test"],
     test_suites: ["device-tests"],
     srcs: [
+        "BufferGenerator.cpp",
+        "Credentials_test.cpp",
+        "InvalidHandles_test.cpp",
         "Stress_test.cpp",
         "SurfaceInterceptor_test.cpp",
         "Transaction_test.cpp",
+        "VirtualDisplay_test.cpp",
     ],
     data: ["SurfaceFlinger_test.filter"],
     static_libs: [

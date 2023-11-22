@@ -256,6 +256,10 @@ status_t NuCachedSource2::getEstimatedBandwidthKbps(int32_t *kbps) {
     return ERROR_UNSUPPORTED;
 }
 
+void NuCachedSource2::close() {
+    disconnect();
+}
+
 void NuCachedSource2::disconnect() {
     if (mSource->flags() & kIsHTTPBasedSource) {
         ALOGV("disconnecting HTTPBasedSource");
@@ -436,12 +440,12 @@ void NuCachedSource2::onFetch() {
     if (mFetching) {
         if (mFinalStatus != OK && mNumRetriesLeft > 0) {
             // We failed this time and will try again in 3 seconds.
-            delayUs = 3000000ll;
+            delayUs = 3000000LL;
         } else {
             delayUs = 0;
         }
     } else {
-        delayUs = 100000ll;
+        delayUs = 100000LL;
     }
 
     (new AMessage(kWhatFetchMore, mReflector))->post(delayUs);
@@ -567,12 +571,19 @@ size_t NuCachedSource2::cachedSize() {
     return mCacheOffset + mCache->totalSize();
 }
 
-size_t NuCachedSource2::approxDataRemaining(status_t *finalStatus) const {
+status_t NuCachedSource2::getAvailableSize(off64_t offset, off64_t *size) {
     Mutex::Autolock autoLock(mLock);
-    return approxDataRemaining_l(finalStatus);
+    status_t finalStatus = UNKNOWN_ERROR;
+    *size = approxDataRemaining_l(offset, &finalStatus);
+    return finalStatus;
 }
 
-size_t NuCachedSource2::approxDataRemaining_l(status_t *finalStatus) const {
+size_t NuCachedSource2::approxDataRemaining(status_t *finalStatus) const {
+    Mutex::Autolock autoLock(mLock);
+    return approxDataRemaining_l(mLastAccessPos, finalStatus);
+}
+
+size_t NuCachedSource2::approxDataRemaining_l(off64_t offset, status_t *finalStatus) const {
     *finalStatus = mFinalStatus;
 
     if (mFinalStatus != OK && mNumRetriesLeft > 0) {
@@ -580,9 +591,10 @@ size_t NuCachedSource2::approxDataRemaining_l(status_t *finalStatus) const {
         *finalStatus = OK;
     }
 
+    offset = offset >= 0 ? offset : mLastAccessPos;
     off64_t lastBytePosCached = mCacheOffset + mCache->totalSize();
-    if (mLastAccessPos < lastBytePosCached) {
-        return lastBytePosCached - mLastAccessPos;
+    if (offset < lastBytePosCached) {
+        return lastBytePosCached - offset;
     }
     return 0;
 }
@@ -728,7 +740,7 @@ void NuCachedSource2::updateCacheParamsFromString(const char *s) {
     }
 
     if (keepAliveSecs >= 0) {
-        mKeepAliveIntervalUs = keepAliveSecs * 1000000ll;
+        mKeepAliveIntervalUs = keepAliveSecs * 1000000LL;
     } else {
         mKeepAliveIntervalUs = kDefaultKeepAliveIntervalUs;
     }

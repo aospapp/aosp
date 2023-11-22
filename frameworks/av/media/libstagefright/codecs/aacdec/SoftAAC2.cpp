@@ -147,7 +147,7 @@ status_t SoftAAC2::initDecoder() {
     mEndOfOutput = false;
     mOutputDelayCompensated = 0;
     mOutputDelayRingBufferSize = 2048 * MAX_CHANNEL_COUNT * kNumDelayBlocksMax;
-    mOutputDelayRingBuffer = new short[mOutputDelayRingBufferSize];
+    mOutputDelayRingBuffer = new int16_t[mOutputDelayRingBufferSize];
     mOutputDelayRingBufferWritePos = 0;
     mOutputDelayRingBufferReadPos = 0;
     mOutputDelayRingBufferFilled = 0;
@@ -738,7 +738,7 @@ void SoftAAC2::onQueueFilled(OMX_U32 /* portIndex */) {
                 } else {
                     int64_t currentTime = mBufferTimestamps.top();
                     currentTime += mStreamInfo->aacSamplesPerFrame *
-                            1000000ll / mStreamInfo->aacSampleRate;
+                            1000000LL / mStreamInfo->aacSampleRate;
                     mBufferTimestamps.add(currentTime);
                 }
             } else {
@@ -989,7 +989,7 @@ void SoftAAC2::onQueueFilled(OMX_U32 /* portIndex */) {
                         // adjust/interpolate next time stamp
                         *currentBufLeft -= decodedSize;
                         *nextTimeStamp += mStreamInfo->aacSamplesPerFrame *
-                                1000000ll / mStreamInfo->aacSampleRate;
+                                1000000LL / mStreamInfo->aacSampleRate;
                         ALOGV("adjusted nextTimeStamp/size to %lld/%d",
                                 (long long) *nextTimeStamp, *currentBufLeft);
                     } else {

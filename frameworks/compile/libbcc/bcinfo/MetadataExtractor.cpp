@@ -290,9 +290,7 @@ bool MetadataExtractor::populateObjectSlotMetadata(
     return true;
   }
 
-  uint32_t *TmpSlotList = new uint32_t[mObjectSlotCount];
-  memset(TmpSlotList, 0, mObjectSlotCount * sizeof(*TmpSlotList));
-
+  std::unique_ptr<uint32_t[]> TmpSlotList(new uint32_t[mObjectSlotCount]());
   for (size_t i = 0; i < mObjectSlotCount; i++) {
     llvm::MDNode *ObjectSlot = ObjectSlotMetadata->getOperand(i);
     if (ObjectSlot != nullptr && ObjectSlot->getNumOperands() == 1) {
@@ -306,8 +304,8 @@ bool MetadataExtractor::populateObjectSlotMetadata(
     }
   }
 
-  mObjectSlotList = TmpSlotList;
-
+  delete [] mObjectSlotList;
+  mObjectSlotList = TmpSlotList.release();
   return true;
 }
 
@@ -441,9 +439,9 @@ bool MetadataExtractor::populateForEachMetadata(
     return true;
   }
 
-  uint32_t *TmpSigList = new uint32_t[mExportForEachSignatureCount];
-  const char **TmpNameList = new const char*[mExportForEachSignatureCount];
-  uint32_t *TmpInputCountList = new uint32_t[mExportForEachSignatureCount];
+  std::unique_ptr<uint32_t[]> TmpSigList(new uint32_t[mExportForEachSignatureCount]);
+  std::unique_ptr<const char *[]> TmpNameList(new const char*[mExportForEachSignatureCount]);
+  std::unique_ptr<uint32_t[]> TmpInputCountList(new uint32_t[mExportForEachSignatureCount]);
 
   for (size_t i = 0; i < mExportForEachSignatureCount; i++) {
     llvm::MDNode *SigNode = Signatures->getOperand(i);
@@ -489,9 +487,14 @@ bool MetadataExtractor::populateForEachMetadata(
     TmpNameList[0] = RootName;
   }
 
-  mExportForEachNameList = TmpNameList;
-  mExportForEachSignatureList = TmpSigList;
-  mExportForEachInputCountList = TmpInputCountList;
+  delete [] mExportForEachNameList;
+  mExportForEachNameList = TmpNameList.release();
+
+  delete [] mExportForEachSignatureList;
+  mExportForEachSignatureList = TmpSigList.release();
+
+  delete [] mExportForEachInputCountList;
+  mExportForEachInputCountList = TmpInputCountList.release();
 
   return true;
 }

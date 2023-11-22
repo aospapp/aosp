@@ -26,6 +26,8 @@ import android.content.Intent;
 import android.content.res.Resources;
 import android.provider.Settings;
 
+import androidx.test.filters.SmallTest;
+
 import com.android.internal.notification.SystemNotificationChannels;
 
 import org.junit.Before;
@@ -38,6 +40,7 @@ import org.mockito.MockitoAnnotations;
 /**
  * Unit tests for {@link com.android.server.wifi.WrongPasswordNotifier}.
  */
+@SmallTest
 public class WrongPasswordNotifierTest {
     private static final String TEST_SSID = "Test SSID";
 

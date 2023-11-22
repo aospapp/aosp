@@ -21,17 +21,16 @@
 #include <sys/klog.h>
 
 #include <log/log.h>
-#include <nativehelper/JniConstants.h>
-#include <nativehelper/ScopedBytes.h>
-#include <nativehelper/ScopedUtfChars.h>
 #include <jni.h>
+#include <nativehelper/jni_macros.h>
+#include <nativehelper/JNIHelp.h>
 
 #include "jni_helper.h"
 
 namespace android {
 
 
-static jbyteArray android_net_wifi_readKernelLog(JNIEnv *env, jclass cls) {
+static jbyteArray android_net_wifi_readKernelLogNative(JNIEnv *env, jclass cls) {
     JNIHelper helper(env);
     ALOGV("Reading kernel logs");
 
@@ -78,16 +77,12 @@ static jbyteArray android_net_wifi_readKernelLog(JNIEnv *env, jclass cls) {
  * JNI registration.
  */
 static JNINativeMethod gWifiMethods[] = {
-    /* name, signature, funcPtr */
-    {"readKernelLogNative", "()[B", (void*)android_net_wifi_readKernelLog},
+    NATIVE_METHOD(android_net_wifi, readKernelLogNative, "()[B"),
 };
 
 /* User to register native functions */
 extern "C"
 jint Java_com_android_server_wifi_WifiNative_registerNatives(JNIEnv* env, jclass clazz) {
-    // initialization needed for unit test APK
-    JniConstants::init(env);
-
     return jniRegisterNativeMethods(env,
             "com/android/server/wifi/WifiNative", gWifiMethods, NELEM(gWifiMethods));
 }

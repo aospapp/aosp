@@ -144,6 +144,15 @@ public class SubscriptionControllerMock extends SubscriptionController {
         throw new RuntimeException("not implemented");
     }
     @Override
+    public int addSubInfo(String uniqueId, String displayName, int slotIndex,
+            int subscriptionType) {
+        throw new RuntimeException("not implemented");
+    }
+    @Override
+    public int removeSubInfo(String uniqueId, int subscriptionType) {
+        throw new RuntimeException("not implemented");
+    }
+    @Override
     public boolean setPlmnSpn(int slotIndex, boolean showPlmn, String plmn, boolean showSpn,
             String spn) {
         throw new RuntimeException("not implemented");
@@ -153,11 +162,7 @@ public class SubscriptionControllerMock extends SubscriptionController {
         throw new RuntimeException("not implemented");
     }
     @Override
-    public int setDisplayName(String displayName, int subId) {
-        throw new RuntimeException("not implemented");
-    }
-    @Override
-    public int setDisplayNameUsingSrc(String displayName, int subId, long nameSource) {
+    public int setDisplayNameUsingSrc(String displayName, int subId, int nameSource) {
         throw new RuntimeException("not implemented");
     }
     @Override
@@ -202,10 +207,6 @@ public class SubscriptionControllerMock extends SubscriptionController {
     }
     @Override
     public int getPhoneId(int subId) {
-        if (subId == DEFAULT_SUBSCRIPTION_ID) {
-            subId = getDefaultSubId();
-        }
-
         if (subId <= INVALID_SUBSCRIPTION_ID) return INVALID_PHONE_INDEX;
 
         for (int i = 0; i < mSlotIndexToSubId.length; i++) {
@@ -246,27 +247,23 @@ public class SubscriptionControllerMock extends SubscriptionController {
         }
     }
     @Override
-    public void clearDefaultsForInactiveSubIds() {
-        throw new RuntimeException("not implemented");
-    }
-    @Override
     public void updatePhonesAvailability(Phone[] phones) {
         throw new RuntimeException("not implemented");
     }
     @Override
-    public int[] getActiveSubIdList() {
+    public int[] getActiveSubIdList(boolean visibleOnly) {
         throw new RuntimeException("not implemented");
     }
     @Override
     public boolean isActiveSubId(int subId) {
-        throw new RuntimeException("not implemented");
+        return getPhoneId(subId) != INVALID_PHONE_INDEX;
     }
     @Override
     public int getSimStateForSlotIndex(int slotIndex) {
         throw new RuntimeException("not implemented");
     }
     @Override
-    public void setSubscriptionProperty(int subId, String propKey, String propValue) {
+    public int setSubscriptionProperty(int subId, String propKey, String propValue) {
         throw new RuntimeException("not implemented");
     }
     @Override

@@ -28,7 +28,7 @@ import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Environment;
 import android.provider.OpenableColumns;
-import android.support.v8.renderscript.RenderScript;
+import androidx.renderscript.RenderScript;
 import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;

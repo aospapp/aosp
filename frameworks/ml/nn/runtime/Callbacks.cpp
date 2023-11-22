@@ -15,129 +15,193 @@
  */
 
 #include "Callbacks.h"
+
 #include <android-base/logging.h>
 
-namespace android {
-namespace hardware {
-namespace neuralnetworks {
-namespace V1_0 {
-namespace implementation {
+#include <limits>
 
-CallbackBase::CallbackBase() : mNotified(false) {}
+namespace android::hardware::neuralnetworks::V1_2::implementation {
 
-CallbackBase::~CallbackBase() {
-    // Note that we cannot call CallbackBase::join_thread from here:
-    // CallbackBase is intended to be reference counted, and it is possible that
-    // the reference count drops to zero in the bound thread, causing the
-    // bound thread to call this destructor. If a thread tries to join
-    // itself, it throws an exception, producing a message like the
-    // following:
-    //
-    //     terminating with uncaught exception of type std::__1::system_error:
-    //     thread::join failed: Resource deadlock would occur
+constexpr Timing kNoTiming = {.timeOnDevice = std::numeric_limits<uint64_t>::max(),
+                              .timeInDriver = std::numeric_limits<uint64_t>::max()};
+
+// PreparedModelCallback methods begin here
+
+Return<void> PreparedModelCallback::notify(ErrorStatus errorStatus,
+                                           const sp<V1_0::IPreparedModel>& preparedModel) {
+    {
+        std::lock_guard<std::mutex> hold(mMutex);
+
+        // quick-return if object has already been notified
+        if (mNotified) {
+            return Void();
+        }
+
+        // store results and mark as notified
+        mErrorStatus = errorStatus;
+        mPreparedModel = preparedModel;
+        mNotified = true;
+    }
+
+    mCondition.notify_all();
+    return Void();
 }
 
-void CallbackBase::wait() {
+Return<void> PreparedModelCallback::notify_1_2(ErrorStatus errorStatus,
+                                               const sp<V1_2::IPreparedModel>& preparedModel) {
+    return notify(errorStatus, preparedModel);
+}
+
+void PreparedModelCallback::wait() const {
     std::unique_lock<std::mutex> lock(mMutex);
-    mCondition.wait(lock, [this]{return mNotified;});
-    join_thread_locked();
+    mCondition.wait(lock, [this] { return mNotified; });
 }
 
-bool CallbackBase::on_finish(std::function<bool(void)> post_work) {
-    std::lock_guard<std::mutex> lock(mMutex);
-    if (mPostWork != nullptr) {
-        LOG(ERROR) << "CallbackBase::on_finish -- a post-work function has already been bound to "
-                   "this callback object";
-        return false;
-    }
-    if (post_work == nullptr) {
-        LOG(ERROR) << "CallbackBase::on_finish -- the new post-work function is invalid";
-        return false;
-    }
-    mPostWork = std::move(post_work);
-    return true;
+ErrorStatus PreparedModelCallback::getStatus() const {
+    wait();
+    return mErrorStatus;
 }
 
-bool CallbackBase::bind_thread(std::thread&& asyncThread) {
-    std::lock_guard<std::mutex> lock(mMutex);
+sp<V1_0::IPreparedModel> PreparedModelCallback::getPreparedModel() const {
+    wait();
+    return mPreparedModel;
+}
+
+// ExecutionCallback methods begin here
+
+Return<void> ExecutionCallback::notify(ErrorStatus errorStatus) {
+    notifyInternal(errorStatus, {}, kNoTiming);
+    return Void();
+}
+
+Return<void> ExecutionCallback::notify_1_2(ErrorStatus errorStatus,
+                                           const hidl_vec<OutputShape>& outputShapes,
+                                           const Timing& timing) {
+    if (errorStatus == ErrorStatus::OUTPUT_INSUFFICIENT_SIZE) {
+        // outputShapes must not be empty if OUTPUT_INSUFFICIENT_SIZE.
+        if (outputShapes.size() == 0) {
+            LOG(ERROR) << "Notified with empty output shape vector when OUTPUT_INSUFFICIENT_SIZE";
+            notifyInternal(ErrorStatus::GENERAL_FAILURE, {}, kNoTiming);
+            return Void();
+        }
+    } else if (errorStatus != ErrorStatus::NONE) {
+        // outputShapes must be empty if errorStatus is neither NONE nor OUTPUT_INSUFFICIENT_SIZE.
+        if (outputShapes.size() != 0) {
+            LOG(ERROR) << "Notified with non-empty output shape vector when error status is "
+                          "neither NONE nor OUTPUT_INSUFFICIENT_SIZE";
+            notifyInternal(ErrorStatus::GENERAL_FAILURE, {}, kNoTiming);
+            return Void();
+        }
+    }
+    notifyInternal(errorStatus, outputShapes, timing);
+    return Void();
+}
+
+void ExecutionCallback::wait() const {
+    std::unique_lock<std::mutex> lock(mMutex);
+    mCondition.wait(lock, [this] { return mNotified; });
+
+    /*
+     * Note that we cannot call std::thread::join from ExecutionCallback's
+     * destructor: ExecutionCallback is intended to be reference counted, and it
+     * is possible that the reference count drops to zero in the bound thread,
+     * causing the bound thread to call this destructor. If a thread tries to
+     * join itself, it throws an exception, producing a message like the
+     * following:
+     *
+     *     terminating with uncaught exception of type std::__1::system_error:
+     *     thread::join failed: Resource deadlock would occur
+     */
     if (mThread.joinable()) {
-        LOG(ERROR) << "CallbackBase::bind_thread -- a thread has already been bound to this "
-                   "callback object";
+        mThread.join();
+    }
+}
+
+ErrorStatus ExecutionCallback::getStatus() const {
+    wait();
+    return mErrorStatus;
+}
+
+const std::vector<OutputShape>& ExecutionCallback::getOutputShapes() const {
+    wait();
+    return mOutputShapes;
+}
+
+Timing ExecutionCallback::getTiming() const {
+    wait();
+    return mTiming;
+}
+
+bool ExecutionCallback::bindThread(std::thread asyncThread) {
+    std::lock_guard<std::mutex> lock(mMutex);
+
+    // Ensure ExecutionCallback object does not already have a thread bound
+    if (mThread.joinable()) {
+        LOG(ERROR) << "ExecutionCallback::bindThread -- a thread has already been bound to this "
+                      "callback object";
         return false;
     }
+
+    // Ensure the new thread is valid
     if (!asyncThread.joinable()) {
-        LOG(ERROR) << "CallbackBase::bind_thread -- the new thread is not joinable";
+        LOG(ERROR) << "ExecutionCallback::bindThread -- the new thread is not joinable";
         return false;
     }
+
     mThread = std::move(asyncThread);
     return true;
 }
 
-void CallbackBase::join_thread() {
-    std::lock_guard<std::mutex> lock(mMutex);
-    join_thread_locked();
+void ExecutionCallback::setOnFinish(const ExecutionFinish& finish) {
+    std::lock_guard<std::mutex> hold(mMutex);
+
+    // Ensure ExecutionCallback object does not already have a "finish" callback
+    if (mOnFinish != nullptr) {
+        LOG(ERROR) << "ExecutionCallback::setOnFinish -- object already has a \"finish\" callback";
+        return;
+    }
+
+    // Ensure new "finish" callback is valid
+    if (finish == nullptr) {
+        LOG(ERROR) << "ExecutionCallback::setOnFinish -- \"finish\" callback is invalid";
+        return;
+    }
+
+    // Essure ExecutionCallback object has not already been notified
+    if (mNotified) {
+        LOG(ERROR) << "ExecutionCallback::setOnFinish -- ExecutionCallback has already been "
+                      "notified with results";
+        return;
+    }
+
+    mOnFinish = finish;
 }
 
-void CallbackBase::notify() {
+void ExecutionCallback::notifyInternal(ErrorStatus errorStatus,
+                                       const hidl_vec<OutputShape>& outputShapes,
+                                       const Timing& timing) {
     {
-        std::lock_guard<std::mutex> lock(mMutex);
+        std::lock_guard<std::mutex> hold(mMutex);
+
+        // quick-return if object has already been notified
+        if (mNotified) {
+            return;
+        }
+
+        mErrorStatus = errorStatus;
+        mOutputShapes = outputShapes;
+        mTiming = timing;
         mNotified = true;
-        if (mPostWork != nullptr) {
-            bool success = mPostWork();
-            if (!success) {
-                LOG(ERROR) << "CallbackBase::notify -- post work failed";
+
+        if (mOnFinish != nullptr) {
+            ErrorStatus status = mOnFinish(mErrorStatus, mOutputShapes);
+            mOnFinish = nullptr;
+            if (status != ErrorStatus::NONE) {
+                mErrorStatus = status;
             }
         }
     }
     mCondition.notify_all();
 }
 
-void CallbackBase::join_thread_locked() {
-    if (mThread.joinable()) {
-        mThread.join();
-    }
-}
-
-PreparedModelCallback::PreparedModelCallback() :
-        mErrorStatus(ErrorStatus::GENERAL_FAILURE), mPreparedModel(nullptr) {}
-
-PreparedModelCallback::~PreparedModelCallback() {}
-
-Return<void> PreparedModelCallback::notify(ErrorStatus errorStatus,
-                                           const sp<IPreparedModel>& preparedModel) {
-    mErrorStatus = errorStatus;
-    mPreparedModel = preparedModel;
-    CallbackBase::notify();
-    return Void();
-}
-
-ErrorStatus PreparedModelCallback::getStatus() {
-    wait();
-    return mErrorStatus;
-}
-
-sp<IPreparedModel> PreparedModelCallback::getPreparedModel() {
-    wait();
-    return mPreparedModel;
-}
-
-ExecutionCallback::ExecutionCallback() : mErrorStatus(ErrorStatus::GENERAL_FAILURE) {}
-
-ExecutionCallback::~ExecutionCallback() {}
-
-Return<void> ExecutionCallback::notify(ErrorStatus errorStatus) {
-    mErrorStatus = errorStatus;
-    CallbackBase::notify();
-    return Void();
-}
-
-ErrorStatus ExecutionCallback::getStatus() {
-    wait();
-    return mErrorStatus;
-}
-
-}  // namespace implementation
-}  // namespace V1_0
-}  // namespace neuralnetworks
-}  // namespace hardware
-}  // namespace android
+}  // namespace android::hardware::neuralnetworks::V1_2::implementation

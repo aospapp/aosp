@@ -36,13 +36,12 @@
 #ifndef _NDK_IMAGE_H
 #define _NDK_IMAGE_H
 
+#include <stdint.h>
 #include <sys/cdefs.h>
 
 #include "NdkMediaError.h"
 
-#if __ANDROID_API__ >= 26
 #include <android/hardware_buffer.h>
-#endif /* __ANDROID_API__ >= 26 */
 
 __BEGIN_DECLS
 
@@ -500,7 +499,51 @@ enum AIMAGE_FORMATS {
      * <p>When an {@link AImage} of this format is obtained from an {@link AImageReader} or
      * {@link AImage_getNumberOfPlanes()} method will return zero.</p>
      */
-    AIMAGE_FORMAT_PRIVATE           = 0x22
+    AIMAGE_FORMAT_PRIVATE           = 0x22,
+
+    /**
+     * Android Y8 format.
+     *
+     * <p>Y8 is a planar format comprised of a WxH Y plane only, with each pixel
+     * being represented by 8 bits.</p>
+     *
+     * <p>This format assumes
+     * <ul>
+     * <li>an even width</li>
+     * <li>an even height</li>
+     * <li>a horizontal stride multiple of 16 pixels</li>
+     * </ul>
+     * </p>
+     *
+     * <pre> size = stride * height </pre>
+     *
+     * <p>For example, the {@link AImage} object can provide data
+     * in this format from a {@link ACameraDevice} (if supported) through a
+     * {@link AImageReader} object. The number of planes returned by
+     * {@link AImage_getNumberOfPlanes} will always be 1. The pixel stride returned by
+     * {@link AImage_getPlanePixelStride} will always be 1, and the
+     * {@link AImage_getPlaneRowStride} described the vertical neighboring pixel distance
+     * (in bytes) between adjacent rows.</p>
+     *
+     */
+    AIMAGE_FORMAT_Y8 = 0x20203859,
+
+    /**
+     * Compressed HEIC format.
+     *
+     * <p>This format defines the HEIC brand of High Efficiency Image File
+     * Format as described in ISO/IEC 23008-12.</p>
+     */
+    AIMAGE_FORMAT_HEIC = 0x48454946,
+
+    /**
+     * Depth augmented compressed JPEG format.
+     *
+     * <p>JPEG compressed main image along with XMP embedded depth metadata
+     * following ISO 16684-1:2011(E).</p>
+     */
+    AIMAGE_FORMAT_DEPTH_JPEG = 0x69656963,
+
 };
 
 /**
@@ -529,7 +572,7 @@ typedef struct AImageCropRect {
  *
  * @param image The {@link AImage} to be deleted.
  */
-void AImage_delete(AImage* image);
+void AImage_delete(AImage* image) __INTRODUCED_IN(24);
 
 /**
  * Query the width of the input {@link AImage}.
@@ -543,7 +586,7 @@ void AImage_delete(AImage* image);
  *         <li>{@link AMEDIA_ERROR_INVALID_OBJECT} if the {@link AImageReader} generated this
  *                 image has been deleted.</li></ul>
  */
-media_status_t AImage_getWidth(const AImage* image, /*out*/int32_t* width);
+media_status_t AImage_getWidth(const AImage* image, /*out*/int32_t* width) __INTRODUCED_IN(24);
 
 /**
  * Query the height of the input {@link AImage}.
@@ -557,7 +600,7 @@ media_status_t AImage_getWidth(const AImage* image, /*out*/int32_t* width);
  *         <li>{@link AMEDIA_ERROR_INVALID_OBJECT} if the {@link AImageReader} generated this
  *                 image has been deleted.</li></ul>
  */
-media_status_t AImage_getHeight(const AImage* image, /*out*/int32_t* height);
+media_status_t AImage_getHeight(const AImage* image, /*out*/int32_t* height) __INTRODUCED_IN(24);
 
 /**
  * Query the format of the input {@link AImage}.
@@ -573,7 +616,7 @@ media_status_t AImage_getHeight(const AImage* image, /*out*/int32_t* height);
  *         <li>{@link AMEDIA_ERROR_INVALID_OBJECT} if the {@link AImageReader} generated this
  *                 image has been deleted.</li></ul>
  */
-media_status_t AImage_getFormat(const AImage* image, /*out*/int32_t* format);
+media_status_t AImage_getFormat(const AImage* image, /*out*/int32_t* format) __INTRODUCED_IN(24);
 
 /**
  * Query the cropped rectangle of the input {@link AImage}.
@@ -590,7 +633,7 @@ media_status_t AImage_getFormat(const AImage* image, /*out*/int32_t* format);
  *         <li>{@link AMEDIA_ERROR_INVALID_OBJECT} if the {@link AImageReader} generated this
  *                 image has been deleted.</li></ul>
  */
-media_status_t AImage_getCropRect(const AImage* image, /*out*/AImageCropRect* rect);
+media_status_t AImage_getCropRect(const AImage* image, /*out*/AImageCropRect* rect) __INTRODUCED_IN(24);
 
 /**
  * Query the timestamp of the input {@link AImage}.
@@ -614,7 +657,7 @@ media_status_t AImage_getCropRect(const AImage* image, /*out*/AImageCropRect* re
  *         <li>{@link AMEDIA_ERROR_INVALID_OBJECT} if the {@link AImageReader} generated this
  *                 image has been deleted.</li></ul>
  */
-media_status_t AImage_getTimestamp(const AImage* image, /*out*/int64_t* timestampNs);
+media_status_t AImage_getTimestamp(const AImage* image, /*out*/int64_t* timestampNs) __INTRODUCED_IN(24);
 
 /**
  * Query the number of planes of the input {@link AImage}.
@@ -632,7 +675,7 @@ media_status_t AImage_getTimestamp(const AImage* image, /*out*/int64_t* timestam
  *         <li>{@link AMEDIA_ERROR_INVALID_OBJECT} if the {@link AImageReader} generated this
  *                 image has been deleted.</li></ul>
  */
-media_status_t AImage_getNumberOfPlanes(const AImage* image, /*out*/int32_t* numPlanes);
+media_status_t AImage_getNumberOfPlanes(const AImage* image, /*out*/int32_t* numPlanes) __INTRODUCED_IN(24);
 
 /**
  * Query the pixel stride of the input {@link AImage}.
@@ -660,7 +703,7 @@ media_status_t AImage_getNumberOfPlanes(const AImage* image, /*out*/int32_t* num
  *                 for CPU access.</li></ul>
  */
 media_status_t AImage_getPlanePixelStride(
-        const AImage* image, int planeIdx, /*out*/int32_t* pixelStride);
+        const AImage* image, int planeIdx, /*out*/int32_t* pixelStride) __INTRODUCED_IN(24);
 
 /**
  * Query the row stride of the input {@link AImage}.
@@ -687,7 +730,7 @@ media_status_t AImage_getPlanePixelStride(
  *                 for CPU access.</li></ul>
  */
 media_status_t AImage_getPlaneRowStride(
-        const AImage* image, int planeIdx, /*out*/int32_t* rowStride);
+        const AImage* image, int planeIdx, /*out*/int32_t* rowStride) __INTRODUCED_IN(24);
 
 /**
  * Get the data pointer of the input image for direct application access.
@@ -712,7 +755,7 @@ media_status_t AImage_getPlaneRowStride(
  */
 media_status_t AImage_getPlaneData(
         const AImage* image, int planeIdx,
-        /*out*/uint8_t** data, /*out*/int* dataLength);
+        /*out*/uint8_t** data, /*out*/int* dataLength) __INTRODUCED_IN(24);
 
 #endif /* __ANDROID_API__ >= 24 */
 
@@ -732,7 +775,7 @@ media_status_t AImage_getPlaneData(
  *
  * @see sync.h
  */
-void AImage_deleteAsync(AImage* image, int releaseFenceFd);
+void AImage_deleteAsync(AImage* image, int releaseFenceFd) __INTRODUCED_IN(26);
 
 /**
  * Get the hardware buffer handle of the input image intended for GPU and/or hardware access.
@@ -760,7 +803,7 @@ void AImage_deleteAsync(AImage* image, int releaseFenceFd);
  *
  * @see AImageReader_ImageCallback
  */
-media_status_t AImage_getHardwareBuffer(const AImage* image, /*out*/AHardwareBuffer** buffer);
+media_status_t AImage_getHardwareBuffer(const AImage* image, /*out*/AHardwareBuffer** buffer) __INTRODUCED_IN(26);
 
 #endif /* __ANDROID_API__ >= 26 */
 

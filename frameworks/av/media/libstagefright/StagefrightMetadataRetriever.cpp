@@ -20,6 +20,7 @@
 #include <inttypes.h>
 
 #include <utils/Log.h>
+#include <cutils/properties.h>
 
 #include "include/FrameDecoder.h"
 #include "include/StagefrightMetadataRetriever.h"
@@ -32,8 +33,10 @@
 #include <media/stagefright/MediaCodecList.h>
 #include <media/stagefright/MediaDefs.h>
 #include <media/stagefright/MediaErrors.h>
+#include <media/stagefright/MediaExtractor.h>
 #include <media/stagefright/MediaExtractorFactory.h>
 #include <media/stagefright/MetaData.h>
+#include <media/stagefright/Utils.h>
 #include <media/CharacterEncodingDetector.h>
 
 namespace android {
@@ -162,6 +165,9 @@ sp<IMemory> StagefrightMetadataRetriever::getImageInternal(
 
     for (i = 0; i < n; ++i) {
         sp<MetaData> meta = mExtractor->getTrackMetaData(i);
+        if (!meta) {
+            continue;
+        }
         ALOGV("getting track %zu of %zu, meta=%s", i, n, meta->toString().c_str());
 
         const char *mime;
@@ -183,6 +189,9 @@ sp<IMemory> StagefrightMetadataRetriever::getImageInternal(
     }
 
     sp<MetaData> trackMeta = mExtractor->getTrackMetaData(i);
+    if (!trackMeta) {
+        return NULL;
+    }
 
     if (metaOnly) {
         return FrameDecoder::getMetadataOnly(trackMeta, colorFormat, thumbnail);
@@ -204,11 +213,14 @@ sp<IMemory> StagefrightMetadataRetriever::getImageInternal(
         trackMeta->setCString(kKeyMIMEType, mime);
     }
 
+    bool preferhw = property_get_bool(
+            "media.stagefright.thumbnail.prefer_hw_codecs", false);
+    uint32_t flags = preferhw ? 0 : MediaCodecList::kPreferSoftwareCodecs;
     Vector<AString> matchingCodecs;
     MediaCodecList::findMatchingCodecs(
             mime,
             false, /* encoder */
-            MediaCodecList::kPreferSoftwareCodecs,
+            flags,
             &matchingCodecs);
 
     for (size_t i = 0; i < matchingCodecs.size(); ++i) {
@@ -270,16 +282,13 @@ status_t StagefrightMetadataRetriever::getFrameInternal(
         return NO_INIT;
     }
 
-    int32_t drm = 0;
-    if (fileMeta->findInt32(kKeyIsDRM, &drm) && drm != 0) {
-        ALOGE("frame grab not allowed.");
-        return ERROR_DRM_UNKNOWN;
-    }
-
     size_t n = mExtractor->countTracks();
     size_t i;
     for (i = 0; i < n; ++i) {
         sp<MetaData> meta = mExtractor->getTrackMetaData(i);
+        if (!meta) {
+            continue;
+        }
 
         const char *mime;
         CHECK(meta->findCString(kKeyMIMEType, &mime));
@@ -296,6 +305,9 @@ status_t StagefrightMetadataRetriever::getFrameInternal(
 
     sp<MetaData> trackMeta = mExtractor->getTrackMetaData(
             i, MediaExtractor::kIncludeExtensiveMetaData);
+    if (!trackMeta) {
+        return UNKNOWN_ERROR;
+    }
 
     if (metaOnly) {
         if (outFrame != NULL) {
@@ -325,24 +337,27 @@ status_t StagefrightMetadataRetriever::getFrameInternal(
     const char *mime;
     CHECK(trackMeta->findCString(kKeyMIMEType, &mime));
 
+    bool preferhw = property_get_bool(
+            "media.stagefright.thumbnail.prefer_hw_codecs", false);
+    uint32_t flags = preferhw ? 0 : MediaCodecList::kPreferSoftwareCodecs;
     Vector<AString> matchingCodecs;
     MediaCodecList::findMatchingCodecs(
             mime,
             false, /* encoder */
-            MediaCodecList::kPreferSoftwareCodecs,
+            flags,
             &matchingCodecs);
 
     for (size_t i = 0; i < matchingCodecs.size(); ++i) {
         const AString &componentName = matchingCodecs[i];
-        VideoFrameDecoder decoder(componentName, trackMeta, source);
-        if (decoder.init(timeUs, numFrames, option, colorFormat) == OK) {
+        sp<VideoFrameDecoder> decoder = new VideoFrameDecoder(componentName, trackMeta, source);
+        if (decoder->init(timeUs, numFrames, option, colorFormat) == OK) {
             if (outFrame != NULL) {
-                *outFrame = decoder.extractFrame();
+                *outFrame = decoder->extractFrame();
                 if (*outFrame != NULL) {
                     return OK;
                 }
             } else if (outFrames != NULL) {
-                status_t err = decoder.extractFrames(outFrames);
+                status_t err = decoder->extractFrames(outFrames);
                 if (err == OK) {
                     return OK;
                 }
@@ -393,6 +408,25 @@ const char *StagefrightMetadataRetriever::extractMetadata(int keyCode) {
     }
 
     return mMetaData.valueAt(index).string();
+}
+
+void StagefrightMetadataRetriever::parseColorAspects(const sp<MetaData>& meta) {
+    sp<AMessage> format = new AMessage();
+    if (convertMetaDataToMessage(meta, &format) != OK) {
+        return;
+    }
+
+    int32_t standard, transfer, range;
+    if (format->findInt32("color-standard", &standard)
+            && format->findInt32("color-transfer", &transfer)
+            && format->findInt32("color-range", &range)) {
+        ALOGV("found color aspects : standard=%d, transfer=%d, range=%d",
+                standard, transfer, range);
+
+        mMetaData.add(METADATA_KEY_COLOR_STANDARD, String8::format("%d", standard));
+        mMetaData.add(METADATA_KEY_COLOR_TRANSFER, String8::format("%d", transfer));
+        mMetaData.add(METADATA_KEY_COLOR_RANGE, String8::format("%d", range));
+    }
 }
 
 void StagefrightMetadataRetriever::parseMetaData() {
@@ -507,6 +541,9 @@ void StagefrightMetadataRetriever::parseMetaData() {
     String8 timedTextLang;
     for (size_t i = 0; i < numTracks; ++i) {
         sp<MetaData> trackMeta = mExtractor->getTrackMetaData(i);
+        if (!trackMeta) {
+            continue;
+        }
 
         int64_t durationUs;
         if (trackMeta->findInt64(kKeyDuration, &durationUs)) {
@@ -523,6 +560,19 @@ void StagefrightMetadataRetriever::parseMetaData() {
                 if (!trackMeta->findInt32(kKeyBitRate, &audioBitrate)) {
                     audioBitrate = -1;
                 }
+
+                int32_t bitsPerSample = -1;
+                int32_t sampleRate = -1;
+                trackMeta->findInt32(kKeyBitsPerSample, &bitsPerSample);
+                trackMeta->findInt32(kKeySampleRate, &sampleRate);
+                if (bitsPerSample >= 0) {
+                    sprintf(tmp, "%d", bitsPerSample);
+                    mMetaData.add(METADATA_KEY_BITS_PER_SAMPLE, String8(tmp));
+                }
+                if (sampleRate >= 0) {
+                    sprintf(tmp, "%d", sampleRate);
+                    mMetaData.add(METADATA_KEY_SAMPLERATE, String8(tmp));
+                }
             } else if (!hasVideo && !strncasecmp("video/", mime, 6)) {
                 hasVideo = true;
 
@@ -534,6 +584,8 @@ void StagefrightMetadataRetriever::parseMetaData() {
                 if (!trackMeta->findInt32(kKeyFrameCount, &videoFrameCount)) {
                     videoFrameCount = 0;
                 }
+
+                parseColorAspects(trackMeta);
             } else if (!strncasecmp("image/", mime, 6)) {
                 int32_t isPrimary;
                 if (trackMeta->findInt32(
@@ -630,8 +682,9 @@ void StagefrightMetadataRetriever::parseMetaData() {
                 !strcasecmp(fileMIME, "video/x-matroska")) {
             sp<MetaData> trackMeta = mExtractor->getTrackMetaData(0);
             const char *trackMIME;
-            CHECK(trackMeta->findCString(kKeyMIMEType, &trackMIME));
-
+            if (trackMeta != nullptr) {
+                CHECK(trackMeta->findCString(kKeyMIMEType, &trackMIME));
+            }
             if (!strncasecmp("audio/", trackMIME, 6)) {
                 // The matroska file only contains a single audio track,
                 // rewrite its mime type.

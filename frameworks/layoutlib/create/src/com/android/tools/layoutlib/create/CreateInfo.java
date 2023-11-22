@@ -17,13 +17,8 @@
 package com.android.tools.layoutlib.create;
 
 import com.android.tools.layoutlib.annotations.LayoutlibDelegate;
-import com.android.tools.layoutlib.java.AutoCloseable;
-import com.android.tools.layoutlib.java.Charsets;
-import com.android.tools.layoutlib.java.IntegralToString;
 import com.android.tools.layoutlib.java.LinkedHashMap_Delegate;
-import com.android.tools.layoutlib.java.Objects;
 import com.android.tools.layoutlib.java.System_Delegate;
-import com.android.tools.layoutlib.java.UnsafeByteSequence;
 
 import java.util.Arrays;
 import java.util.HashMap;
@@ -72,7 +67,7 @@ public final class CreateInfo implements ICreateInfo {
     }
 
     @Override
-    public Set<String> getExcludedClasses() {
+    public String[] getExcludedClasses() {
         String[] refactoredClasses = getJavaPkgClasses();
         int count = refactoredClasses.length / 2 + EXCLUDED_CLASSES.length;
         Set<String> excludedClasses = new HashSet<>(count);
@@ -80,7 +75,7 @@ public final class CreateInfo implements ICreateInfo {
             excludedClasses.add(refactoredClasses[i]);
         }
         excludedClasses.addAll(Arrays.asList(EXCLUDED_CLASSES));
-        return excludedClasses;
+        return excludedClasses.toArray(new String[0]);
     }
 
     @Override
@@ -113,8 +108,6 @@ public final class CreateInfo implements ICreateInfo {
             InjectMethodRunnable.class,
             InjectMethodRunnables.class,
             /* Java package classes */
-            IntegralToString.class,
-            UnsafeByteSequence.class,
             System_Delegate.class,
             LinkedHashMap_Delegate.class,
         };
@@ -125,6 +118,7 @@ public final class CreateInfo implements ICreateInfo {
     public final static String[] DELEGATE_METHODS = new String[] {
         "android.app.Fragment#instantiate", //(Landroid/content/Context;Ljava/lang/String;Landroid/os/Bundle;)Landroid/app/Fragment;",
         "android.content.res.Resources#getAnimation",
+        "android.content.res.Resources#getAttributeSetSourceResId",
         "android.content.res.Resources#getBoolean",
         "android.content.res.Resources#getColor",
         "android.content.res.Resources#getColorStateList",
@@ -160,9 +154,12 @@ public final class CreateInfo implements ICreateInfo {
         "android.content.res.Resources$Theme#resolveAttribute",
         "android.content.res.Resources$Theme#resolveAttributes",
         "android.content.res.AssetManager#open",
-        "android.content.res.AssetManager#newTheme",
-        "android.content.res.AssetManager#deleteTheme",
+        "android.content.res.AssetManager#nativeCreate",
+        "android.content.res.AssetManager#nativeDestroy",
+        "android.content.res.AssetManager#nativeThemeCreate",
+        "android.content.res.AssetManager#nativeThemeDestroy",
         "android.content.res.AssetManager#getAssignedPackageIdentifiers",
+        "android.content.res.AssetManager#nativeCreateIdmapsForStaticOverlaysTargetingAndroid",
         "android.content.res.TypedArray#getValueAt",
         "android.content.res.TypedArray#obtain",
         "android.graphics.BitmapFactory#finishDecode",
@@ -172,9 +169,9 @@ public final class CreateInfo implements ICreateInfo {
         "android.graphics.drawable.GradientDrawable#buildRing",
         "android.graphics.drawable.AdaptiveIconDrawable#<init>",
         "android.graphics.FontFamily#addFont",
-        "android.graphics.Typeface#buildSystemFallback",
         "android.graphics.Typeface#create",
-        "android.graphics.Typeface#createFontFamily",
+        "android.graphics.Typeface$Builder#createAssetUid",
+        "android.graphics.fonts.SystemFonts#buildSystemFallback",
         "android.os.Binder#getNativeBBinderHolder",
         "android.os.Binder#getNativeFinalizer",
         "android.os.Handler#sendMessageAtTime",
@@ -188,6 +185,7 @@ public final class CreateInfo implements ICreateInfo {
         "android.view.Display#updateDisplayInfoLocked",
         "android.view.Display#getWindowManager",
         "android.view.HandlerActionQueue#postDelayed",
+        "android.view.LayoutInflater#initPrecompiledViews",
         "android.view.LayoutInflater#rInflate",
         "android.view.LayoutInflater#parseInclude",
         "android.view.View#draw",
@@ -197,44 +195,54 @@ public final class CreateInfo implements ICreateInfo {
         "android.view.View#isInEditMode",
         "android.view.ViewRootImpl#isInTouchMode",
         "android.view.WindowManagerGlobal#getWindowManagerService",
-        "android.view.inputmethod.InputMethodManager#getInstance",
+        "android.view.inputmethod.InputMethodManager#isInEditMode",
         "android.view.MenuInflater#registerMenu",
-        "android.view.RenderNode#getMatrix",
-        "android.view.RenderNode#nCreate",
-        "android.view.RenderNode#nGetNativeFinalizer",
-        "android.view.RenderNode#nSetElevation",
-        "android.view.RenderNode#nGetElevation",
-        "android.view.RenderNode#nSetTranslationX",
-        "android.view.RenderNode#nGetTranslationX",
-        "android.view.RenderNode#nSetTranslationY",
-        "android.view.RenderNode#nGetTranslationY",
-        "android.view.RenderNode#nSetTranslationZ",
-        "android.view.RenderNode#nGetTranslationZ",
-        "android.view.RenderNode#nSetRotation",
-        "android.view.RenderNode#nGetRotation",
-        "android.view.RenderNode#nSetLeft",
-        "android.view.RenderNode#nSetTop",
-        "android.view.RenderNode#nSetRight",
-        "android.view.RenderNode#nSetBottom",
-        "android.view.RenderNode#nSetLeftTopRightBottom",
-        "android.view.RenderNode#nSetPivotX",
-        "android.view.RenderNode#nGetPivotX",
-        "android.view.RenderNode#nSetPivotY",
-        "android.view.RenderNode#nGetPivotY",
-        "android.view.RenderNode#nSetScaleX",
-        "android.view.RenderNode#nGetScaleX",
-        "android.view.RenderNode#nSetScaleY",
-        "android.view.RenderNode#nGetScaleY",
-        "android.view.RenderNode#nIsPivotExplicitlySet",
+        "android.graphics.RenderNode#getMatrix",
+        "android.graphics.RenderNode#nCreate",
+        "android.graphics.RenderNode#nGetNativeFinalizer",
+        "android.graphics.RenderNode#nSetElevation",
+        "android.graphics.RenderNode#nGetElevation",
+        "android.graphics.RenderNode#nSetTranslationX",
+        "android.graphics.RenderNode#nGetTranslationX",
+        "android.graphics.RenderNode#nSetTranslationY",
+        "android.graphics.RenderNode#nGetTranslationY",
+        "android.graphics.RenderNode#nSetTranslationZ",
+        "android.graphics.RenderNode#nGetTranslationZ",
+        "android.graphics.RenderNode#nSetRotation",
+        "android.graphics.RenderNode#nGetRotation",
+        "android.graphics.RenderNode#nSetLeft",
+        "android.graphics.RenderNode#nSetTop",
+        "android.graphics.RenderNode#nSetRight",
+        "android.graphics.RenderNode#nSetBottom",
+        "android.graphics.RenderNode#nSetLeftTopRightBottom",
+        "android.graphics.RenderNode#nSetPivotX",
+        "android.graphics.RenderNode#nGetPivotX",
+        "android.graphics.RenderNode#nSetPivotY",
+        "android.graphics.RenderNode#nGetPivotY",
+        "android.graphics.RenderNode#nSetScaleX",
+        "android.graphics.RenderNode#nGetScaleX",
+        "android.graphics.RenderNode#nSetScaleY",
+        "android.graphics.RenderNode#nGetScaleY",
+        "android.graphics.RenderNode#nIsPivotExplicitlySet",
+        "android.provider.DeviceConfig#getBoolean",
+        "android.provider.DeviceConfig#getFloat",
+        "android.provider.DeviceConfig#getInt",
+        "android.provider.DeviceConfig#getLong",
+        "android.provider.DeviceConfig#getString",
         "android.view.PointerIcon#loadResource",
+        "android.view.PointerIcon#registerDisplayListener",
+        "android.view.SurfaceControl#nativeCreateTransaction",
+        "android.view.SurfaceControl#nativeGetNativeTransactionFinalizer",
         "android.view.ViewGroup#drawChild",
         "com.android.internal.view.menu.MenuBuilder#createNewMenuItem",
         "com.android.internal.util.XmlUtils#convertValueToInt",
+        "dalvik.system.VMRuntime#getNotifyNativeInterval",
         "dalvik.system.VMRuntime#newUnpaddedArray",
         "libcore.io.MemoryMappedFile#mmapRO",
         "libcore.io.MemoryMappedFile#close",
         "libcore.io.MemoryMappedFile#bigEndianIterator",
         "libcore.util.NativeAllocationRegistry#applyFreeFunction",
+        "libcore.util.NativeAllocationRegistry#registerNativeAllocation",
     };
 
     /**
@@ -246,10 +254,13 @@ public final class CreateInfo implements ICreateInfo {
         "android.graphics.Bitmap",
         "android.graphics.BitmapFactory",
         "android.graphics.BitmapShader",
+        "android.graphics.BlendModeColorFilter",
         "android.graphics.BlurMaskFilter",
         "android.graphics.Canvas",
+        "android.graphics.Color",
         "android.graphics.ColorFilter",
         "android.graphics.ColorMatrixColorFilter",
+        "android.graphics.ColorSpace$Rgb",
         "android.graphics.ComposePathEffect",
         "android.graphics.ComposeShader",
         "android.graphics.CornerPathEffect",
@@ -278,10 +289,13 @@ public final class CreateInfo implements ICreateInfo {
         "android.graphics.Typeface",
         "android.graphics.drawable.AnimatedVectorDrawable",
         "android.graphics.drawable.VectorDrawable",
+        "android.graphics.fonts.Font$Builder",
+        "android.graphics.fonts.FontFamily$Builder",
+        "android.graphics.text.MeasuredText",
+        "android.graphics.text.MeasuredText$Builder",
+        "android.graphics.text.LineBreaker",
         "android.os.SystemClock",
         "android.os.SystemProperties",
-        "android.text.MeasuredParagraph",
-        "android.text.StaticLayout",
         "android.util.PathParser",
         "android.view.Display",
         "com.android.internal.util.VirtualRefBasePtr",
@@ -311,13 +325,6 @@ public final class CreateInfo implements ICreateInfo {
      */
     private final static String[] JAVA_PKG_CLASSES =
         new String[] {
-            "java.nio.charset.Charsets",                       "java.nio.charset.StandardCharsets",
-            "java.lang.IntegralToString",                      "com.android.tools.layoutlib.java.IntegralToString",
-            "java.lang.UnsafeByteSequence",                    "com.android.tools.layoutlib.java.UnsafeByteSequence",
-            // Use android.icu.text versions of DateFormat and SimpleDateFormat since the
-            // original ones do not match the Android implementation
-            "java.text.DateFormat",                            "android.icu.text.DateFormat",
-            "java.text.SimpleDateFormat",                      "android.icu.text.SimpleDateFormat",
         };
 
     /**
@@ -335,7 +342,9 @@ public final class CreateInfo implements ICreateInfo {
     private final static String[] EXCLUDED_CLASSES =
         new String[] {
             "android.preference.PreferenceActivity",
+            "java.**",
             "org.kxml2.io.KXmlParser",
+            "sun.**",
         };
 
     /**
@@ -346,8 +355,17 @@ public final class CreateInfo implements ICreateInfo {
         "android.graphics.drawable.VectorDrawable#mVectorState",
         "android.view.Choreographer#mLastFrameTimeNanos",
         "android.graphics.FontFamily#mBuilderPtr",
+        "android.graphics.Typeface#DEFAULT_FAMILY",
         "android.graphics.Typeface#sDynamicTypefaceCache",
         "android.graphics.drawable.AdaptiveIconDrawable#sMask",
+        "android.animation.PropertyValuesHolder#sSetterPropertyMap",
+        "android.animation.PropertyValuesHolder#sGetterPropertyMap",
+        "android.animation.PropertyValuesHolder$IntPropertyValuesHolder#sJNISetterPropertyMap",
+        "android.animation.PropertyValuesHolder$FloatPropertyValuesHolder#sJNISetterPropertyMap",
+        "android.animation.PropertyValuesHolder$MultiFloatValuesHolder#sJNISetterPropertyMap",
+        "android.animation.PropertyValuesHolder$MultiIntValuesHolder#sJNISetterPropertyMap",
+        "libcore.util.NativeAllocationRegistry#freeFunction",
+        "libcore.util.NativeAllocationRegistry#size",
     };
 
     /**
@@ -355,6 +373,8 @@ public final class CreateInfo implements ICreateInfo {
      * if possible.
      */
     private final static String[] PROMOTED_CLASSES = new String[] {
+        "libcore.util.NativeAllocationRegistry$CleanerRunner",
+        "libcore.util.NativeAllocationRegistry$CleanerThunk",
     };
 
     /**

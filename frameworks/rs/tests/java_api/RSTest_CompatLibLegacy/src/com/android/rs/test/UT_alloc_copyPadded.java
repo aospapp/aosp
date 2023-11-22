@@ -18,7 +18,7 @@ package com.android.rs.test_compatlegacy;
 
 import android.content.Context;
 import android.content.res.Resources;
-import android.support.v8.renderscript.*;
+import androidx.renderscript.*;
 import java.util.Random;
 
 public class UT_alloc_copyPadded extends UnitTest {

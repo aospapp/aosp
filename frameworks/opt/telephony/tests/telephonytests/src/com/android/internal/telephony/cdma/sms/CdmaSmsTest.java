@@ -115,6 +115,14 @@ public class CdmaSmsTest extends AndroidTestCase {
     }
 
     @SmallTest
+    public void testRecipientAddress() throws Exception {
+        String pdu = "011a0000001002080d0003100160010610262d5ab500040401448888";
+        SmsMessage sms = SmsMessage.createFromEfRecord(0,
+                HexDump.hexStringToByteArray(pdu));
+        assertEquals("12222", sms.getRecipientAddress());
+    }
+
+    @SmallTest
     public void testUserData7bitGsm() throws Exception {
         String pdu = "00031040900112488ea794e074d69e1b7392c270326cde9e98";
         BearerData bearerData = BearerData.decode(HexDump.hexStringToByteArray(pdu));
@@ -258,6 +266,44 @@ public class CdmaSmsTest extends AndroidTestCase {
         revBearerData = BearerData.decode(BearerData.encode(bearerData));
         assertEquals(userData.payloadStr, revBearerData.userData.payloadStr);
         userData.payloadStr = "";
+        revBearerData = BearerData.decode(BearerData.encode(bearerData));
+        assertEquals(userData.payloadStr, revBearerData.userData.payloadStr);
+    }
+
+    @SmallTest
+    public void testUserData7BitAsciiFeedback() throws Exception {
+        BearerData bearerData = new BearerData();
+        bearerData.messageType = BearerData.MESSAGE_TYPE_DELIVER;
+        bearerData.messageId = 0;
+        bearerData.hasUserDataHeader = false;
+        UserData userData = new UserData();
+        userData.payloadStr = "Test standard SMS";
+        userData.msgEncoding = UserData.ENCODING_7BIT_ASCII;
+        userData.msgEncodingSet = true;
+        bearerData.userData = userData;
+        byte[] encodedSms = BearerData.encode(bearerData);
+
+        BearerData revBearerData = BearerData.decode(encodedSms);
+        assertEquals(userData.msgEncoding, revBearerData.userData.msgEncoding);
+        assertEquals(userData.payloadStr.length(), revBearerData.userData.numFields);
+        assertEquals(userData.payloadStr, revBearerData.userData.payloadStr);
+
+        userData.payloadStr = "1234567";
+        revBearerData = BearerData.decode(BearerData.encode(bearerData));
+        assertEquals(userData.payloadStr, revBearerData.userData.payloadStr);
+        userData.payloadStr = "";
+        revBearerData = BearerData.decode(BearerData.encode(bearerData));
+        assertEquals(userData.payloadStr, revBearerData.userData.payloadStr);
+        userData.payloadStr = "12345678901234567890123456789012345678901234567890" +
+                "12345678901234567890123456789012345678901234567890" +
+                "12345678901234567890123456789012345678901234567890" +
+                "1234567890";
+        revBearerData = BearerData.decode(BearerData.encode(bearerData));
+        assertEquals(userData.payloadStr, revBearerData.userData.payloadStr);
+        userData.payloadStr = "Test \u007f illegal \u0000 SMS chars";
+        revBearerData = BearerData.decode(BearerData.encode(bearerData));
+        assertEquals("Test   illegal   SMS chars", revBearerData.userData.payloadStr);
+        userData.payloadStr = "More @ testing\nis great^|^~woohoo";
         revBearerData = BearerData.decode(BearerData.encode(bearerData));
         assertEquals(userData.payloadStr, revBearerData.userData.payloadStr);
     }

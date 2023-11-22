@@ -612,13 +612,7 @@ void Reverb_free(ReverbContext *pContext){
     for (int i=0; i<LVM_NR_MEMORY_REGIONS; i++){
         if (MemTab.Region[i].Size != 0){
             if (MemTab.Region[i].pBaseAddress != NULL){
-                ALOGV("\tfree() - START freeing %" PRIu32 " bytes for region %u at %p\n",
-                        MemTab.Region[i].Size, i, MemTab.Region[i].pBaseAddress);
-
                 free(MemTab.Region[i].pBaseAddress);
-
-                ALOGV("\tfree() - END   freeing %" PRIu32 " bytes for region %u at %p\n",
-                        MemTab.Region[i].Size, i, MemTab.Region[i].pBaseAddress);
             }else{
                 ALOGV("\tLVM_ERROR : free() - trying to free with NULL pointer %" PRIu32 " bytes "
                         "for region %u at %p ERROR\n",
@@ -681,8 +675,14 @@ int Reverb_setConfig(ReverbContext *pContext, effect_config_t *pConfig){
         SampleRate = LVM_FS_48000;
         break;
 #if defined(BUILD_FLOAT) && defined(HIGHER_FS)
+    case 88200:
+        SampleRate = LVM_FS_88200;
+        break;
     case 96000:
         SampleRate = LVM_FS_96000;
+        break;
+    case 176400:
+        SampleRate = LVM_FS_176400;
         break;
     case 192000:
         SampleRate = LVM_FS_192000;
@@ -1757,15 +1757,14 @@ int Reverb_getParameter(ReverbContext *pContext,
             //        *(int16_t *)pValue);
             break;
         case REVERB_PARAM_DENSITY:
-            *(uint16_t *)pValue = 0;
             *(int16_t *)pValue = ReverbGetDensity(pContext);
             //ALOGV("\tReverb_getParameter() REVERB_PARAM_DENSITY Value is %d",
             //        *(uint32_t *)pValue);
             break;
         case REVERB_PARAM_REFLECTIONS_LEVEL:
             *(uint16_t *)pValue = 0;
+            break;
         case REVERB_PARAM_REFLECTIONS_DELAY:
-            *(uint32_t *)pValue = 0;
         case REVERB_PARAM_REVERB_DELAY:
             *(uint32_t *)pValue = 0;
             break;

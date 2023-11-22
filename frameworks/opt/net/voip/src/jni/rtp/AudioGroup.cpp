@@ -576,9 +576,9 @@ AudioGroup::~AudioGroup()
 
 bool AudioGroup::set(int sampleRate, int sampleCount)
 {
-    mEventQueue = epoll_create(2);
+    mEventQueue = epoll_create1(EPOLL_CLOEXEC);
     if (mEventQueue == -1) {
-        ALOGE("epoll_create: %s", strerror(errno));
+        ALOGE("epoll_create1: %s", strerror(errno));
         return false;
     }
 
@@ -847,7 +847,7 @@ bool AudioGroup::DeviceThread::threadLoop()
                                     0,
                                     0,
                                     record->getSessionId(),
-                                    record->getInput());
+                                    AUDIO_IO_HANDLE_NONE); // record sessionId is sufficient.
             status_t status = aec->initCheck();
             if (status == NO_ERROR || status == ALREADY_EXISTS) {
                 aec->setEnabled(true);

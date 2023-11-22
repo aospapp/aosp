@@ -81,7 +81,7 @@ static SLresult I3DDoppler_GetVelocityCartesian(SL3DDopplerItf self, SLVec3D *pV
                 break;
             case CARTESIAN_UNKNOWN_SPHERICAL_SET:
                 thiz->mVelocityActive = CARTESIAN_REQUESTED_SPHERICAL_SET;
-                // fall through
+                FALLTHROUGH_INTENDED;
             case CARTESIAN_REQUESTED_SPHERICAL_SET:
                 // matched by cond_broadcast in case multiple requesters
 #if 0

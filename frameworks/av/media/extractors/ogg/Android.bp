@@ -7,13 +7,18 @@ cc_library_shared {
         "external/tremolo",
     ],
 
+    header_libs: [
+        "libaudio_system_headers",
+    ],
+
     shared_libs: [
         "liblog",
-        "libmediaextractor",
+        "libmediandk",
     ],
 
     static_libs: [
         "libstagefright_foundation",
+        "libstagefright_metadatautils",
         "libutils",
         "libvorbisidec",
     ],
@@ -36,9 +41,6 @@ cc_library_shared {
             "unsigned-integer-overflow",
             "signed-integer-overflow",
         ],
-        diag: {
-            cfi: true,
-        },
     },
 
 }

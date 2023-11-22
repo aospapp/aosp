@@ -17,17 +17,9 @@
 #ifndef FRAMEWORKS_ML_NN_EMBEDDING_LOOKUP_H
 #define FRAMEWORKS_ML_NN_EMBEDDING_LOOKUP_H
 
-#include <vector>
+#include "HalOperation.h"
 
-namespace android {
-namespace hardware {
-namespace neuralnetworks {
-namespace V1_1 {
-struct Operation;
-}
-}  // namespace neuralnetworks
-}  // namespace hardware
-}  // namespace android
+#include <vector>
 
 namespace android {
 namespace nn {
@@ -37,7 +29,7 @@ struct RunTimeOperandInfo;
 class EmbeddingLookup {
  public:
   EmbeddingLookup(
-      const android::hardware::neuralnetworks::V1_1::Operation &operation,
+      const Operation &operation,
       std::vector<RunTimeOperandInfo> &operands);
 
   bool Eval();

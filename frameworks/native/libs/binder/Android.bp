@@ -28,7 +28,7 @@ cc_library_headers {
     ],
 }
 
-cc_library {
+cc_library_shared {
     name: "libbinder",
 
     // for vndbinder
@@ -36,6 +36,7 @@ cc_library {
     vndk: {
         enabled: true,
     },
+    double_loadable: true,
 
     srcs: [
         "ActivityManager.cpp",
@@ -62,6 +63,7 @@ cc_library {
         "MemoryDealer.cpp",
         "MemoryHeapBase.cpp",
         "Parcel.cpp",
+        "ParcelFileDescriptor.cpp",
         "PermissionCache.cpp",
         "PermissionController.cpp",
         "PersistableBundle.cpp",
@@ -105,6 +107,7 @@ cc_library {
         "-Wall",
         "-Wextra",
         "-Werror",
+        "-Wzero-as-null-pointer-constant",
     ],
     product_variables: {
         binder32bit: {
@@ -117,7 +120,7 @@ cc_library {
         "liblog",
         "libcutils",
         "libutils",
-        "libutilscallstack",
+        "libbinderthreadstate",
     ],
 
     header_libs: [

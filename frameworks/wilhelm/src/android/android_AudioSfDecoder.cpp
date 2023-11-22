@@ -283,7 +283,7 @@ void AudioSfDecoder::onPrepare() {
     if (dataSource->getSize(&size) == OK
             && meta->findInt64(kKeyDuration, &durationUs)) {
         if (durationUs != 0) {
-            mBitrate = size * 8000000ll / durationUs;  // in bits/sec
+            mBitrate = size * 8000000LL / durationUs;  // in bits/sec
         } else {
             mBitrate = -1;
         }
@@ -684,7 +684,7 @@ CacheStatus_t AudioSfDecoder::getCacheRemaining(bool *eos) {
 
     CHECK_GE(mBitrate, 0);
 
-    int64_t dataRemainingUs = dataRemaining * 8000000ll / mBitrate;
+    int64_t dataRemainingUs = dataRemaining * 8000000LL / mBitrate;
     //SL_LOGV("AudioSfDecoder::getCacheRemaining: approx %.2f secs remaining (eos=%d)",
     //       dataRemainingUs / 1E6, *eos);
 

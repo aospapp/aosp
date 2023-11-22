@@ -17,242 +17,248 @@
 package com.android.server.wifi.util;
 
 import static org.junit.Assert.*;
-import static org.mockito.AdditionalMatchers.aryEq;
 import static org.mockito.Mockito.*;
 
 import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiEnterpriseConfig;
-import android.support.test.filters.SmallTest;
 import android.telephony.ImsiEncryptionInfo;
 import android.telephony.TelephonyManager;
 import android.util.Base64;
 import android.util.Pair;
 
+import androidx.test.filters.SmallTest;
+
+import com.android.dx.mockito.inline.extended.ExtendedMockito;
+import com.android.server.wifi.CarrierNetworkConfig;
 import com.android.server.wifi.WifiConfigurationTestUtil;
 import com.android.server.wifi.util.TelephonyUtil.SimAuthRequestData;
 import com.android.server.wifi.util.TelephonyUtil.SimAuthResponseData;
 
+import org.junit.Before;
 import org.junit.Test;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
+import org.mockito.MockitoSession;
 
 import java.security.PublicKey;
+
+import javax.crypto.BadPaddingException;
+import javax.crypto.Cipher;
 
 /**
  * Unit tests for {@link com.android.server.wifi.util.TelephonyUtil}.
  */
 @SmallTest
 public class TelephonyUtilTest {
+    private TelephonyUtil mTelephonyUtil;
+
+    @Mock
+    CarrierNetworkConfig mCarrierNetworkConfig;
+    @Mock
+    TelephonyManager mTelephonyManager;
+    @Mock
+    TelephonyManager mDataTelephonyManager;
+
+    @Before
+    public void setUp() throws Exception {
+        MockitoAnnotations.initMocks(this);
+        mTelephonyUtil = new TelephonyUtil();
+        when(mTelephonyManager.createForSubscriptionId(anyInt())).thenReturn(mDataTelephonyManager);
+    }
+
     @Test
     public void getSimIdentityEapSim() {
-        TelephonyManager tm = mock(TelephonyManager.class);
-        TelephonyUtil telephonyUtil = mock(TelephonyUtil.class);
         final Pair<String, String> expectedIdentity = Pair.create(
                 "13214561234567890@wlan.mnc456.mcc321.3gppnetwork.org", "");
 
-        when(tm.getSubscriberId()).thenReturn("3214561234567890");
-        when(tm.getSimState()).thenReturn(TelephonyManager.SIM_STATE_READY);
-        when(tm.getSimOperator()).thenReturn("321456");
-        when(tm.getCarrierInfoForImsiEncryption(anyInt())).thenReturn(null);
+        when(mDataTelephonyManager.getSubscriberId()).thenReturn("3214561234567890");
+        when(mDataTelephonyManager.getSimState()).thenReturn(TelephonyManager.SIM_STATE_READY);
+        when(mDataTelephonyManager.getSimOperator()).thenReturn("321456");
+        when(mDataTelephonyManager.getCarrierInfoForImsiEncryption(anyInt())).thenReturn(null);
 
-        assertEquals(expectedIdentity, TelephonyUtil.getSimIdentity(tm, telephonyUtil,
+        assertEquals(expectedIdentity, TelephonyUtil.getSimIdentity(mTelephonyManager,
+                mTelephonyUtil,
                 WifiConfigurationTestUtil.createEapNetwork(WifiEnterpriseConfig.Eap.SIM,
-                        WifiEnterpriseConfig.Phase2.NONE)));
-        assertEquals(expectedIdentity, TelephonyUtil.getSimIdentity(tm, telephonyUtil,
-                WifiConfigurationTestUtil.createEapNetwork(WifiEnterpriseConfig.Eap.PEAP,
-                        WifiEnterpriseConfig.Phase2.SIM)));
+                        WifiEnterpriseConfig.Phase2.NONE), mCarrierNetworkConfig));
+        assertEquals(expectedIdentity,
+                TelephonyUtil.getSimIdentity(mTelephonyManager, mTelephonyUtil,
+                        WifiConfigurationTestUtil.createEapNetwork(WifiEnterpriseConfig.Eap.PEAP,
+                                WifiEnterpriseConfig.Phase2.SIM), mCarrierNetworkConfig));
     }
 
     @Test
     public void getSimIdentityEapAka() {
-        TelephonyManager tm = mock(TelephonyManager.class);
-        TelephonyUtil telephonyUtil = mock(TelephonyUtil.class);
         final Pair<String, String> expectedIdentity = Pair.create(
                 "03214561234567890@wlan.mnc456.mcc321.3gppnetwork.org", "");
-        when(tm.getSubscriberId()).thenReturn("3214561234567890");
+        when(mDataTelephonyManager.getSubscriberId()).thenReturn("3214561234567890");
 
-        when(tm.getSimState()).thenReturn(TelephonyManager.SIM_STATE_READY);
-        when(tm.getSimOperator()).thenReturn("321456");
-        when(tm.getCarrierInfoForImsiEncryption(anyInt())).thenReturn(null);
+        when(mDataTelephonyManager.getSimState()).thenReturn(TelephonyManager.SIM_STATE_READY);
+        when(mDataTelephonyManager.getSimOperator()).thenReturn("321456");
+        when(mDataTelephonyManager.getCarrierInfoForImsiEncryption(anyInt())).thenReturn(null);
 
-        assertEquals(expectedIdentity, TelephonyUtil.getSimIdentity(tm, telephonyUtil,
-                WifiConfigurationTestUtil.createEapNetwork(WifiEnterpriseConfig.Eap.AKA,
-                        WifiEnterpriseConfig.Phase2.NONE)));
-        assertEquals(expectedIdentity, TelephonyUtil.getSimIdentity(tm, telephonyUtil,
-                WifiConfigurationTestUtil.createEapNetwork(WifiEnterpriseConfig.Eap.PEAP,
-                        WifiEnterpriseConfig.Phase2.AKA)));
+        assertEquals(expectedIdentity,
+                TelephonyUtil.getSimIdentity(mTelephonyManager, mTelephonyUtil,
+                        WifiConfigurationTestUtil.createEapNetwork(WifiEnterpriseConfig.Eap.AKA,
+                                WifiEnterpriseConfig.Phase2.NONE), mCarrierNetworkConfig));
+        assertEquals(expectedIdentity,
+                TelephonyUtil.getSimIdentity(mTelephonyManager, mTelephonyUtil,
+                        WifiConfigurationTestUtil.createEapNetwork(WifiEnterpriseConfig.Eap.PEAP,
+                                WifiEnterpriseConfig.Phase2.AKA), mCarrierNetworkConfig));
     }
 
     @Test
     public void getSimIdentityEapAkaPrime() {
-        TelephonyManager tm = mock(TelephonyManager.class);
-        TelephonyUtil telephonyUtil = mock(TelephonyUtil.class);
         final Pair<String, String> expectedIdentity = Pair.create(
                 "63214561234567890@wlan.mnc456.mcc321.3gppnetwork.org", "");
 
-        when(tm.getSubscriberId()).thenReturn("3214561234567890");
-        when(tm.getSimState()).thenReturn(TelephonyManager.SIM_STATE_READY);
-        when(tm.getSimOperator()).thenReturn("321456");
-        when(tm.getCarrierInfoForImsiEncryption(anyInt())).thenReturn(null);
+        when(mDataTelephonyManager.getSubscriberId()).thenReturn("3214561234567890");
+        when(mDataTelephonyManager.getSimState()).thenReturn(TelephonyManager.SIM_STATE_READY);
+        when(mDataTelephonyManager.getSimOperator()).thenReturn("321456");
+        when(mDataTelephonyManager.getCarrierInfoForImsiEncryption(anyInt())).thenReturn(null);
 
-        assertEquals(expectedIdentity, TelephonyUtil.getSimIdentity(tm, telephonyUtil,
-                WifiConfigurationTestUtil.createEapNetwork(
-                        WifiEnterpriseConfig.Eap.AKA_PRIME,
-                        WifiEnterpriseConfig.Phase2.NONE)));
-        assertEquals(expectedIdentity, TelephonyUtil.getSimIdentity(tm, telephonyUtil,
-                WifiConfigurationTestUtil.createEapNetwork(WifiEnterpriseConfig.Eap.PEAP,
-                        WifiEnterpriseConfig.Phase2.AKA_PRIME)));
+        assertEquals(expectedIdentity,
+                TelephonyUtil.getSimIdentity(mTelephonyManager, mTelephonyUtil,
+                        WifiConfigurationTestUtil.createEapNetwork(
+                                WifiEnterpriseConfig.Eap.AKA_PRIME,
+                                WifiEnterpriseConfig.Phase2.NONE), mCarrierNetworkConfig));
+        assertEquals(expectedIdentity,
+                TelephonyUtil.getSimIdentity(mTelephonyManager, mTelephonyUtil,
+                        WifiConfigurationTestUtil.createEapNetwork(WifiEnterpriseConfig.Eap.PEAP,
+                                WifiEnterpriseConfig.Phase2.AKA_PRIME), mCarrierNetworkConfig));
     }
 
     /**
-     * Verify that an expected identity is returned when using the encrypted IMSI.
-     *
-     * @throws Exception
+     * Verify that an expected identity is returned when using the encrypted identity
+     * encoded by RFC4648.
      */
     @Test
-    public void getEncryptedIdentityImsi() throws Exception {
-        TelephonyManager tm = mock(TelephonyManager.class);
-        TelephonyUtil telephonyUtil = mock(TelephonyUtil.class);
-        String encryptedImsi = "EncryptedIMSI";
-        String encryptedIdentity = "\0" + encryptedImsi + "@wlan.mnc456.mcc321.3gppnetwork.org";
-        final Pair<String, String> expectedIdentity = Pair.create(
-                "03214561234567890@wlan.mnc456.mcc321.3gppnetwork.org", encryptedIdentity);
+    public void getEncryptedIdentity_WithRfc4648() throws Exception {
+        Cipher cipher = mock(Cipher.class);
         PublicKey key = null;
+        String imsi = "3214561234567890";
+        String permanentIdentity = "03214561234567890@wlan.mnc456.mcc321.3gppnetwork.org";
+        String encryptedImsi = Base64.encodeToString(permanentIdentity.getBytes(), 0,
+                permanentIdentity.getBytes().length, Base64.NO_WRAP);
+        String encryptedIdentity = "\0" + encryptedImsi;
+        final Pair<String, String> expectedIdentity = Pair.create(permanentIdentity,
+                encryptedIdentity);
 
-        when(tm.getSubscriberId()).thenReturn("3214561234567890");
-        when(tm.getSimState()).thenReturn(TelephonyManager.SIM_STATE_READY);
-        when(tm.getSimOperator()).thenReturn("321456");
-        ImsiEncryptionInfo info = new ImsiEncryptionInfo("321", "456",
-                TelephonyManager.KEY_TYPE_WLAN, null, key, null);
-        when(tm.getCarrierInfoForImsiEncryption(eq(TelephonyManager.KEY_TYPE_WLAN)))
-                .thenReturn(info);
+        // static mocking
+        MockitoSession session = ExtendedMockito.mockitoSession().mockStatic(
+                Cipher.class).startMocking();
+        try {
+            when(Cipher.getInstance(anyString())).thenReturn(cipher);
+            when(cipher.doFinal(any(byte[].class))).thenReturn(permanentIdentity.getBytes());
+            when(mDataTelephonyManager.getSubscriberId()).thenReturn(imsi);
+            when(mDataTelephonyManager.getSimState()).thenReturn(TelephonyManager.SIM_STATE_READY);
+            when(mDataTelephonyManager.getSimOperator()).thenReturn("321456");
+            ImsiEncryptionInfo info = new ImsiEncryptionInfo("321", "456",
+                    TelephonyManager.KEY_TYPE_WLAN, null, key, null);
+            when(mDataTelephonyManager.getCarrierInfoForImsiEncryption(
+                    eq(TelephonyManager.KEY_TYPE_WLAN)))
+                    .thenReturn(info);
 
-        when(telephonyUtil.encryptDataUsingPublicKey(any(), any())).thenReturn(encryptedImsi);
-
-        assertEquals(expectedIdentity, TelephonyUtil.getSimIdentity(tm, telephonyUtil,
-                WifiConfigurationTestUtil.createEapNetwork(WifiEnterpriseConfig.Eap.AKA,
-                        WifiEnterpriseConfig.Phase2.NONE)));
+            assertEquals(expectedIdentity,
+                    TelephonyUtil.getSimIdentity(mTelephonyManager, mTelephonyUtil,
+                            WifiConfigurationTestUtil.createEapNetwork(WifiEnterpriseConfig.Eap.AKA,
+                                    WifiEnterpriseConfig.Phase2.NONE), mCarrierNetworkConfig));
+        } finally {
+            session.finishMocking();
+        }
     }
 
     /**
-     * Verify that an expected identity is returned when using the encrypted IMSI with key
-     * identifier.
-     *
-     * @throws Exception
-     */
-    @Test
-    public void getEncryptedIdentityKeyIdentifier() throws Exception {
-        TelephonyManager tm = mock(TelephonyManager.class);
-        TelephonyUtil telephonyUtil = mock(TelephonyUtil.class);
-        PublicKey key = null;
-        String keyIdentifier = "key=testKey";
-        String encryptedImsi = "EncryptedIMSI";
-        String encryptedIdentity = "\0" + encryptedImsi + "@wlan.mnc456.mcc321.3gppnetwork.org,"
-                + keyIdentifier;
-        final Pair<String, String> expectedIdentity = Pair.create(
-                "03214561234567890@wlan.mnc456.mcc321.3gppnetwork.org", encryptedIdentity);
-
-        when(tm.getSubscriberId()).thenReturn("3214561234567890");
-        when(tm.getSimState()).thenReturn(TelephonyManager.SIM_STATE_READY);
-        when(tm.getSimOperator()).thenReturn("321456");
-        ImsiEncryptionInfo info = new ImsiEncryptionInfo("321", "456",
-                TelephonyManager.KEY_TYPE_WLAN, keyIdentifier, key, null);
-        when(tm.getCarrierInfoForImsiEncryption(eq(TelephonyManager.KEY_TYPE_WLAN)))
-                .thenReturn(info);
-
-        when(telephonyUtil.encryptDataUsingPublicKey(any(), any())).thenReturn(encryptedImsi);
-
-        assertEquals(expectedIdentity, TelephonyUtil.getSimIdentity(tm, telephonyUtil,
-                WifiConfigurationTestUtil.createEapNetwork(WifiEnterpriseConfig.Eap.AKA,
-                        WifiEnterpriseConfig.Phase2.NONE)));
-    }
-
-    /**
-     * Verify that a null identity will be returned when IMSI encryption failed.
+     * Verify that {@code null} will be returned when IMSI encryption failed.
      *
      * @throws Exception
      */
     @Test
     public void getEncryptedIdentityFailed() throws Exception {
-        TelephonyManager tm = mock(TelephonyManager.class);
-        TelephonyUtil telephonyUtil = mock(TelephonyUtil.class);
-        PublicKey key = null;
+        Cipher cipher = mock(Cipher.class);
+        String keyIdentifier = "key=testKey";
         String imsi = "3214561234567890";
-        final Pair<String, String> expectedIdentity = Pair.create(
-                "03214561234567890@wlan.mnc456.mcc321.3gppnetwork.org", "");
+        // static mocking
+        MockitoSession session = ExtendedMockito.mockitoSession().mockStatic(
+                Cipher.class).startMocking();
+        try {
+            when(Cipher.getInstance(anyString())).thenReturn(cipher);
+            when(cipher.doFinal(any(byte[].class))).thenThrow(BadPaddingException.class);
+            when(mDataTelephonyManager.getSubscriberId()).thenReturn(imsi);
+            when(mDataTelephonyManager.getSimState()).thenReturn(TelephonyManager.SIM_STATE_READY);
+            when(mDataTelephonyManager.getSimOperator()).thenReturn("321456");
+            ImsiEncryptionInfo info = new ImsiEncryptionInfo("321", "456",
+                    TelephonyManager.KEY_TYPE_WLAN, keyIdentifier, (PublicKey) null, null);
+            when(mDataTelephonyManager.getCarrierInfoForImsiEncryption(
+                    eq(TelephonyManager.KEY_TYPE_WLAN)))
+                    .thenReturn(info);
 
-        when(tm.getSubscriberId()).thenReturn("3214561234567890");
-        when(tm.getSimState()).thenReturn(TelephonyManager.SIM_STATE_READY);
-        when(tm.getSimOperator()).thenReturn("321456");
-        ImsiEncryptionInfo info = new ImsiEncryptionInfo("321", "456",
-                TelephonyManager.KEY_TYPE_WLAN, null, key, null);
-        when(tm.getCarrierInfoForImsiEncryption(eq(TelephonyManager.KEY_TYPE_WLAN)))
-                .thenReturn(info);
-        when(telephonyUtil.encryptDataUsingPublicKey(any(), aryEq(imsi.getBytes())))
-                .thenReturn(null);
-
-        assertEquals(expectedIdentity, TelephonyUtil.getSimIdentity(tm, telephonyUtil,
-                WifiConfigurationTestUtil.createEapNetwork(WifiEnterpriseConfig.Eap.AKA,
-                        WifiEnterpriseConfig.Phase2.NONE)));
+            assertNull(TelephonyUtil.getSimIdentity(mTelephonyManager, mTelephonyUtil,
+                    WifiConfigurationTestUtil.createEapNetwork(WifiEnterpriseConfig.Eap.AKA,
+                            WifiEnterpriseConfig.Phase2.NONE), mCarrierNetworkConfig));
+        } finally {
+            session.finishMocking();
+        }
     }
 
     @Test
     public void getSimIdentity2DigitMnc() {
-        TelephonyManager tm = mock(TelephonyManager.class);
-        TelephonyUtil telephonyUtil = mock(TelephonyUtil.class);
         final Pair<String, String> expectedIdentity = Pair.create(
                 "1321560123456789@wlan.mnc056.mcc321.3gppnetwork.org", "");
 
-        when(tm.getSubscriberId()).thenReturn("321560123456789");
-        when(tm.getSimState()).thenReturn(TelephonyManager.SIM_STATE_READY);
-        when(tm.getSimOperator()).thenReturn("32156");
-        when(tm.getCarrierInfoForImsiEncryption(anyInt())).thenReturn(null);
+        when(mDataTelephonyManager.getSubscriberId()).thenReturn("321560123456789");
+        when(mDataTelephonyManager.getSimState()).thenReturn(TelephonyManager.SIM_STATE_READY);
+        when(mDataTelephonyManager.getSimOperator()).thenReturn("32156");
+        when(mDataTelephonyManager.getCarrierInfoForImsiEncryption(anyInt())).thenReturn(null);
 
-        assertEquals(expectedIdentity, TelephonyUtil.getSimIdentity(tm, telephonyUtil,
-                WifiConfigurationTestUtil.createEapNetwork(WifiEnterpriseConfig.Eap.SIM,
-                        WifiEnterpriseConfig.Phase2.NONE)));
+        assertEquals(expectedIdentity,
+                TelephonyUtil.getSimIdentity(mTelephonyManager, mTelephonyUtil,
+                        WifiConfigurationTestUtil.createEapNetwork(WifiEnterpriseConfig.Eap.SIM,
+                                WifiEnterpriseConfig.Phase2.NONE), mCarrierNetworkConfig));
     }
 
     @Test
     public void getSimIdentityUnknownMccMnc() {
-        TelephonyManager tm = mock(TelephonyManager.class);
-        TelephonyUtil telephonyUtil = mock(TelephonyUtil.class);
         final Pair<String, String> expectedIdentity = Pair.create(
                 "13214560123456789@wlan.mnc456.mcc321.3gppnetwork.org", "");
 
-        when(tm.getSubscriberId()).thenReturn("3214560123456789");
-        when(tm.getSimState()).thenReturn(TelephonyManager.SIM_STATE_UNKNOWN);
-        when(tm.getSimOperator()).thenReturn(null);
-        when(tm.getCarrierInfoForImsiEncryption(anyInt())).thenReturn(null);
+        when(mDataTelephonyManager.getSubscriberId()).thenReturn("3214560123456789");
+        when(mDataTelephonyManager.getSimState()).thenReturn(TelephonyManager.SIM_STATE_UNKNOWN);
+        when(mDataTelephonyManager.getSimOperator()).thenReturn(null);
+        when(mDataTelephonyManager.getCarrierInfoForImsiEncryption(anyInt())).thenReturn(null);
 
-        assertEquals(expectedIdentity, TelephonyUtil.getSimIdentity(tm, telephonyUtil,
-                WifiConfigurationTestUtil.createEapNetwork(WifiEnterpriseConfig.Eap.SIM,
-                        WifiEnterpriseConfig.Phase2.NONE)));
+        assertEquals(expectedIdentity,
+                TelephonyUtil.getSimIdentity(mTelephonyManager, mTelephonyUtil,
+                        WifiConfigurationTestUtil.createEapNetwork(WifiEnterpriseConfig.Eap.SIM,
+                                WifiEnterpriseConfig.Phase2.NONE), mCarrierNetworkConfig));
     }
 
     @Test
     public void getSimIdentityWithNoTelephonyManager() {
         assertEquals(null, TelephonyUtil.getSimIdentity(null, null,
                 WifiConfigurationTestUtil.createEapNetwork(
-                        WifiEnterpriseConfig.Eap.SIM, WifiEnterpriseConfig.Phase2.NONE)));
+                        WifiEnterpriseConfig.Eap.SIM, WifiEnterpriseConfig.Phase2.NONE),
+                mCarrierNetworkConfig));
     }
 
     @Test
     public void getSimIdentityNonTelephonyConfig() {
-        TelephonyManager tm = mock(TelephonyManager.class);
-        TelephonyUtil telephonyUtil = mock(TelephonyUtil.class);
-        when(tm.getSubscriberId()).thenReturn("321560123456789");
-        when(tm.getSimState()).thenReturn(TelephonyManager.SIM_STATE_READY);
-        when(tm.getSimOperator()).thenReturn("32156");
-        assertEquals(null, TelephonyUtil.getSimIdentity(tm, telephonyUtil,
+        when(mDataTelephonyManager.getSubscriberId()).thenReturn("321560123456789");
+        when(mDataTelephonyManager.getSimState()).thenReturn(TelephonyManager.SIM_STATE_READY);
+        when(mDataTelephonyManager.getSimOperator()).thenReturn("32156");
+        assertEquals(null, TelephonyUtil.getSimIdentity(mTelephonyManager, mTelephonyUtil,
                 WifiConfigurationTestUtil.createEapNetwork(
-                        WifiEnterpriseConfig.Eap.TTLS, WifiEnterpriseConfig.Phase2.SIM)));
-        assertEquals(null, TelephonyUtil.getSimIdentity(tm, telephonyUtil,
+                        WifiEnterpriseConfig.Eap.TTLS, WifiEnterpriseConfig.Phase2.SIM),
+                mCarrierNetworkConfig));
+        assertEquals(null, TelephonyUtil.getSimIdentity(mTelephonyManager, mTelephonyUtil,
                 WifiConfigurationTestUtil.createEapNetwork(
-                        WifiEnterpriseConfig.Eap.PEAP, WifiEnterpriseConfig.Phase2.MSCHAPV2)));
-        assertEquals(null, TelephonyUtil.getSimIdentity(tm, telephonyUtil,
+                        WifiEnterpriseConfig.Eap.PEAP, WifiEnterpriseConfig.Phase2.MSCHAPV2),
+                mCarrierNetworkConfig));
+        assertEquals(null, TelephonyUtil.getSimIdentity(mTelephonyManager, mTelephonyUtil,
                 WifiConfigurationTestUtil.createEapNetwork(
-                        WifiEnterpriseConfig.Eap.TLS, WifiEnterpriseConfig.Phase2.NONE)));
+                        WifiEnterpriseConfig.Eap.TLS, WifiEnterpriseConfig.Phase2.NONE),
+                mCarrierNetworkConfig));
         assertEquals(null, TelephonyUtil.getSimIdentity(
-                tm, telephonyUtil, new WifiConfiguration()));
+                mTelephonyManager, mTelephonyUtil, new WifiConfiguration(), mCarrierNetworkConfig));
     }
 
     @Test
@@ -295,6 +301,13 @@ public class TelephonyUtilTest {
     }
 
     /**
+     * Produce a base64 encoded data without length.
+     */
+    private static String create2gUsimChallengeRequest(byte[] challengeValue) {
+        return Base64.encodeToString(challengeValue, android.util.Base64.NO_WRAP);
+    }
+
+    /**
      * Produce a base64 encoded sres length byte + sres + kc length byte + kc.
      */
     private static String createGsmSimAuthResponse(byte[] sresValue, byte[] kcValue) {
@@ -312,65 +325,121 @@ public class TelephonyUtilTest {
         return Base64.encodeToString(result, Base64.NO_WRAP);
     }
 
+    /**
+     * Produce a base64 encoded sres + kc without length.
+     */
+    private static String create2gUsimAuthResponse(byte[] sresValue, byte[] kcValue) {
+        int overallLength = sresValue.length + kcValue.length;
+        byte[] result = new byte[sresValue.length + kcValue.length];
+        int idx = 0;
+        for (int i = 0; i < sresValue.length; ++i) {
+            result[idx++] = sresValue[i];
+        }
+        for (int i = 0; i < kcValue.length; ++i) {
+            result[idx++] = kcValue[i];
+        }
+        return Base64.encodeToString(result, Base64.NO_WRAP);
+    }
+
     @Test
     public void getGsmSimAuthResponseInvalidRequest() {
-        TelephonyManager tm = mock(TelephonyManager.class);
         final String[] invalidRequests = { null, "", "XXXX" };
-        assertEquals("", TelephonyUtil.getGsmSimAuthResponse(invalidRequests, tm));
+        assertEquals("", TelephonyUtil.getGsmSimAuthResponse(invalidRequests, mTelephonyManager));
     }
 
     @Test
     public void getGsmSimAuthResponseFailedSimResponse() {
-        TelephonyManager tm = mock(TelephonyManager.class);
         final String[] failedRequests = { "5E5F" };
-        when(tm.getIccAuthentication(anyInt(), anyInt(),
+        when(mDataTelephonyManager.getIccAuthentication(anyInt(), anyInt(),
                 eq(createSimChallengeRequest(new byte[] { 0x5e, 0x5f })))).thenReturn(null);
 
-        assertEquals(null, TelephonyUtil.getGsmSimAuthResponse(failedRequests, tm));
+        assertEquals(null, TelephonyUtil.getGsmSimAuthResponse(failedRequests, mTelephonyManager));
     }
 
     @Test
     public void getGsmSimAuthResponseUsim() {
-        TelephonyManager tm = mock(TelephonyManager.class);
-        when(tm.getIccAuthentication(TelephonyManager.APPTYPE_USIM,
+        when(mDataTelephonyManager.getIccAuthentication(TelephonyManager.APPTYPE_USIM,
                         TelephonyManager.AUTHTYPE_EAP_SIM,
                         createSimChallengeRequest(new byte[] { 0x1b, 0x2b })))
                 .thenReturn(createGsmSimAuthResponse(new byte[] { 0x1D, 0x2C },
                                 new byte[] { 0x3B, 0x4A }));
-        when(tm.getIccAuthentication(TelephonyManager.APPTYPE_USIM,
+        when(mDataTelephonyManager.getIccAuthentication(TelephonyManager.APPTYPE_USIM,
                         TelephonyManager.AUTHTYPE_EAP_SIM,
                         createSimChallengeRequest(new byte[] { 0x01, 0x22 })))
                 .thenReturn(createGsmSimAuthResponse(new byte[] { 0x11, 0x11 },
                                 new byte[] { 0x12, 0x34 }));
 
         assertEquals(":3b4a:1d2c:1234:1111", TelephonyUtil.getGsmSimAuthResponse(
-                        new String[] { "1B2B", "0122" }, tm));
+                        new String[] { "1B2B", "0122" }, mTelephonyManager));
     }
 
     @Test
-    public void getGsmSimAuthResponseSimpleSim() {
-        TelephonyManager tm = mock(TelephonyManager.class);
-        when(tm.getIccAuthentication(TelephonyManager.APPTYPE_USIM,
-                        TelephonyManager.AUTHTYPE_EAP_SIM,
-                        createSimChallengeRequest(new byte[] { 0x1a, 0x2b })))
-                .thenReturn(null);
-        when(tm.getIccAuthentication(TelephonyManager.APPTYPE_SIM,
+    public void getGsmSimpleSimAuthResponseInvalidRequest() {
+        final String[] invalidRequests = { null, "", "XXXX" };
+        assertEquals("",
+                TelephonyUtil.getGsmSimpleSimAuthResponse(invalidRequests, mTelephonyManager));
+    }
+
+    @Test
+    public void getGsmSimpleSimAuthResponseFailedSimResponse() {
+        final String[] failedRequests = { "5E5F" };
+        when(mDataTelephonyManager.getIccAuthentication(anyInt(), anyInt(),
+                eq(createSimChallengeRequest(new byte[] { 0x5e, 0x5f })))).thenReturn(null);
+
+        assertEquals(null,
+                TelephonyUtil.getGsmSimpleSimAuthResponse(failedRequests, mTelephonyManager));
+    }
+
+    @Test
+    public void getGsmSimpleSimAuthResponse() {
+        when(mDataTelephonyManager.getIccAuthentication(TelephonyManager.APPTYPE_SIM,
                         TelephonyManager.AUTHTYPE_EAP_SIM,
                         createSimChallengeRequest(new byte[] { 0x1a, 0x2b })))
                 .thenReturn(createGsmSimAuthResponse(new byte[] { 0x1D, 0x2C },
                                 new byte[] { 0x3B, 0x4A }));
-        when(tm.getIccAuthentication(TelephonyManager.APPTYPE_USIM,
-                        TelephonyManager.AUTHTYPE_EAP_SIM,
-                        createSimChallengeRequest(new byte[] { 0x01, 0x23 })))
-                .thenReturn(null);
-        when(tm.getIccAuthentication(TelephonyManager.APPTYPE_SIM,
+        when(mDataTelephonyManager.getIccAuthentication(TelephonyManager.APPTYPE_SIM,
                         TelephonyManager.AUTHTYPE_EAP_SIM,
                         createSimChallengeRequest(new byte[] { 0x01, 0x23 })))
                 .thenReturn(createGsmSimAuthResponse(new byte[] { 0x33, 0x22 },
                                 new byte[] { 0x11, 0x00 }));
 
-        assertEquals(":3b4a:1d2c:1100:3322", TelephonyUtil.getGsmSimAuthResponse(
-                        new String[] { "1A2B", "0123" }, tm));
+        assertEquals(":3b4a:1d2c:1100:3322", TelephonyUtil.getGsmSimpleSimAuthResponse(
+                        new String[] { "1A2B", "0123" }, mTelephonyManager));
+    }
+
+    @Test
+    public void getGsmSimpleSimNoLengthAuthResponseInvalidRequest() {
+        final String[] invalidRequests = { null, "", "XXXX" };
+        assertEquals("", TelephonyUtil.getGsmSimpleSimNoLengthAuthResponse(invalidRequests,
+                mTelephonyManager));
+    }
+
+    @Test
+    public void getGsmSimpleSimNoLengthAuthResponseFailedSimResponse() {
+        final String[] failedRequests = { "5E5F" };
+        when(mDataTelephonyManager.getIccAuthentication(anyInt(), anyInt(),
+                eq(create2gUsimChallengeRequest(new byte[] { 0x5e, 0x5f })))).thenReturn(null);
+
+        assertEquals(null, TelephonyUtil.getGsmSimpleSimNoLengthAuthResponse(failedRequests,
+                mTelephonyManager));
+    }
+
+    @Test
+    public void getGsmSimpleSimNoLengthAuthResponse() {
+        when(mDataTelephonyManager.getIccAuthentication(TelephonyManager.APPTYPE_SIM,
+                        TelephonyManager.AUTHTYPE_EAP_SIM,
+                        create2gUsimChallengeRequest(new byte[] { 0x1a, 0x2b })))
+                .thenReturn(create2gUsimAuthResponse(new byte[] { 0x1a, 0x2b, 0x3c, 0x4d },
+                                new byte[] { 0x1a, 0x2b, 0x3c, 0x4d, 0x5e, 0x6f, 0x7a, 0x1a }));
+        when(mDataTelephonyManager.getIccAuthentication(TelephonyManager.APPTYPE_SIM,
+                        TelephonyManager.AUTHTYPE_EAP_SIM,
+                        create2gUsimChallengeRequest(new byte[] { 0x01, 0x23 })))
+                .thenReturn(create2gUsimAuthResponse(new byte[] { 0x12, 0x34, 0x56, 0x78 },
+                                new byte[] { 0x12, 0x34, 0x56, 0x78, 0x12, 0x34, 0x56, 0x78 }));
+
+        assertEquals(":1a2b3c4d5e6f7a1a:1a2b3c4d:1234567812345678:12345678",
+                TelephonyUtil.getGsmSimpleSimNoLengthAuthResponse(
+                        new String[] { "1A2B", "0123" }, mTelephonyManager));
     }
 
     /**
@@ -409,64 +478,60 @@ public class TelephonyUtilTest {
 
     @Test
     public void get3GAuthResponseInvalidRequest() {
-        TelephonyManager tm = mock(TelephonyManager.class);
         assertEquals(null, TelephonyUtil.get3GAuthResponse(
-                        new SimAuthRequestData(0, 0, "SSID", new String[] {"0123"}), tm));
+                new SimAuthRequestData(0, 0, "SSID", new String[]{"0123"}), mTelephonyManager));
         assertEquals(null, TelephonyUtil.get3GAuthResponse(
-                        new SimAuthRequestData(0, 0, "SSID", new String[] {"xyz2", "1234"}), tm));
-        verifyNoMoreInteractions(tm);
+                new SimAuthRequestData(0, 0, "SSID", new String[]{"xyz2", "1234"}),
+                mTelephonyManager));
+        verifyNoMoreInteractions(mDataTelephonyManager);
     }
 
     @Test
     public void get3GAuthResponseNullIccAuthentication() {
-        TelephonyManager tm = mock(TelephonyManager.class);
-
-        when(tm.getIccAuthentication(TelephonyManager.APPTYPE_USIM,
+        when(mDataTelephonyManager.getIccAuthentication(TelephonyManager.APPTYPE_USIM,
                         TelephonyManager.AUTHTYPE_EAP_AKA, "AgEjAkVn")).thenReturn(null);
 
         SimAuthResponseData response = TelephonyUtil.get3GAuthResponse(
-                new SimAuthRequestData(0, 0, "SSID", new String[] {"0123", "4567"}), tm);
+                new SimAuthRequestData(0, 0, "SSID", new String[]{"0123", "4567"}),
+                mTelephonyManager);
         assertNull(response);
     }
 
     @Test
     public void get3GAuthResponseIccAuthenticationTooShort() {
-        TelephonyManager tm = mock(TelephonyManager.class);
-
-        when(tm.getIccAuthentication(TelephonyManager.APPTYPE_USIM,
+        when(mDataTelephonyManager.getIccAuthentication(TelephonyManager.APPTYPE_USIM,
                         TelephonyManager.AUTHTYPE_EAP_AKA, "AgEjAkVn"))
                 .thenReturn(Base64.encodeToString(new byte[] {(byte) 0xdc}, Base64.NO_WRAP));
 
         SimAuthResponseData response = TelephonyUtil.get3GAuthResponse(
-                new SimAuthRequestData(0, 0, "SSID", new String[] {"0123", "4567"}), tm);
+                new SimAuthRequestData(0, 0, "SSID", new String[]{"0123", "4567"}),
+                mTelephonyManager);
         assertNull(response);
     }
 
     @Test
     public void get3GAuthResponseBadTag() {
-        TelephonyManager tm = mock(TelephonyManager.class);
-
-        when(tm.getIccAuthentication(TelephonyManager.APPTYPE_USIM,
+        when(mDataTelephonyManager.getIccAuthentication(TelephonyManager.APPTYPE_USIM,
                         TelephonyManager.AUTHTYPE_EAP_AKA, "AgEjAkVn"))
                 .thenReturn(Base64.encodeToString(new byte[] {0x31, 0x1, 0x2, 0x3, 0x4},
                                 Base64.NO_WRAP));
 
         SimAuthResponseData response = TelephonyUtil.get3GAuthResponse(
-                new SimAuthRequestData(0, 0, "SSID", new String[] {"0123", "4567"}), tm);
+                new SimAuthRequestData(0, 0, "SSID", new String[]{"0123", "4567"}),
+                mTelephonyManager);
         assertNull(response);
     }
 
     @Test
     public void get3GAuthResponseUmtsAuth() {
-        TelephonyManager tm = mock(TelephonyManager.class);
-
-        when(tm.getIccAuthentication(TelephonyManager.APPTYPE_USIM,
+        when(mDataTelephonyManager.getIccAuthentication(TelephonyManager.APPTYPE_USIM,
                         TelephonyManager.AUTHTYPE_EAP_AKA, "AgEjAkVn"))
                 .thenReturn(create3GSimAuthUmtsAuthResponse(new byte[] {0x11, 0x12},
                                 new byte[] {0x21, 0x22, 0x23}, new byte[] {0x31}));
 
         SimAuthResponseData response = TelephonyUtil.get3GAuthResponse(
-                new SimAuthRequestData(0, 0, "SSID", new String[] {"0123", "4567"}), tm);
+                new SimAuthRequestData(0, 0, "SSID", new String[]{"0123", "4567"}),
+                mTelephonyManager);
         assertNotNull(response);
         assertEquals("UMTS-AUTH", response.type);
         assertEquals(":31:212223:1112", response.response);
@@ -474,16 +539,39 @@ public class TelephonyUtilTest {
 
     @Test
     public void get3GAuthResponseUmtsAuts() {
-        TelephonyManager tm = mock(TelephonyManager.class);
-
-        when(tm.getIccAuthentication(TelephonyManager.APPTYPE_USIM,
+        when(mDataTelephonyManager.getIccAuthentication(TelephonyManager.APPTYPE_USIM,
                         TelephonyManager.AUTHTYPE_EAP_AKA, "AgEjAkVn"))
                 .thenReturn(create3GSimAuthUmtsAutsResponse(new byte[] {0x22, 0x33}));
 
         SimAuthResponseData response = TelephonyUtil.get3GAuthResponse(
-                new SimAuthRequestData(0, 0, "SSID", new String[] {"0123", "4567"}), tm);
+                new SimAuthRequestData(0, 0, "SSID", new String[]{"0123", "4567"}),
+                mTelephonyManager);
         assertNotNull(response);
         assertEquals("UMTS-AUTS", response.type);
         assertEquals(":2233", response.response);
+    }
+
+    /**
+     * Verify that anonymous identity should be a valid format based on MCC/MNC of current SIM.
+     */
+    @Test
+    public void getAnonymousIdentityWithSim() {
+        String mccmnc = "123456";
+        String expectedIdentity = "anonymous@wlan.mnc456.mcc123.3gppnetwork.org";
+        when(mDataTelephonyManager.getSimState()).thenReturn(TelephonyManager.SIM_STATE_READY);
+        when(mDataTelephonyManager.getSimOperator()).thenReturn(mccmnc);
+
+        assertEquals(expectedIdentity,
+                TelephonyUtil.getAnonymousIdentityWith3GppRealm(mTelephonyManager));
+    }
+
+    /**
+     * Verify that anonymous identity should be {@code null} when SIM is absent.
+     */
+    @Test
+    public void getAnonymousIdentityWithoutSim() {
+        when(mDataTelephonyManager.getSimState()).thenReturn(TelephonyManager.SIM_STATE_ABSENT);
+
+        assertNull(TelephonyUtil.getAnonymousIdentityWith3GppRealm(mTelephonyManager));
     }
 }

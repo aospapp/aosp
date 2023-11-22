@@ -59,8 +59,8 @@ class CreateInfoAdapter implements ICreateInfo {
     }
 
     @Override
-    public Set<String> getExcludedClasses() {
-        return Collections.emptySet();
+    public String[] getExcludedClasses() {
+        return EMPTY_STRING_ARRAY;
     }
 
     @Override

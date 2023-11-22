@@ -9,7 +9,7 @@ import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Environment;
 import android.os.Bundle;
-import android.support.v8.renderscript.RenderScript;
+import androidx.renderscript.RenderScript;
 import android.util.Log;
 import android.util.Pair;
 import android.widget.ImageView;

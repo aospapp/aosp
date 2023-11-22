@@ -16,61 +16,20 @@
 
 package android.net;
 
-import android.net.NetworkUtils;
-import android.test.suitebuilder.annotation.SmallTest;
+import static junit.framework.Assert.assertEquals;
+
+import androidx.test.runner.AndroidJUnit4;
+
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 import java.math.BigInteger;
-import java.net.Inet4Address;
-import java.net.InetAddress;
 import java.util.TreeSet;
 
-import junit.framework.TestCase;
-
-public class NetworkUtilsTest extends TestCase {
-
-    private InetAddress Address(String addr) {
-        return InetAddress.parseNumericAddress(addr);
-    }
-
-    private Inet4Address IPv4Address(String addr) {
-        return (Inet4Address) Address(addr);
-    }
-
-    @SmallTest
-    public void testGetImplicitNetmask() {
-        assertEquals(8, NetworkUtils.getImplicitNetmask(IPv4Address("4.2.2.2")));
-        assertEquals(8, NetworkUtils.getImplicitNetmask(IPv4Address("10.5.6.7")));
-        assertEquals(16, NetworkUtils.getImplicitNetmask(IPv4Address("173.194.72.105")));
-        assertEquals(16, NetworkUtils.getImplicitNetmask(IPv4Address("172.23.68.145")));
-        assertEquals(24, NetworkUtils.getImplicitNetmask(IPv4Address("192.0.2.1")));
-        assertEquals(24, NetworkUtils.getImplicitNetmask(IPv4Address("192.168.5.1")));
-        assertEquals(32, NetworkUtils.getImplicitNetmask(IPv4Address("224.0.0.1")));
-        assertEquals(32, NetworkUtils.getImplicitNetmask(IPv4Address("255.6.7.8")));
-    }
-
-    private void assertInvalidNetworkMask(Inet4Address addr) {
-        try {
-            NetworkUtils.netmaskToPrefixLength(addr);
-            fail("Invalid netmask " + addr.getHostAddress() + " did not cause exception");
-        } catch (IllegalArgumentException expected) {
-        }
-    }
-
-    @SmallTest
-    public void testNetmaskToPrefixLength() {
-        assertEquals(0, NetworkUtils.netmaskToPrefixLength(IPv4Address("0.0.0.0")));
-        assertEquals(9, NetworkUtils.netmaskToPrefixLength(IPv4Address("255.128.0.0")));
-        assertEquals(17, NetworkUtils.netmaskToPrefixLength(IPv4Address("255.255.128.0")));
-        assertEquals(23, NetworkUtils.netmaskToPrefixLength(IPv4Address("255.255.254.0")));
-        assertEquals(31, NetworkUtils.netmaskToPrefixLength(IPv4Address("255.255.255.254")));
-        assertEquals(32, NetworkUtils.netmaskToPrefixLength(IPv4Address("255.255.255.255")));
-
-        assertInvalidNetworkMask(IPv4Address("0.0.0.1"));
-        assertInvalidNetworkMask(IPv4Address("255.255.255.253"));
-        assertInvalidNetworkMask(IPv4Address("255.255.0.255"));
-    }
-
-    @SmallTest
+@RunWith(AndroidJUnit4.class)
+@androidx.test.filters.SmallTest
+public class NetworkUtilsTest {
+    @Test
     public void testRoutedIPv4AddressCount() {
         final TreeSet<IpPrefix> set = new TreeSet<>(IpPrefix.lengthComparator());
         // No routes routes to no addresses.
@@ -118,7 +77,7 @@ public class NetworkUtilsTest extends TestCase {
         assertEquals(7l - 4 + 4 + 16 + 65536, NetworkUtils.routedIPv4AddressCount(set));
     }
 
-    @SmallTest
+    @Test
     public void testRoutedIPv6AddressCount() {
         final TreeSet<IpPrefix> set = new TreeSet<>(IpPrefix.lengthComparator());
         // No routes routes to no addresses.

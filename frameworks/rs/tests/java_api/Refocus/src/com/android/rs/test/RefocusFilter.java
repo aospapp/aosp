@@ -1,7 +1,7 @@
 package com.android.rs.refocus;
 
 import android.graphics.Bitmap;
-import android.support.v8.renderscript.RenderScript;
+import androidx.renderscript.RenderScript;
 import android.util.Log;
 import android.util.Pair;
 import java.util.ArrayList;

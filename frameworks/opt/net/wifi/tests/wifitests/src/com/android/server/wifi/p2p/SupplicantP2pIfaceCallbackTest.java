@@ -25,6 +25,7 @@ import static org.mockito.Mockito.verify;
 
 import android.app.test.MockAnswerUtil.AnswerWithArguments;
 import android.hardware.wifi.supplicant.V1_0.ISupplicantP2pIfaceCallback;
+import android.hardware.wifi.supplicant.V1_0.ISupplicantP2pIfaceCallback.P2pStatusCode;
 import android.hardware.wifi.supplicant.V1_0.WpsConfigMethods;
 import android.net.wifi.WpsInfo;
 import android.net.wifi.p2p.WifiP2pConfig;
@@ -33,6 +34,9 @@ import android.net.wifi.p2p.WifiP2pGroup;
 import android.net.wifi.p2p.WifiP2pProvDiscEvent;
 import android.net.wifi.p2p.nsd.WifiP2pServiceResponse;
 
+import androidx.test.filters.SmallTest;
+
+import com.android.server.wifi.p2p.WifiP2pServiceImpl.P2pStatus;
 import com.android.server.wifi.util.NativeUtil;
 
 import org.junit.Assert.*;
@@ -45,14 +49,15 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 
-
 /**
  * Unit tests for SupplicantP2pIfaceCallback
  */
+@SmallTest
 public class SupplicantP2pIfaceCallbackTest {
     private static final String TAG = "SupplicantP2pIfaceCallbackTest";
 
     private String mIface = "test_p2p0";
+    private String mGroupIface = "test_p2p-p2p0-3";
     private WifiP2pMonitor mMonitor;
     private SupplicantP2pIfaceCallback mDut;
 
@@ -64,6 +69,8 @@ public class SupplicantP2pIfaceCallbackTest {
     private String mDeviceAddress2String = "01:12:23:34:45:56";
     private byte[] mDeviceInfoBytes = { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05 };
     private static final byte[] DEVICE_ADDRESS = { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05 };
+    private static final int TEST_NETWORK_ID = 9;
+    private static final int TEST_GROUP_FREQUENCY = 5400;
 
     private class SupplicantP2pIfaceCallbackSpy extends SupplicantP2pIfaceCallback {
         SupplicantP2pIfaceCallbackSpy(String iface, WifiP2pMonitor monitor) {
@@ -123,6 +130,50 @@ public class SupplicantP2pIfaceCallbackTest {
 
         // Make sure we issued a broadcast each time.
         verify(mMonitor, times(2)).broadcastP2pDeviceFound(
+                anyString(), any(WifiP2pDevice.class));
+    }
+
+    /**
+     * Sunny day scenario for onDeviceFound call with sign bit set in bytes.
+     */
+    @Test
+    public void testOnDeviceFoundWithSignBitInDeviceInfoBytesSuccess() throws Exception {
+        byte[] fakePrimaryDeviceTypeBytes = { 0x00, 0x01, 0x02, -1, 0x04, 0x05, 0x06, 0x07 };
+        String fakePrimaryDeviceTypeString = "1-02FF0405-1543";
+        String fakeDeviceName = "test device name";
+        short fakeConfigMethods = 0x1234;
+        byte fakeCapabilities = 123;
+        int fakeGroupCapabilities = 456;
+        byte[] fakeDevInfoBytes = { (byte) 0x80, 0x01, (byte) 0xC0, 0x03, (byte) 0xFF, 0x05 };
+
+        mDut.onDeviceFound(
+                mDeviceAddress1Bytes, mDeviceAddress2Bytes,
+                fakePrimaryDeviceTypeBytes,
+                fakeDeviceName, fakeConfigMethods,
+                fakeCapabilities, fakeGroupCapabilities,
+                fakeDevInfoBytes);
+
+        ArgumentCaptor<WifiP2pDevice> deviceCaptor = ArgumentCaptor.forClass(WifiP2pDevice.class);
+        verify(mMonitor).broadcastP2pDeviceFound(eq(mIface), deviceCaptor.capture());
+
+        WifiP2pDevice device = deviceCaptor.getValue();
+        assertEquals(fakeDeviceName, device.deviceName);
+        assertEquals(fakePrimaryDeviceTypeString, device.primaryDeviceType);
+        assertEquals(fakeCapabilities, device.deviceCapability);
+        assertEquals(fakeGroupCapabilities, device.groupCapability);
+        assertEquals(fakeConfigMethods, device.wpsConfigMethodsSupported);
+        assertEquals(mDeviceAddress2String, device.deviceAddress);
+        assertEquals(WifiP2pDevice.AVAILABLE, device.status);
+
+        assertNotNull(device.wfdInfo);
+        // WifiP2pWfdInfo.mDeviceInfo won't be returned as the raw value, skip it.
+        assertEquals(((fakeDevInfoBytes[2] & 0xFF) << 8) + fakeDevInfoBytes[3],
+                device.wfdInfo.getControlPort());
+        assertEquals(((fakeDevInfoBytes[4] & 0xFF) << 8) + fakeDevInfoBytes[5],
+                device.wfdInfo.getMaxThroughput());
+
+        // Make sure we issued a broadcast each time.
+        verify(mMonitor).broadcastP2pDeviceFound(
                 anyString(), any(WifiP2pDevice.class));
     }
 
@@ -483,6 +534,118 @@ public class SupplicantP2pIfaceCallbackTest {
         assertNotNull(respListCaptor.getValue());
     }
 
+    /**
+     * Test onFindStopped event should trigger P2pFindStopped broadcast.
+     */
+    @Test
+    public void testOnFindStopped() {
+        mDut.onFindStopped();
+        verify(mMonitor).broadcastP2pFindStopped(eq(mIface));
+    }
+
+    /**
+     * Test onGoNegotiationCompleted sunny case.
+     */
+    @Test
+    public void testOnGoNegotiationCompletedSuccess() {
+        mDut.onGoNegotiationCompleted(P2pStatusCode.SUCCESS);
+        verify(mMonitor).broadcastP2pGoNegotiationSuccess(eq(mIface));
+    }
+
+    /**
+     * Test onGoNegotiationCompleted failure cases.
+     */
+    @Test
+    public void testOnGoNegotiationCompletedFailureUnavailable() {
+        mDut.onGoNegotiationCompleted(P2pStatusCode.FAIL_INFO_CURRENTLY_UNAVAILABLE);
+        verify(mMonitor).broadcastP2pGoNegotiationFailure(
+                eq(mIface), eq(P2pStatus.INFORMATION_IS_CURRENTLY_UNAVAILABLE));
+    }
+
+    /**
+     * Test onGroupFormationSuccess should trigger P2pGroupFormationSuccess broadcast.
+     */
+    @Test
+    public void testOnGroupFormationSuccess() {
+        mDut.onGroupFormationSuccess();
+        verify(mMonitor).broadcastP2pGroupFormationSuccess(eq(mIface));
+    }
+
+    /**
+     * Test onGroupFormationFailure should trigger P2pGroupFormationFailure broadcast.
+     */
+    @Test
+    public void testOnGroupFormationFailure() {
+        mDut.onGroupFormationFailure("failure-reason");
+        verify(mMonitor).broadcastP2pGroupFormationFailure(eq(mIface), eq("failure-reason"));
+    }
+
+    /**
+     * Test onGroupRemoved should trigger P2pGroupRemoved broadcast for Group Owner.
+     */
+    @Test
+    public void testOnGroupRemovedForGroupOwner() {
+        mDut.onGroupRemoved(mGroupIface, true);
+        ArgumentCaptor<WifiP2pGroup> groupCaptor = ArgumentCaptor.forClass(WifiP2pGroup.class);
+        verify(mMonitor).broadcastP2pGroupRemoved(eq(mIface), groupCaptor.capture());
+        assertEquals(mGroupIface, groupCaptor.getValue().getInterface());
+        assertEquals(true, groupCaptor.getValue().isGroupOwner());
+    }
+
+    /**
+     * Test onGroupRemoved should trigger P2pGroupRemoved broadcast for Group Client.
+     */
+    @Test
+    public void testOnGroupRemovedForGroupClient() {
+        mDut.onGroupRemoved(mGroupIface, false);
+
+        ArgumentCaptor<WifiP2pGroup> groupCaptor = ArgumentCaptor.forClass(WifiP2pGroup.class);
+        verify(mMonitor).broadcastP2pGroupRemoved(eq(mIface), groupCaptor.capture());
+        assertEquals(mGroupIface, groupCaptor.getValue().getInterface());
+        assertEquals(false, groupCaptor.getValue().isGroupOwner());
+    }
+
+    /**
+     * Test onInvitationReceived should trigger P2pInvitationReceived broadcast.
+     */
+    @Test
+    public void testOnInvitationReceived() {
+        mDut.onInvitationReceived(
+                mDeviceAddress1Bytes,
+                mDeviceAddress2Bytes,
+                DEVICE_ADDRESS,
+                TEST_NETWORK_ID,
+                TEST_GROUP_FREQUENCY);
+
+        ArgumentCaptor<WifiP2pGroup> groupCaptor = ArgumentCaptor.forClass(WifiP2pGroup.class);
+        verify(mMonitor).broadcastP2pInvitationReceived(eq(mIface), groupCaptor.capture());
+
+        WifiP2pGroup group = groupCaptor.getValue();
+        assertEquals(TEST_NETWORK_ID, group.getNetworkId());
+        assertEquals(mDeviceAddress2String, group.getOwner().deviceAddress);
+    }
+
+    /**
+     * Test onInvitationResult should trigger P2pInvitationResult broadcast.
+     */
+    @Test
+    public void testOnInvitationResult() {
+        mDut.onInvitationResult(mDeviceAddress1Bytes, P2pStatusCode.SUCCESS);
+        verify(mMonitor).broadcastP2pInvitationResult(eq(mIface), eq(P2pStatus.SUCCESS));
+    }
+
+    /**
+     * Test onStaDeauthorized should trigger P2pApStaDisconnected broadcast.
+     */
+    @Test
+    public void testOnStaDeauthorized() {
+        mDut.onStaDeauthorized(mDeviceAddress1Bytes, mDeviceAddress2Bytes);
+
+        ArgumentCaptor<WifiP2pDevice> p2pDeviceCaptor =
+                ArgumentCaptor.forClass(WifiP2pDevice.class);
+        verify(mMonitor).broadcastP2pApStaDisconnected(eq(mIface), p2pDeviceCaptor.capture());
+        assertEquals(mDeviceAddress2String, p2pDeviceCaptor.getValue().deviceAddress);
+    }
     /**
      * Converts hex string to byte array.
      *

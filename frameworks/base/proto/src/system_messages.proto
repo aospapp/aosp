@@ -212,6 +212,24 @@ message SystemMessage {
     // Package: android
     NOTE_AUTO_SAVER_SUGGESTION = 49;
 
+    // Notify the user that their softap config preference has changed.
+    // Package: android
+    NOTE_SOFTAP_CONFIG_CHANGED = 50;
+
+    // Notify the user that an app suggested network is available for connection.
+    // Package: android
+    NOTE_NETWORK_SUGGESTION_AVAILABLE = 51;
+
+    // Inform the user that the contaminant is detected on the USB port
+    NOTE_USB_CONTAMINANT_DETECTED = 52;
+
+    // Inform that user that the USB port is free of contaminants.
+    NOTE_USB_CONTAMINANT_NOT_DETECTED = 53;
+
+    // Inform the user that Test Harness Mode is active.
+    // Package: android
+    NOTE_TEST_HARNESS_MODE_ENABLED = 54;
+
     // ADD_NEW_IDS_ABOVE_THIS_LINE
     // Legacy IDs with arbitrary values appear below
     // Legacy IDs existed as stable non-conflicting constants prior to the O release
@@ -227,6 +245,10 @@ message SystemMessage {
     NOTE_NETWORK_LOST_INTERNET = 742;
     // The system default network switched to a different network
     NOTE_NETWORK_SWITCH = 743;
+    // Device logged-in captive portal network successfully
+    NOTE_NETWORK_LOGGED_IN = 744;
+    // A partial connectivity network was detected during network validation
+    NOTE_NETWORK_PARTIAL_CONNECTIVITY = 745;
 
     // Notify the user that their work profile has been deleted
     // Package: android

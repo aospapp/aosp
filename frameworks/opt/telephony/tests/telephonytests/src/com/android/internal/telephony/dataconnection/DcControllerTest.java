@@ -37,12 +37,12 @@ import android.net.NetworkUtils;
 import android.os.AsyncResult;
 import android.os.Handler;
 import android.os.HandlerThread;
+import android.telephony.data.ApnSetting;
 import android.telephony.data.DataCallResponse;
 import android.test.suitebuilder.annotation.SmallTest;
 
 import com.android.internal.telephony.DctConstants;
 import com.android.internal.telephony.TelephonyTest;
-import com.android.internal.telephony.dataconnection.DataConnection.ConnectionParams;
 import com.android.internal.telephony.dataconnection.DataConnection.UpdateLinkPropertyResult;
 import com.android.internal.util.IState;
 import com.android.internal.util.StateMachine;
@@ -55,7 +55,7 @@ import org.mockito.Mock;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
+import java.util.List;
 
 public class DcControllerTest extends TelephonyTest {
 
@@ -63,11 +63,11 @@ public class DcControllerTest extends TelephonyTest {
     private static final int EVENT_DATA_STATE_CHANGED = 0x00040007;
 
     @Mock
-    DataConnection mDc;
+    private DataConnection mDc;
     @Mock
-    HashMap<ApnContext, ConnectionParams> mApnContexts;
+    private List<ApnContext> mApnContexts;
     @Mock
-    DataServiceManager mDataServiceManager;
+    private DataServiceManager mDataServiceManager;
 
     UpdateLinkPropertyResult mResult;
 
@@ -85,7 +85,7 @@ public class DcControllerTest extends TelephonyTest {
         @Override
         public void onLooperPrepared() {
             mHandler = new Handler();
-            mDcc = DcController.makeDcc(mPhone, mDcTracker, mDataServiceManager, mHandler);
+            mDcc = DcController.makeDcc(mPhone, mDcTracker, mDataServiceManager, mHandler, "");
             mDcc.start();
             setReady(true);
         }
@@ -107,8 +107,8 @@ public class DcControllerTest extends TelephonyTest {
         super.setUp(getClass().getSimpleName());
 
         doReturn("fake.action_detached").when(mPhone).getActionDetached();
-        mDc.mApnContexts = mApnContexts;
         doReturn(1).when(mApnContexts).size();
+        doReturn(mApnContexts).when(mDc).getApnContexts();
 
         LinkProperties lp = new LinkProperties();
         mResult = new UpdateLinkPropertyResult(lp);
@@ -131,11 +131,11 @@ public class DcControllerTest extends TelephonyTest {
         assertEquals("DccDefaultState", getCurrentState().getName());
         ArrayList<DataCallResponse> l = new ArrayList<DataCallResponse>();
         DataCallResponse dcResponse = new DataCallResponse(0, -1, 1,
-                DATA_CONNECTION_ACTIVE_PH_LINK_DORMANT, "IP", FAKE_IFNAME,
+                DATA_CONNECTION_ACTIVE_PH_LINK_DORMANT, ApnSetting.PROTOCOL_IP, FAKE_IFNAME,
                 Arrays.asList(new LinkAddress(NetworkUtils.numericToInetAddress(FAKE_ADDRESS), 0)),
                 Arrays.asList(NetworkUtils.numericToInetAddress(FAKE_DNS)),
                 Arrays.asList(NetworkUtils.numericToInetAddress(FAKE_GATEWAY)),
-                Arrays.asList(FAKE_PCSCF_ADDRESS),
+                Arrays.asList(NetworkUtils.numericToInetAddress(FAKE_PCSCF_ADDRESS)),
                 1440);
 
         l.add(dcResponse);

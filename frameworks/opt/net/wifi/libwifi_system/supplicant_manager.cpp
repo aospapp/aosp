@@ -89,7 +89,7 @@ bool SupplicantManager::StartSupplicant() {
 
 bool SupplicantManager::StopSupplicant() {
   char supp_status[PROPERTY_VALUE_MAX] = {'\0'};
-  int count = 50; /* wait at most 5 seconds for completion */
+  int count = 200; /* wait at most 20 seconds for completion */
 
   /* Check whether supplicant already stopped */
   if (property_get(kSupplicantInitProperty, supp_status, NULL) &&

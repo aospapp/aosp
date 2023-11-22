@@ -71,10 +71,10 @@ NuPlayer2::Decoder::Decoder(
       mCCDecoder(ccDecoder),
       mPid(pid),
       mUid(uid),
-      mSkipRenderingUntilMediaTimeUs(-1ll),
-      mNumFramesTotal(0ll),
-      mNumInputFramesDropped(0ll),
-      mNumOutputFramesDropped(0ll),
+      mSkipRenderingUntilMediaTimeUs(-1LL),
+      mNumFramesTotal(0LL),
+      mNumInputFramesDropped(0LL),
+      mNumOutputFramesDropped(0LL),
       mVideoWidth(0),
       mVideoHeight(0),
       mIsAudio(true),
@@ -107,7 +107,12 @@ sp<AMessage> NuPlayer2::Decoder::getStats() const {
     mStats->setInt64("frames-total", mNumFramesTotal);
     mStats->setInt64("frames-dropped-input", mNumInputFramesDropped);
     mStats->setInt64("frames-dropped-output", mNumOutputFramesDropped);
-    return mStats;
+    mStats->setFloat("frame-rate-total", mFrameRateTotal);
+
+    // i'm mutexed right now.
+    // make our own copy, so we aren't victim to any later changes.
+    sp<AMessage> copiedStats = mStats->dup();
+    return copiedStats;
 }
 
 status_t NuPlayer2::Decoder::setVideoSurface(const sp<ANativeWindowWrapper> &nww) {
@@ -428,10 +433,10 @@ void NuPlayer2::Decoder::onSetParameters(const sp<AMessage> &params) {
         // TODO: For now, layer fps is calculated for some specific architectures.
         // But it really should be extracted from the stream.
         mVideoTemporalLayerAggregateFps[0] =
-            mFrameRateTotal / (float)(1ll << (mNumVideoTemporalLayerTotal - 1));
+            mFrameRateTotal / (float)(1LL << (mNumVideoTemporalLayerTotal - 1));
         for (int32_t i = 1; i < mNumVideoTemporalLayerTotal; ++i) {
             mVideoTemporalLayerAggregateFps[i] =
-                mFrameRateTotal / (float)(1ll << (mNumVideoTemporalLayerTotal - i))
+                mFrameRateTotal / (float)(1LL << (mNumVideoTemporalLayerTotal - i))
                 + mVideoTemporalLayerAggregateFps[i - 1];
         }
     }
@@ -952,7 +957,7 @@ status_t NuPlayer2::Decoder::fetchInputData(sp<AMessage> &reply) {
 
             int32_t layerId = 0;
             bool haveLayerId = accessUnit->meta()->findInt32("temporal-layer-id", &layerId);
-            if (mRenderer->getVideoLateByUs() > 100000ll
+            if (mRenderer->getVideoLateByUs() > 100000LL
                     && mIsVideoAVC
                     && !IsAVCReferenceFrame(accessUnit)) {
                 dropAccessUnit = true;
@@ -1088,6 +1093,12 @@ bool NuPlayer2::Decoder::onInputBufferFetched(const sp<AMessage> &msg) {
                         static_cast<MediaBufferHolder*>(holder.get())->mediaBuffer() : nullptr;
                 }
                 if (mediaBuf != NULL) {
+                    if (mediaBuf->size() > codecBuffer->capacity()) {
+                        handleError(ERROR_BUFFER_TOO_SMALL);
+                        mDequeuedInputBuffers.push_back(bufferIx);
+                        return false;
+                    }
+
                     codecBuffer->setRange(0, mediaBuf->size());
                     memcpy(codecBuffer->data(), mediaBuf->data(), mediaBuf->size());
 
@@ -1101,6 +1112,11 @@ bool NuPlayer2::Decoder::onInputBufferFetched(const sp<AMessage> &msg) {
                 }
             } // buffer->data()
         } // needsCopy
+
+        sp<RefBase> cryptInfoObj;
+        if (buffer->meta()->findObject("cryptInfo", &cryptInfoObj)) {
+            cryptInfo = static_cast<AMediaCodecCryptoInfoWrapper *>(cryptInfoObj.get());
+        }
 
         status_t err;
         if (cryptInfo != NULL) {

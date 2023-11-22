@@ -20,9 +20,9 @@
 
 #include "TestMemory.h"
 
-#include "NeuralNetworksWrapper.h"
 #include "Manager.h"
 #include "Memory.h"
+#include "TestNeuralNetworksWrapper.h"
 
 #include <android/sharedmem.h>
 #include <gtest/gtest.h>
@@ -30,13 +30,13 @@
 #include <fstream>
 #include <string>
 
-using WrapperCompilation = ::android::nn::wrapper::Compilation;
-using WrapperExecution = ::android::nn::wrapper::Execution;
-using WrapperMemory = ::android::nn::wrapper::Memory;
-using WrapperModel = ::android::nn::wrapper::Model;
-using WrapperOperandType = ::android::nn::wrapper::OperandType;
-using WrapperResult = ::android::nn::wrapper::Result;
-using WrapperType = ::android::nn::wrapper::Type;
+using WrapperCompilation = ::android::nn::test_wrapper::Compilation;
+using WrapperExecution = ::android::nn::test_wrapper::Execution;
+using WrapperMemory = ::android::nn::test_wrapper::Memory;
+using WrapperModel = ::android::nn::test_wrapper::Model;
+using WrapperOperandType = ::android::nn::test_wrapper::OperandType;
+using WrapperResult = ::android::nn::test_wrapper::Result;
+using WrapperType = ::android::nn::test_wrapper::Type;
 
 namespace {
 
@@ -61,13 +61,16 @@ private:
     size_t GetAshmemMappingsCount();
 
     size_t mStartingMapCount = 0;
+    bool mIsCpuOnly;
 };
 
 void MemoryLeakTest::SetUp() {
+    mIsCpuOnly = android::nn::DeviceManager::get()->getUseCpuOnly();
     mStartingMapCount = GetAshmemMappingsCount();
 }
 
 void MemoryLeakTest::TearDown() {
+    android::nn::DeviceManager::get()->setUseCpuOnly(mIsCpuOnly);
     const size_t endingMapCount = GetAshmemMappingsCount();
     ASSERT_EQ(mStartingMapCount, endingMapCount);
 }

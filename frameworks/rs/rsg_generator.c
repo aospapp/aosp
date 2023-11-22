@@ -342,7 +342,6 @@ void printApiCpp(FILE *f) {
     fprintf(f, "\n");
 
     for (ct=0; ct < apiCount; ct++) {
-        int needFlush = 0;
         const ApiEntry * api = &apis[ct];
 
         fprintf(f, "extern \"C\" ");
@@ -472,7 +471,7 @@ int main(int argc, char **argv) {
     }
     const char* rsgFile = argv[1];
     const char* outFile = argv[2];
-    FILE* input = fopen(rsgFile, "r");
+    FILE* input = fopen(rsgFile, "re");
 
     char choice = fgetc(input);
     fclose(input);
@@ -485,7 +484,7 @@ int main(int argc, char **argv) {
     yylex();
     // printf("# of lines = %d\n", num_lines);
 
-    FILE *f = fopen(outFile, "w");
+    FILE *f = fopen(outFile, "we");
 
     printFileHeader(f);
     switch (choice) {

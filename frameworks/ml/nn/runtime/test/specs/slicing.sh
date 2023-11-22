@@ -43,6 +43,7 @@ source $ANDROID_BUILD_TOP/frameworks/ml/nn/runtime/test/specs/generate_test.sh
 $SLICE $INPUT -n $NO_OF_OPERATIONS -m $MODEL_ONLY -e $INPUT_ONLY
 
 # create a temporary spec from the model and the input-only example
+FORCE = "-f"
 echo "collecting_data = True" > ${DIR_AND_NAME}_tmp.mod.py
 cat $MODEL_ONLY $INPUT_ONLY >> ${DIR_AND_NAME}_tmp.mod.py
 generate_wrapper "log" $SAVED_OUTPUT_FILE ${DIR_AND_NAME}_tmp.mod.py

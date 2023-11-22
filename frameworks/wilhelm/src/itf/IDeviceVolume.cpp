@@ -55,7 +55,7 @@ static SLresult IDeviceVolume_SetVolume(SLDeviceVolumeItf self, SLuint32 deviceI
     case DEVICE_ID_HEADSET:
     case DEVICE_ID_HANDSFREE:
         deviceID = SL_DEFAULTDEVICEID_AUDIOOUTPUT;
-        // fall through
+        FALLTHROUGH_INTENDED;
     case SL_DEFAULTDEVICEID_AUDIOINPUT:
     case SL_DEFAULTDEVICEID_AUDIOOUTPUT:
         {
@@ -87,7 +87,7 @@ static SLresult IDeviceVolume_GetVolume(SLDeviceVolumeItf self, SLuint32 deviceI
         case DEVICE_ID_HEADSET:
         case DEVICE_ID_HANDSFREE:
             deviceID = SL_DEFAULTDEVICEID_AUDIOOUTPUT;
-            // fall through
+            FALLTHROUGH_INTENDED;
         case SL_DEFAULTDEVICEID_AUDIOINPUT:
         case SL_DEFAULTDEVICEID_AUDIOOUTPUT:
             {

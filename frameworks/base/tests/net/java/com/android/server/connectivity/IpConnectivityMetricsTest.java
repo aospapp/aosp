@@ -18,14 +18,12 @@ package com.android.server.connectivity;
 
 import static android.net.metrics.INetdEventListener.EVENT_GETADDRINFO;
 import static android.net.metrics.INetdEventListener.EVENT_GETHOSTBYNAME;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.timeout;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import android.content.Context;
 import android.net.ConnectivityManager;
@@ -34,12 +32,11 @@ import android.net.IIpConnectivityMetrics;
 import android.net.IpPrefix;
 import android.net.LinkAddress;
 import android.net.LinkProperties;
-import android.net.RouteInfo;
 import android.net.Network;
 import android.net.NetworkCapabilities;
+import android.net.RouteInfo;
 import android.net.metrics.ApfProgramEvent;
 import android.net.metrics.ApfStats;
-import android.net.metrics.DefaultNetworkEvent;
 import android.net.metrics.DhcpClientEvent;
 import android.net.metrics.IpConnectivityLog;
 import android.net.metrics.IpManagerEvent;
@@ -47,27 +44,23 @@ import android.net.metrics.IpReachabilityEvent;
 import android.net.metrics.RaEvent;
 import android.net.metrics.ValidationProbeEvent;
 import android.os.Parcelable;
-import android.support.test.runner.AndroidJUnit4;
 import android.system.OsConstants;
 import android.test.suitebuilder.annotation.SmallTest;
 import android.util.Base64;
 
+import androidx.test.runner.AndroidJUnit4;
+
 import com.android.internal.util.BitUtils;
 import com.android.server.connectivity.metrics.nano.IpConnectivityLogClass;
 
-import java.io.PrintWriter;
-import java.io.StringWriter;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.Iterator;
-import java.util.List;
-
-import org.mockito.ArgumentCaptor;
-import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
+
+import java.io.PrintWriter;
+import java.io.StringWriter;
 
 @RunWith(AndroidJUnit4.class)
 @SmallTest
@@ -97,48 +90,6 @@ public class IpConnectivityMetricsTest {
     }
 
     @Test
-    public void testLoggingEvents() throws Exception {
-        IpConnectivityLog logger = new IpConnectivityLog(mMockService);
-
-        assertTrue(logger.log(1, FAKE_EV));
-        assertTrue(logger.log(2, FAKE_EV));
-        assertTrue(logger.log(3, FAKE_EV));
-
-        List<ConnectivityMetricsEvent> got = verifyEvents(3);
-        assertEventsEqual(expectedEvent(1), got.get(0));
-        assertEventsEqual(expectedEvent(2), got.get(1));
-        assertEventsEqual(expectedEvent(3), got.get(2));
-    }
-
-    @Test
-    public void testLoggingEventsWithMultipleCallers() throws Exception {
-        IpConnectivityLog logger = new IpConnectivityLog(mMockService);
-
-        final int nCallers = 10;
-        final int nEvents = 10;
-        for (int n = 0; n < nCallers; n++) {
-            final int i = n;
-            new Thread() {
-                public void run() {
-                    for (int j = 0; j < nEvents; j++) {
-                        assertTrue(logger.log(1 + i * 100 + j, FAKE_EV));
-                    }
-                }
-            }.start();
-        }
-
-        List<ConnectivityMetricsEvent> got = verifyEvents(nCallers * nEvents, 200);
-        Collections.sort(got, EVENT_COMPARATOR);
-        Iterator<ConnectivityMetricsEvent> iter = got.iterator();
-        for (int i = 0; i < nCallers; i++) {
-            for (int j = 0; j < nEvents; j++) {
-                int expectedTimestamp = 1 + i * 100 + j;
-                assertEventsEqual(expectedEvent(expectedTimestamp), iter.next());
-            }
-        }
-    }
-
-    @Test
     public void testBufferFlushing() {
         String output1 = getdump("flush");
         assertEquals("", output1);
@@ -154,7 +105,7 @@ public class IpConnectivityMetricsTest {
     @Test
     public void testRateLimiting() {
         final IpConnectivityLog logger = new IpConnectivityLog(mService.impl);
-        final ApfProgramEvent ev = new ApfProgramEvent();
+        final ApfProgramEvent ev = new ApfProgramEvent.Builder().build();
         final long fakeTimestamp = 1;
 
         int attempt = 100; // More than burst quota, but less than buffer size.
@@ -304,26 +255,31 @@ public class IpConnectivityMetricsTest {
         when(mCm.getNetworkCapabilities(new Network(100))).thenReturn(ncWifi);
         when(mCm.getNetworkCapabilities(new Network(101))).thenReturn(ncCell);
 
-        ApfStats apfStats = new ApfStats();
-        apfStats.durationMs = 45000;
-        apfStats.receivedRas = 10;
-        apfStats.matchingRas = 2;
-        apfStats.droppedRas = 2;
-        apfStats.parseErrors = 2;
-        apfStats.zeroLifetimeRas = 1;
-        apfStats.programUpdates = 4;
-        apfStats.programUpdatesAll = 7;
-        apfStats.programUpdatesAllowingMulticast = 3;
-        apfStats.maxProgramSize = 2048;
+        ApfStats apfStats = new ApfStats.Builder()
+                .setDurationMs(45000)
+                .setReceivedRas(10)
+                .setMatchingRas(2)
+                .setDroppedRas(2)
+                .setParseErrors(2)
+                .setZeroLifetimeRas(1)
+                .setProgramUpdates(4)
+                .setProgramUpdatesAll(7)
+                .setProgramUpdatesAllowingMulticast(3)
+                .setMaxProgramSize(2048)
+                .build();
 
-        ValidationProbeEvent validationEv = new ValidationProbeEvent();
-        validationEv.durationMs = 40730;
-        validationEv.probeType = ValidationProbeEvent.PROBE_HTTP;
-        validationEv.returnCode = 204;
+        final ValidationProbeEvent validationEv = new ValidationProbeEvent.Builder()
+                .setDurationMs(40730)
+                .setProbeType(ValidationProbeEvent.PROBE_HTTP, true)
+                .setReturnCode(204)
+                .build();
 
+        final DhcpClientEvent event = new DhcpClientEvent.Builder()
+                .setMsg("SomeState")
+                .setDurationMs(192)
+                .build();
         Parcelable[] events = {
-            new IpReachabilityEvent(IpReachabilityEvent.NUD_FAILED),
-            new DhcpClientEvent("SomeState", 192),
+            new IpReachabilityEvent(IpReachabilityEvent.NUD_FAILED), event,
             new IpManagerEvent(IpManagerEvent.PROVISIONING_OK, 5678),
             validationEv,
             apfStats,
@@ -424,7 +380,7 @@ public class IpConnectivityMetricsTest {
                 "  validation_probe_event <",
                 "    latency_ms: 40730",
                 "    probe_result: 204",
-                "    probe_type: 1",
+                "    probe_type: 257",
                 "  >",
                 ">",
                 "events <",
@@ -647,16 +603,7 @@ public class IpConnectivityMetricsTest {
         return nai;
     }
 
-    List<ConnectivityMetricsEvent> verifyEvents(int n, int timeoutMs) throws Exception {
-        ArgumentCaptor<ConnectivityMetricsEvent> captor =
-                ArgumentCaptor.forClass(ConnectivityMetricsEvent.class);
-        verify(mMockService, timeout(timeoutMs).times(n)).logEvent(captor.capture());
-        return captor.getAllValues();
-    }
 
-    List<ConnectivityMetricsEvent> verifyEvents(int n) throws Exception {
-        return verifyEvents(n, 10);
-    }
 
     static void verifySerialization(String want, String output) {
         try {
@@ -668,28 +615,4 @@ public class IpConnectivityMetricsTest {
             fail(e.toString());
         }
     }
-
-    static String joinLines(String ... elems) {
-        StringBuilder b = new StringBuilder();
-        for (String s : elems) {
-            b.append(s).append("\n");
-        }
-        return b.toString();
-    }
-
-    static ConnectivityMetricsEvent expectedEvent(int timestamp) {
-        ConnectivityMetricsEvent ev = new ConnectivityMetricsEvent();
-        ev.timestamp = timestamp;
-        ev.data = FAKE_EV;
-        return ev;
-    }
-
-    /** Outer equality for ConnectivityMetricsEvent to avoid overriding equals() and hashCode(). */
-    static void assertEventsEqual(ConnectivityMetricsEvent expected, ConnectivityMetricsEvent got) {
-        assertEquals(expected.timestamp, got.timestamp);
-        assertEquals(expected.data, got.data);
-    }
-
-    static final Comparator<ConnectivityMetricsEvent> EVENT_COMPARATOR =
-        Comparator.comparingLong((ev) -> ev.timestamp);
 }

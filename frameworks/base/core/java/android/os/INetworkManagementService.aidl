@@ -18,7 +18,6 @@
 package android.os;
 
 import android.net.InterfaceConfiguration;
-import android.net.INetd;
 import android.net.INetworkManagementEventObserver;
 import android.net.ITetheringStatsProvider;
 import android.net.Network;
@@ -39,17 +38,14 @@ interface INetworkManagementService
     /**
      * Register an observer to receive events.
      */
+    @UnsupportedAppUsage
     void registerObserver(INetworkManagementEventObserver obs);
 
     /**
      * Unregister an observer from receiving events.
      */
+    @UnsupportedAppUsage
     void unregisterObserver(INetworkManagementEventObserver obs);
-
-    /**
-     * Retrieve an INetd to talk to netd.
-     */
-    INetd getNetdService();
 
     /**
      * Returns a list of currently known network interfaces
@@ -60,16 +56,19 @@ interface INetworkManagementService
      * Retrieves the specified interface config
      *
      */
+    @UnsupportedAppUsage
     InterfaceConfiguration getInterfaceConfig(String iface);
 
     /**
      * Sets the configuration of the specified interface
      */
+    @UnsupportedAppUsage
     void setInterfaceConfig(String iface, in InterfaceConfiguration cfg);
 
     /**
      * Clear all IP addresses on the specified interface
      */
+    @UnsupportedAppUsage
     void clearInterfaceAddresses(String iface);
 
     /**
@@ -85,22 +84,26 @@ interface INetworkManagementService
     /**
      * Set interface IPv6 privacy extensions
      */
+    @UnsupportedAppUsage
     void setInterfaceIpv6PrivacyExtensions(String iface, boolean enable);
 
     /**
      * Disable IPv6 on an interface
      */
+    @UnsupportedAppUsage
     void disableIpv6(String iface);
 
     /**
      * Enable IPv6 on an interface
      */
+    @UnsupportedAppUsage
     void enableIpv6(String iface);
 
     /**
      * Set IPv6 autoconf address generation mode.
      * This is a no-op if an unsupported mode is requested.
      */
+    @UnsupportedAppUsage
     void setIPv6AddrGenMode(String iface, int mode);
 
     /**
@@ -130,37 +133,44 @@ interface INetworkManagementService
     /**
      * Returns true if IP forwarding is enabled
      */
+    @UnsupportedAppUsage
     boolean getIpForwardingEnabled();
 
     /**
      * Enables/Disables IP Forwarding
      */
+    @UnsupportedAppUsage
     void setIpForwardingEnabled(boolean enabled);
 
     /**
      * Start tethering services with the specified dhcp server range
      * arg is a set of start end pairs defining the ranges.
      */
+    @UnsupportedAppUsage
     void startTethering(in String[] dhcpRanges);
 
     /**
      * Stop currently running tethering services
      */
+    @UnsupportedAppUsage
     void stopTethering();
 
     /**
      * Returns true if tethering services are started
      */
+    @UnsupportedAppUsage
     boolean isTetheringStarted();
 
     /**
      * Tethers the specified interface
      */
+    @UnsupportedAppUsage
     void tetherInterface(String iface);
 
     /**
      * Untethers the specified interface
      */
+    @UnsupportedAppUsage
     void untetherInterface(String iface);
 
     /**
@@ -195,11 +205,13 @@ interface INetworkManagementService
      *  The address and netmask of the external interface is used for
      *  the NAT'ed network.
      */
+    @UnsupportedAppUsage
     void enableNat(String internalInterface, String externalInterface);
 
     /**
      *  Disables Network Address Translation between two interfaces.
      */
+    @UnsupportedAppUsage
     void disableNat(String internalInterface, String externalInterface);
 
     /**
@@ -228,27 +240,6 @@ interface INetworkManagementService
      *    then notifies NetworkPolicyManagerService of the fact.
      */
     void tetherLimitReached(ITetheringStatsProvider provider);
-
-    /**
-     ** PPPD
-     **/
-
-    /**
-     * Returns the list of currently known TTY devices on the system
-     */
-    String[] listTtys();
-
-    /**
-     * Attaches a PPP server daemon to the specified TTY with the specified
-     * local/remote addresses.
-     */
-    void attachPppd(String tty, String localAddr, String remoteAddr, String dns1Addr,
-            String dns2Addr);
-
-    /**
-     * Detaches a PPP server daemon from the specified TTY.
-     */
-    void detachPppd(String tty);
 
     /**
      ** DATA USAGE RELATED
@@ -317,6 +308,7 @@ interface INetworkManagementService
     /**
      * Return status of bandwidth control module.
      */
+    @UnsupportedAppUsage
     boolean isBandwidthControlEnabled();
 
     /**
@@ -338,12 +330,6 @@ interface INetworkManagementService
      */
     void removeIdleTimer(String iface);
 
-    /**
-     * Configure name servers, search paths, and resolver parameters for the given network.
-     */
-    void setDnsConfigurationForNetwork(int netId, in String[] servers, in String[] domains,
-            in int[] params, String tlsHostname, in String[] tlsServers);
-
     void setFirewallEnabled(boolean enabled);
     boolean isFirewallEnabled();
     void setFirewallInterfaceRule(String iface, boolean allow);
@@ -362,21 +348,6 @@ interface INetworkManagementService
     void removeVpnUidRanges(int netId, in UidRange[] ranges);
 
     /**
-     * Start the clatd (464xlat) service on the given interface.
-     */
-    void startClatd(String interfaceName);
-
-    /**
-     * Stop the clatd (464xlat) service on the given interface.
-     */
-    void stopClatd(String interfaceName);
-
-    /**
-     * Determine whether the clatd (464xlat) service has been started on the given interface.
-     */
-    boolean isClatdStarted(String interfaceName);
-
-    /**
      * Start listening for mobile activity state changes.
      */
     void registerNetworkActivityListener(INetworkActivityListener listener);
@@ -390,23 +361,6 @@ interface INetworkManagementService
      * Check whether the mobile radio is currently active.
      */
     boolean isNetworkActive();
-
-    /**
-     * Setup a new physical network.
-     * @param permission null if no permissions required to access this network.  PERMISSION_NETWORK
-     *                   or PERMISSION_SYSTEM to set respective permission.
-     */
-    void createPhysicalNetwork(int netId, String permission);
-
-    /**
-     * Setup a new VPN.
-     */
-    void createVirtualNetwork(int netId, boolean hasDNS, boolean secure);
-
-    /**
-     * Remove a network.
-     */
-    void removeNetwork(int netId);
 
     /**
      * Add an interface to a network.
@@ -425,13 +379,10 @@ interface INetworkManagementService
 
     /**
      * Set permission for a network.
-     * @param permission null to clear permissions. PERMISSION_NETWORK or PERMISSION_SYSTEM to set
-     *                   permission.
+     * @param permission PERMISSION_NONE to clear permissions.
+     *                   PERMISSION_NETWORK or PERMISSION_SYSTEM to set permission.
      */
-    void setNetworkPermission(int netId, String permission);
-
-    void setPermission(String permission, in int[] uids);
-    void clearPermission(in int[] uids);
+    void setNetworkPermission(int netId, int permission);
 
     /**
      * Allow UID to call protect().

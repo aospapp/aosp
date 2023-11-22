@@ -2,7 +2,6 @@
 
 cc_binary_host {
     name: "rs-api-doc-generator",
-    cpp_std: "c++17",
     srcs: [
         "Generator.cpp",
         "Specification.cpp",

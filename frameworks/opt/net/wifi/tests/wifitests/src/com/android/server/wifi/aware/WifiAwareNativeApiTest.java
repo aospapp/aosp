@@ -16,6 +16,9 @@
 
 package com.android.server.wifi.aware;
 
+import static android.hardware.wifi.V1_0.NanCipherSuiteType.SHARED_KEY_128_MASK;
+import static android.hardware.wifi.V1_0.NanCipherSuiteType.SHARED_KEY_256_MASK;
+
 import static org.hamcrest.core.IsEqual.equalTo;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyShort;
@@ -28,6 +31,7 @@ import static org.mockito.Mockito.when;
 import android.hardware.wifi.V1_0.IWifiNanIface;
 import android.hardware.wifi.V1_0.NanBandIndex;
 import android.hardware.wifi.V1_0.NanConfigRequest;
+import android.hardware.wifi.V1_0.NanDataPathSecurityType;
 import android.hardware.wifi.V1_0.NanEnableRequest;
 import android.hardware.wifi.V1_0.NanPublishRequest;
 import android.hardware.wifi.V1_0.NanRangingIndication;
@@ -35,11 +39,14 @@ import android.hardware.wifi.V1_0.NanSubscribeRequest;
 import android.hardware.wifi.V1_0.WifiStatus;
 import android.hardware.wifi.V1_0.WifiStatusCode;
 import android.hardware.wifi.V1_2.NanConfigRequestSupplemental;
+import android.net.MacAddress;
 import android.net.wifi.aware.ConfigRequest;
 import android.net.wifi.aware.PublishConfig;
 import android.net.wifi.aware.SubscribeConfig;
 import android.os.RemoteException;
 import android.util.Pair;
+
+import androidx.test.filters.SmallTest;
 
 import org.junit.Before;
 import org.junit.Rule;
@@ -50,10 +57,13 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
 import java.io.PrintWriter;
+import java.util.ArrayList;
+
 
 /**
  * Unit test harness for WifiAwareNativeApi
  */
+@SmallTest
 public class WifiAwareNativeApiTest {
     @Mock WifiAwareNativeManager mWifiAwareNativeManagerMock;
     @Mock IWifiNanIface mIWifiNanIfaceMock;
@@ -90,6 +100,9 @@ public class WifiAwareNativeApiTest {
         when(mIWifiNanIfaceMock.configRequest(anyShort(), any())).thenReturn(status);
         when(mIWifiNanIfaceMock.startPublishRequest(anyShort(), any())).thenReturn(status);
         when(mIWifiNanIfaceMock.startSubscribeRequest(anyShort(), any())).thenReturn(status);
+        when(mIWifiNanIfaceMock.initiateDataPathRequest(anyShort(), any())).thenReturn(status);
+        when(mIWifiNanIfaceMock.respondToDataPathIndicationRequest(anyShort(), any())).thenReturn(
+                status);
         when(mIWifiNanIface12Mock.enableRequest_1_2(anyShort(), any(), any())).thenReturn(status);
         when(mIWifiNanIface12Mock.configRequest_1_2(anyShort(), any(), any())).thenReturn(status);
         when(mIWifiNanIface12Mock.startPublishRequest(anyShort(), any())).thenReturn(status);
@@ -132,16 +145,25 @@ public class WifiAwareNativeApiTest {
      */
     @Test
     public void testEnableAndConfigPowerSettingsDefaults() throws RemoteException {
+        byte default5 = 1;
+        byte default24 = 1;
+
         Pair<NanConfigRequest, NanConfigRequestSupplemental> configs =
                 validateEnableAndConfigure((short) 10, new ConfigRequest.Builder().build(), true,
                         true, true, false, false);
 
-        collector.checkThat("validDiscoveryWindowIntervalVal-5", false,
+        collector.checkThat("validDiscoveryWindowIntervalVal-5", true,
                 equalTo(configs.first.bandSpecificConfig[NanBandIndex.NAN_BAND_5GHZ]
                         .validDiscoveryWindowIntervalVal));
-        collector.checkThat("validDiscoveryWindowIntervalVal-24", false,
+        collector.checkThat("validDiscoveryWindowIntervalVal-24", true,
                 equalTo(configs.first.bandSpecificConfig[NanBandIndex.NAN_BAND_24GHZ]
                         .validDiscoveryWindowIntervalVal));
+        collector.checkThat("discoveryWindowIntervalVal-5", default5,
+                equalTo(configs.first.bandSpecificConfig[NanBandIndex.NAN_BAND_5GHZ]
+                        .discoveryWindowIntervalVal));
+        collector.checkThat("discoveryWindowIntervalVal-24", default24,
+                equalTo(configs.first.bandSpecificConfig[NanBandIndex.NAN_BAND_24GHZ]
+                        .discoveryWindowIntervalVal));
     }
 
     /**
@@ -205,16 +227,25 @@ public class WifiAwareNativeApiTest {
      */
     @Test
     public void testEnableAndConfigPowerSettingsDefaults_1_2() throws RemoteException {
+        byte default5 = 1;
+        byte default24 = 1;
+
         Pair<NanConfigRequest, NanConfigRequestSupplemental> configs =
                 validateEnableAndConfigure((short) 10, new ConfigRequest.Builder().build(), true,
                         true, true, false, true);
 
-        collector.checkThat("validDiscoveryWindowIntervalVal-5", false,
+        collector.checkThat("validDiscoveryWindowIntervalVal-5", true,
                 equalTo(configs.first.bandSpecificConfig[NanBandIndex.NAN_BAND_5GHZ]
                         .validDiscoveryWindowIntervalVal));
-        collector.checkThat("validDiscoveryWindowIntervalVal-24", false,
+        collector.checkThat("validDiscoveryWindowIntervalVal-24", true,
                 equalTo(configs.first.bandSpecificConfig[NanBandIndex.NAN_BAND_24GHZ]
                         .validDiscoveryWindowIntervalVal));
+        collector.checkThat("discoveryWindowIntervalVal-5", default5,
+                equalTo(configs.first.bandSpecificConfig[NanBandIndex.NAN_BAND_5GHZ]
+                        .discoveryWindowIntervalVal));
+        collector.checkThat("discoveryWindowIntervalVal-24", default24,
+                equalTo(configs.first.bandSpecificConfig[NanBandIndex.NAN_BAND_24GHZ]
+                        .discoveryWindowIntervalVal));
 
         collector.checkThat("discoveryBeaconIntervalMs", 0,
                 equalTo(configs.second.discoveryBeaconIntervalMs));
@@ -396,6 +427,130 @@ public class WifiAwareNativeApiTest {
                 equalTo(halSubReq.baseConfigs.distanceIngressCm));
     }
 
+    /**
+     * Validate the initiation of NDP for an open link.
+     */
+    @Test
+    public void testInitiateDataPathOpen() throws Exception {
+        validateInitiateDataPath(
+                /* usePmk */ false,
+                /* usePassphrase */ false,
+                /* isOutOfBand */ false,
+                /* supportedCipherSuites */ SHARED_KEY_256_MASK,
+                /* expectedCipherSuite */ SHARED_KEY_256_MASK);
+    }
+
+    /**
+     * Validate the initiation of NDP for an PMK protected link with in-band discovery.
+     */
+    @Test
+    public void testInitiateDataPathPmkInBand() throws Exception {
+        validateInitiateDataPath(
+                /* usePmk */ true,
+                /* usePassphrase */ false,
+                /* isOutOfBand */ false,
+                /* supportedCipherSuites */ SHARED_KEY_128_MASK,
+                /* expectedCipherSuite */ SHARED_KEY_128_MASK);
+
+    }
+
+    /**
+     * Validate the initiation of NDP for an Passphrase protected link with in-band discovery.
+     */
+    @Test
+    public void testInitiateDataPathPassphraseInBand() throws Exception {
+        validateInitiateDataPath(
+                /* usePmk */ false,
+                /* usePassphrase */ true,
+                /* isOutOfBand */ false,
+                /* supportedCipherSuites */ SHARED_KEY_256_MASK | SHARED_KEY_128_MASK,
+                /* expectedCipherSuite */ SHARED_KEY_256_MASK);
+    }
+
+    /**
+     * Validate the initiation of NDP for an PMK protected link with out-of-band discovery.
+     */
+    @Test
+    public void testInitiateDataPathPmkOutOfBand() throws Exception {
+        validateInitiateDataPath(
+                /* usePmk */ true,
+                /* usePassphrase */ false,
+                /* isOutOfBand */ true,
+                /* supportedCipherSuites */ 0,
+                /* expectedCipherSuite */ 0);
+    }
+
+    /**
+     * Validate the response to an NDP request for an open link.
+     */
+    @Test
+    public void testRespondToDataPathRequestOpenInBand() throws Exception {
+        validateRespondToDataPathRequest(
+                /* usePmk */ false,
+                /* usePassphrase */ false,
+                /* accept */ true,
+                /* isOutOfBand */ false,
+                /* supportedCipherSuites */ SHARED_KEY_128_MASK,
+                /* expectedCipherSuite */ SHARED_KEY_128_MASK);
+    }
+
+    /**
+     * Validate the response to an NDP request for a PMK-protected link with in-band discovery.
+     */
+    @Test
+    public void testRespondToDataPathRequestPmkInBand() throws Exception {
+        validateRespondToDataPathRequest(
+                /* usePmk */ true,
+                /* usePassphrase */ false,
+                /* accept */ true,
+                /* isOutOfBand */ false,
+                /* supportedCipherSuites */ SHARED_KEY_256_MASK | SHARED_KEY_128_MASK,
+                /* expectedCipherSuite */ SHARED_KEY_256_MASK);
+    }
+
+    /**
+     * Validate the response to an NDP request for a Passphrase-protected link with in-band
+     * discovery.
+     */
+    @Test
+    public void testRespondToDataPathRequestPassphraseInBand() throws Exception {
+        validateRespondToDataPathRequest(
+                /* usePmk */ false,
+                /* usePassphrase */ true,
+                /* accept */ true,
+                /* isOutOfBand */ false,
+                /* supportedCipherSuites */ SHARED_KEY_256_MASK,
+                /* expectedCipherSuite */ SHARED_KEY_256_MASK);
+    }
+
+    /**
+     * Validate the response to an NDP request for a PMK-protected link with out-of-band discovery.
+     */
+    @Test
+    public void testRespondToDataPathRequestPmkOutOfBand() throws Exception {
+        validateRespondToDataPathRequest(
+                /* usePmk */ true,
+                /* usePassphrase */ false,
+                /* accept */ true,
+                /* isOutOfBand */ true,
+                /* supportedCipherSuites */ 0,
+                /* expectedCipherSuite */ 0);
+    }
+
+    /**
+     * Validate the response to an NDP request - when request is rejected.
+     */
+    @Test
+    public void testRespondToDataPathRequestReject() throws Exception {
+        validateRespondToDataPathRequest(
+                /* usePmk */ true,
+                /* usePassphrase */ false,
+                /* accept */ false,
+                /* isOutOfBand */ true,
+                /* supportedCipherSuites */ 0,
+                /* expectedCipherSuite */ 0);
+    }
+
     // utilities
 
     private void setPowerConfigurationParams(byte interactive5, byte interactive24, byte idle5,
@@ -479,5 +634,150 @@ public class WifiAwareNativeApiTest {
                 equalTo(config.disableJoinedClusterIndication));
 
         return new Pair<>(config, configSupp);
+    }
+
+    private void validateInitiateDataPath(boolean usePmk, boolean usePassphrase,
+            boolean isOutOfBand, int supportedCipherSuites, int expectedCipherSuite)
+            throws Exception {
+        short tid = 44;
+        int peerId = 555;
+        int channelRequestType =
+                android.hardware.wifi.V1_0.NanDataPathChannelCfg.CHANNEL_NOT_REQUESTED;
+        int channel = 2146;
+        byte[] peer = MacAddress.fromString("00:01:02:03:04:05").toByteArray();
+        String interfaceName = "aware_data5";
+        final byte[] pmk = "01234567890123456789012345678901".getBytes();
+        String passphrase = "blahblah";
+        final byte[] appInfo = "Out-of-band info".getBytes();
+
+        Capabilities cap = new Capabilities();
+        cap.supportedCipherSuites = supportedCipherSuites;
+
+        ArgumentCaptor<android.hardware.wifi.V1_0.NanInitiateDataPathRequest> captor =
+                ArgumentCaptor.forClass(
+                        android.hardware.wifi.V1_0.NanInitiateDataPathRequest.class);
+
+        mDut.initiateDataPath(tid, peerId, channelRequestType, channel, peer, interfaceName,
+                usePmk ? pmk : null, usePassphrase ? passphrase : null, isOutOfBand, appInfo, cap);
+
+        verify(mIWifiNanIfaceMock).initiateDataPathRequest(eq(tid), captor.capture());
+
+        android.hardware.wifi.V1_0.NanInitiateDataPathRequest nidpr = captor.getValue();
+        collector.checkThat("peerId", peerId, equalTo(nidpr.peerId));
+        collector.checkThat("peerDiscMacAddr", peer, equalTo(nidpr.peerDiscMacAddr));
+        collector.checkThat("channelRequestType", channelRequestType,
+                equalTo(nidpr.channelRequestType));
+        collector.checkThat("channel", channel, equalTo(nidpr.channel));
+        collector.checkThat("ifaceName", interfaceName, equalTo(nidpr.ifaceName));
+
+        if (usePmk) {
+            collector.checkThat("securityConfig.securityType",
+                    NanDataPathSecurityType.PMK,
+                    equalTo(nidpr.securityConfig.securityType));
+            collector.checkThat("securityConfig.cipherType", expectedCipherSuite,
+                    equalTo(nidpr.securityConfig.cipherType));
+            collector.checkThat("securityConfig.pmk", pmk, equalTo(nidpr.securityConfig.pmk));
+            collector.checkThat("securityConfig.passphrase.length", 0,
+                    equalTo(nidpr.securityConfig.passphrase.size()));
+        }
+
+        if (usePassphrase) {
+            collector.checkThat("securityConfig.securityType",
+                    NanDataPathSecurityType.PASSPHRASE,
+                    equalTo(nidpr.securityConfig.securityType));
+            collector.checkThat("securityConfig.cipherType", expectedCipherSuite,
+                    equalTo(nidpr.securityConfig.cipherType));
+            collector.checkThat("securityConfig.passphrase", passphrase.getBytes(),
+                    equalTo(convertArrayListToNativeByteArray(nidpr.securityConfig.passphrase)));
+        }
+
+        collector.checkThat("appInfo", appInfo,
+                equalTo(convertArrayListToNativeByteArray(nidpr.appInfo)));
+
+        if ((usePmk || usePassphrase) && isOutOfBand) {
+            collector.checkThat("serviceNameOutOfBand",
+                    WifiAwareNativeApi.SERVICE_NAME_FOR_OOB_DATA_PATH.getBytes(),
+                    equalTo(convertArrayListToNativeByteArray(nidpr.serviceNameOutOfBand)));
+        } else {
+            collector.checkThat("serviceNameOutOfBand.length", 0,
+                    equalTo(nidpr.serviceNameOutOfBand.size()));
+        }
+    }
+
+    private void validateRespondToDataPathRequest(boolean usePmk, boolean usePassphrase,
+            boolean accept, boolean isOutOfBand, int supportedCipherSuites, int expectedCipherSuite)
+            throws Exception {
+        short tid = 33;
+        int ndpId = 44;
+        String interfaceName = "aware_whatever22";
+        final byte[] pmk = "01234567890123456789012345678901".getBytes();
+        String passphrase = "blahblah";
+        final byte[] appInfo = "Out-of-band info".getBytes();
+
+        Capabilities cap = new Capabilities();
+        cap.supportedCipherSuites = supportedCipherSuites;
+
+        ArgumentCaptor<android.hardware.wifi.V1_0.NanRespondToDataPathIndicationRequest> captor =
+                ArgumentCaptor.forClass(
+                        android.hardware.wifi.V1_0.NanRespondToDataPathIndicationRequest.class);
+
+        mDut.respondToDataPathRequest(tid, accept, ndpId, interfaceName, usePmk ? pmk : null,
+                usePassphrase ? passphrase : null, appInfo, isOutOfBand, cap);
+
+        verify(mIWifiNanIfaceMock).respondToDataPathIndicationRequest(eq(tid), captor.capture());
+
+        android.hardware.wifi.V1_0.NanRespondToDataPathIndicationRequest nrtdpir =
+                captor.getValue();
+        collector.checkThat("acceptRequest", accept, equalTo(nrtdpir.acceptRequest));
+        collector.checkThat("ndpInstanceId", ndpId, equalTo(nrtdpir.ndpInstanceId));
+        collector.checkThat("ifaceName", interfaceName, equalTo(nrtdpir.ifaceName));
+
+        if (accept) {
+            if (usePmk) {
+                collector.checkThat("securityConfig.securityType",
+                        NanDataPathSecurityType.PMK,
+                        equalTo(nrtdpir.securityConfig.securityType));
+                collector.checkThat("securityConfig.cipherType", expectedCipherSuite,
+                        equalTo(nrtdpir.securityConfig.cipherType));
+                collector.checkThat("securityConfig.pmk", pmk, equalTo(nrtdpir.securityConfig.pmk));
+                collector.checkThat("securityConfig.passphrase.length", 0,
+                        equalTo(nrtdpir.securityConfig.passphrase.size()));
+            }
+
+            if (usePassphrase) {
+                collector.checkThat("securityConfig.securityType",
+                        NanDataPathSecurityType.PASSPHRASE,
+                        equalTo(nrtdpir.securityConfig.securityType));
+                collector.checkThat("securityConfig.cipherType", expectedCipherSuite,
+                        equalTo(nrtdpir.securityConfig.cipherType));
+                collector.checkThat("securityConfig.passphrase", passphrase.getBytes(),
+                        equalTo(convertArrayListToNativeByteArray(
+                                nrtdpir.securityConfig.passphrase)));
+            }
+
+            collector.checkThat("appInfo", appInfo,
+                    equalTo(convertArrayListToNativeByteArray(nrtdpir.appInfo)));
+
+            if ((usePmk || usePassphrase) && isOutOfBand) {
+                collector.checkThat("serviceNameOutOfBand",
+                        WifiAwareNativeApi.SERVICE_NAME_FOR_OOB_DATA_PATH.getBytes(),
+                        equalTo(convertArrayListToNativeByteArray(nrtdpir.serviceNameOutOfBand)));
+            } else {
+                collector.checkThat("serviceNameOutOfBand.length", 0,
+                        equalTo(nrtdpir.serviceNameOutOfBand.size()));
+            }
+        }
+    }
+
+    private byte[] convertArrayListToNativeByteArray(ArrayList<Byte> from) {
+        if (from == null) {
+            return null;
+        }
+
+        byte[] to = new byte[from.size()];
+        for (int i = 0; i < from.size(); ++i) {
+            to[i] = from.get(i);
+        }
+        return to;
     }
 }

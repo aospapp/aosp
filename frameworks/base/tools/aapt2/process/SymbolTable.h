@@ -22,7 +22,8 @@
 #include <vector>
 
 #include "android-base/macros.h"
-#include "androidfw/AssetManager.h"
+#include "androidfw/Asset.h"
+#include "androidfw/AssetManager2.h"
 #include "utils/JenkinsHash.h"
 #include "utils/LruCache.h"
 
@@ -71,7 +72,7 @@ class SymbolTable {
     bool is_dynamic = false;
   };
 
-  SymbolTable(NameMangler* mangler);
+  explicit SymbolTable(NameMangler* mangler);
 
   // Overrides the default ISymbolTableDelegate, which allows a custom defined strategy for
   // looking up resources from a set of sources.
@@ -201,12 +202,13 @@ class AssetManagerSymbolSource : public ISymbolSource {
   std::unique_ptr<SymbolTable::Symbol> FindByReference(
       const Reference& ref) override;
 
-  android::AssetManager* GetAssetManager() {
-    return &assets_;
+  android::AssetManager2* GetAssetManager() {
+    return &asset_manager_;
   }
 
  private:
-  android::AssetManager assets_;
+  android::AssetManager2 asset_manager_;
+  std::vector<std::unique_ptr<const android::ApkAssets>> apk_assets_;
 
   DISALLOW_COPY_AND_ASSIGN(AssetManagerSymbolSource);
 };

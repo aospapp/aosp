@@ -43,6 +43,8 @@ import android.hardware.camera2.CaptureResult;
 import android.hardware.camera2.TotalCaptureResult;
 import android.hardware.camera2.params.InputConfiguration;
 import android.hardware.camera2.params.MeteringRectangle;
+import android.hardware.camera2.params.OutputConfiguration;
+import android.hardware.camera2.params.SessionConfiguration;
 import android.hardware.camera2.params.StreamConfigurationMap;
 import android.location.Location;
 import android.location.LocationManager;
@@ -52,7 +54,6 @@ import android.media.Image.Plane;
 import android.media.ImageReader;
 import android.media.ImageWriter;
 import android.os.Build;
-import android.os.Environment;
 import android.os.Handler;
 import android.util.Log;
 import android.util.Pair;
@@ -60,6 +61,8 @@ import android.util.Size;
 import android.view.Display;
 import android.view.Surface;
 import android.view.WindowManager;
+
+import androidx.test.InstrumentationRegistry;
 
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -75,6 +78,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.Executor;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
@@ -125,7 +129,8 @@ public class CameraTestUtils extends Assert {
     private static final Location sTestLocation2 = new Location(LocationManager.NETWORK_PROVIDER);
 
     protected static final String DEBUG_FILE_NAME_BASE =
-            Environment.getExternalStorageDirectory().getPath();
+            InstrumentationRegistry.getInstrumentation().getTargetContext()
+            .getExternalFilesDir(null).getPath();
 
     static {
         sTestLocation0.setTime(1199145600L);
@@ -694,6 +699,38 @@ public class CameraTestUtils extends Assert {
     }
 
     /**
+     * Configure a new camera session with output surfaces and initial session parameters.
+     *
+     * @param camera The CameraDevice to be configured.
+     * @param outputSurfaces The surface list that used for camera output.
+     * @param listener The callback CameraDevice will notify when session is available.
+     * @param handler The handler used to notify callbacks.
+     * @param initialRequest Initial request settings to use as session parameters.
+     */
+    public static CameraCaptureSession configureCameraSessionWithParameters(CameraDevice camera,
+            List<Surface> outputSurfaces, BlockingSessionCallback listener,
+            Handler handler, CaptureRequest initialRequest) throws CameraAccessException {
+        List<OutputConfiguration> outConfigurations = new ArrayList<>(outputSurfaces.size());
+        for (Surface surface : outputSurfaces) {
+            outConfigurations.add(new OutputConfiguration(surface));
+        }
+        SessionConfiguration sessionConfig = new SessionConfiguration(
+                SessionConfiguration.SESSION_REGULAR, outConfigurations,
+                new HandlerExecutor(handler), listener);
+        sessionConfig.setSessionParameters(initialRequest);
+        camera.createCaptureSession(sessionConfig);
+
+        CameraCaptureSession session = listener.waitAndGetSession(SESSION_CONFIGURE_TIMEOUT_MS);
+        assertFalse("Camera session should not be a reprocessable session",
+                session.isReprocessable());
+        assertFalse("Capture session type must be regular",
+                CameraConstrainedHighSpeedCaptureSession.class.isAssignableFrom(
+                        session.getClass()));
+
+        return session;
+    }
+
+    /**
      * Configure a new camera session with output surfaces and type.
      *
      * @param camera The CameraDevice to be configured.
@@ -822,7 +859,7 @@ public class CameraTestUtils extends Assert {
         // JPEG doesn't have pixelstride and rowstride, treat it as 1D buffer.
         // Same goes for DEPTH_POINT_CLOUD
         if (format == ImageFormat.JPEG || format == ImageFormat.DEPTH_POINT_CLOUD ||
-                format == ImageFormat.RAW_PRIVATE) {
+                format == ImageFormat.DEPTH_JPEG || format == ImageFormat.RAW_PRIVATE) {
             buffer = planes[0].getBuffer();
             assertNotNull("Fail to get jpeg or depth ByteBuffer", buffer);
             data = new byte[buffer.remaining()];
@@ -905,6 +942,7 @@ public class CameraTestUtils extends Assert {
             case ImageFormat.RAW_PRIVATE:
             case ImageFormat.DEPTH16:
             case ImageFormat.DEPTH_POINT_CLOUD:
+            case ImageFormat.DEPTH_JPEG:
                 assertEquals("JPEG/RAW/depth Images should have one plane", 1, planes.length);
                 break;
             default:
@@ -1328,9 +1366,26 @@ public class CameraTestUtils extends Assert {
             case ImageFormat.RAW_PRIVATE:
                 validateRawPrivateData(data, width, height, image.getTimestamp(), filePath);
                 break;
+            case ImageFormat.DEPTH_JPEG:
+                validateDepthJpegData(data, width, height, format, image.getTimestamp(), filePath);
+                break;
             default:
                 throw new UnsupportedOperationException("Unsupported format for validation: "
                         + format);
+        }
+    }
+
+    public static class HandlerExecutor implements Executor {
+        private final Handler mHandler;
+
+        public HandlerExecutor(Handler handler) {
+            assertNotNull("handler must be valid", handler);
+            mHandler = handler;
+        }
+
+        @Override
+        public void execute(Runnable runCmd) {
+            mHandler.post(runCmd);
         }
     }
 
@@ -1472,6 +1527,23 @@ public class CameraTestUtils extends Assert {
         if (DEBUG && filePath != null) {
             String fileName =
                     filePath + "/" + width + "x" + height + "_" + ts / 1e6 + ".depth_point_cloud";
+            dumpFile(fileName, depthData);
+        }
+
+        return;
+
+    }
+
+    private static void validateDepthJpegData(byte[] depthData, int width, int height, int format,
+            long ts, String filePath) {
+
+        if (VERBOSE) Log.v(TAG, "Validating depth jpeg data");
+
+        // Can't validate size since it is variable
+
+        if (DEBUG && filePath != null) {
+            String fileName =
+                    filePath + "/" + width + "x" + height + "_" + ts / 1e6 + ".jpg";
             dumpFile(fileName, depthData);
         }
 

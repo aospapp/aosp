@@ -21,8 +21,8 @@
 
 #include <media/NdkMediaCodec.h>
 #include <media/NdkMediaError.h>
+#include <media/NdkMediaFormatPriv.h>
 #include "NdkMediaCryptoPriv.h"
-#include "NdkMediaFormatPriv.h"
 
 #include <utils/Log.h>
 #include <utils/StrongPointer.h>
@@ -811,7 +811,13 @@ AMediaCodecCryptoInfo *AMediaCodecCryptoInfo_new(
         size_t *encryptedbytes) {
 
     // size needed to store all the crypto data
-    size_t cryptosize = sizeof(AMediaCodecCryptoInfo) + sizeof(size_t) * numsubsamples * 2;
+    size_t cryptosize;
+    // = sizeof(AMediaCodecCryptoInfo) + sizeof(size_t) * numsubsamples * 2;
+    if (__builtin_mul_overflow(sizeof(size_t) * 2, numsubsamples, &cryptosize) ||
+            __builtin_add_overflow(cryptosize, sizeof(AMediaCodecCryptoInfo), &cryptosize)) {
+        ALOGE("crypto size overflow");
+        return NULL;
+    }
     AMediaCodecCryptoInfo *ret = (AMediaCodecCryptoInfo*) malloc(cryptosize);
     if (!ret) {
         ALOGE("couldn't allocate %zu bytes", cryptosize);

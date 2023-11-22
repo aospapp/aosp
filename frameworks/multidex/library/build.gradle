@@ -36,7 +36,7 @@ task makeVersionFile(type:Exec) {
 }
 
 android {
-    compileSdkVersion 4
+    compileSdkVersion gradle.currentSdk
 
     defaultConfig {
         minSdkVersion 4
@@ -55,15 +55,21 @@ android {
             manifest.srcFile 'AndroidManifest.xml'
         }
     }
-
-    lintOptions {
-        // TODO: fix errors and reenable.
-        abortOnError false
-    }
 }
 
-android.libraryVariants.all {
-    v -> v.getJavaCompiler().dependsOn(makeVersionFile)
+android.libraryVariants.all { variant ->
+    variant.getJavaCompiler().dependsOn(makeVersionFile)
+
+    if (!name.equals(com.android.builder.core.BuilderConstants.RELEASE)) {
+        return // Skip non-release
+    }
+
+
+    def sourceJar = project.tasks.create(name: "sourceJarRelease", type: Jar) {
+        classifier = 'sources'
+        from android.sourceSets.main.java.srcDirs
+    }
+    artifacts.add("archives", sourceJar)
 }
 
 uploadArchives {

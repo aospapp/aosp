@@ -23,7 +23,7 @@ cc_binary_host {
     // pulled in by the build system (and thus sadly must be repeated).
     shared_libs: [
         "liblog",
-        "libicuuc",
+        "libandroidicu",
     ],
 
     srcs: ["HyphTool.cpp"],

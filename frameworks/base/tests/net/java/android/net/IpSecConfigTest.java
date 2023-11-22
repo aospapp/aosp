@@ -22,7 +22,8 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 import android.os.Parcel;
-import android.support.test.filters.SmallTest;
+
+import androidx.test.filters.SmallTest;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -47,6 +48,7 @@ public class IpSecConfigTest {
         assertNull(c.getEncryption());
         assertNull(c.getAuthentication());
         assertEquals(IpSecManager.INVALID_RESOURCE_ID, c.getSpiResourceId());
+        assertEquals(0, c.getXfrmInterfaceId());
     }
 
     private IpSecConfig getSampleConfig() {
@@ -77,6 +79,7 @@ public class IpSecConfigTest {
         c.setNattKeepaliveInterval(42);
         c.setMarkValue(12);
         c.setMarkMask(23);
+        c.setXfrmInterfaceId(34);
 
         return c;
     }

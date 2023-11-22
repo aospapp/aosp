@@ -18,6 +18,8 @@ package com.android.server.wifi.util;
 
 import static org.junit.Assert.*;
 
+import androidx.test.filters.SmallTest;
+
 import org.junit.Test;
 
 import java.util.ArrayList;
@@ -26,6 +28,7 @@ import java.util.Arrays;
 /**
  * Unit tests for {@link com.android.server.wifi.util.NativeUtil}.
  */
+@SmallTest
 public class NativeUtilTest {
     /**
      * Test that parsing a typical colon-delimited MAC address works.
@@ -125,6 +128,18 @@ public class NativeUtilTest {
     }
 
     /**
+     * Test that conversion of SSID string with len > 32 to bytes fail.
+     */
+    @Test
+    public void testLargeSsidDecodeFails() throws Exception {
+        try {
+            NativeUtil.decodeSsid("\"asdrewqdfgyuiopldsqwertyuiolhdergcv\"");
+            fail("Expected ssid decode to fail");
+        } catch (IllegalArgumentException e) {
+        }
+    }
+
+    /**
      * Test that conversion of ssid bytes to hex string ssid works.
      */
     @Test
@@ -172,6 +187,25 @@ public class NativeUtilTest {
                 NativeUtil.encodeSsid(new ArrayList<>(
                         Arrays.asList((byte) 0xf5, (byte) 0xe4, (byte) 0xab, (byte) 0x78,
                                 (byte) 0xab, (byte) 0x34, (byte) 0x32, (byte) 0x43, (byte) 0x9a))));
+    }
+
+    /**
+     * Test that conversion of SSID bytes with len > 32 to string fail.
+     */
+    @Test
+    public void testLargeSsidEncodeFails() throws Exception {
+        try {
+            NativeUtil.encodeSsid(new ArrayList<>(
+                    Arrays.asList((byte) 0xf5, (byte) 0xe4, (byte) 0xab, (byte) 0x78, (byte) 0x78,
+                            (byte) 0xab, (byte) 0x34, (byte) 0x32, (byte) 0x43, (byte) 0x9a,
+                            (byte) 0xab, (byte) 0x34, (byte) 0x32, (byte) 0x43, (byte) 0x9a,
+                            (byte) 0xab, (byte) 0x34, (byte) 0x32, (byte) 0x43, (byte) 0x9a,
+                            (byte) 0xab, (byte) 0x34, (byte) 0x32, (byte) 0x43, (byte) 0x9a,
+                            (byte) 0xab, (byte) 0x34, (byte) 0x32, (byte) 0x43, (byte) 0x9a,
+                            (byte) 0xab, (byte) 0x34, (byte) 0x32, (byte) 0x43, (byte) 0x9a)));
+            fail("Expected ssid encode to fail");
+        } catch (IllegalArgumentException e) {
+        }
     }
 
     /**

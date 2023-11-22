@@ -38,7 +38,7 @@ fifo_frames_t FifoControllerBase::getFullFramesAvailable() {
 
 fifo_frames_t FifoControllerBase::getReadIndex() {
     // % works with non-power of two sizes
-    return (fifo_frames_t) (getReadCounter() % mCapacity);
+    return (fifo_frames_t) ((uint64_t)getReadCounter() % mCapacity);
 }
 
 void FifoControllerBase::advanceReadIndex(fifo_frames_t numFrames) {
@@ -51,7 +51,7 @@ fifo_frames_t FifoControllerBase::getEmptyFramesAvailable() {
 
 fifo_frames_t FifoControllerBase::getWriteIndex() {
     // % works with non-power of two sizes
-    return (fifo_frames_t) (getWriteCounter() % mCapacity);
+    return (fifo_frames_t) ((uint64_t)getWriteCounter() % mCapacity);
 }
 
 void FifoControllerBase::advanceWriteIndex(fifo_frames_t numFrames) {
@@ -59,5 +59,10 @@ void FifoControllerBase::advanceWriteIndex(fifo_frames_t numFrames) {
 }
 
 void FifoControllerBase::setThreshold(fifo_frames_t threshold) {
+    if (threshold > mCapacity) {
+        threshold = mCapacity;
+    } else if (threshold < 0) {
+        threshold = 0;
+    }
     mThreshold = threshold;
 }

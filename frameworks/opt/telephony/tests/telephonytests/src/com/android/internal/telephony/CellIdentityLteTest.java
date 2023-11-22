@@ -17,8 +17,8 @@
 package com.android.internal.telephony;
 
 import android.os.Parcel;
-import android.telephony.CellIdentity;
 import android.telephony.CellIdentityLte;
+import android.telephony.CellInfo;
 import android.test.AndroidTestCase;
 import android.test.suitebuilder.annotation.SmallTest;
 
@@ -26,8 +26,8 @@ import android.test.suitebuilder.annotation.SmallTest;
 
 public class CellIdentityLteTest extends AndroidTestCase {
 
-    // Cell identity ranges from 0 to 268435456.
-    private static final int CI = 268435456;
+    // Cell identity ranges from 0 to 268435455.
+    private static final int CI = 268435455;
     // Physical cell id ranges from 0 to 503.
     private static final int PCI = 503;
     // Tracking area code ranges from 0 to 65535.
@@ -193,7 +193,7 @@ public class CellIdentityLteTest extends AndroidTestCase {
                 CI, PCI, TAC, EARFCN, BANDWIDTH, null, null, ALPHA_LONG, ALPHA_SHORT);
 
         Parcel p = Parcel.obtain();
-        p.writeInt(CellIdentity.TYPE_LTE);
+        p.writeInt(CellInfo.TYPE_LTE);
         p.writeString(String.valueOf(Integer.MAX_VALUE));
         p.writeString(String.valueOf(Integer.MAX_VALUE));
         p.writeString(ALPHA_LONG);
@@ -217,7 +217,7 @@ public class CellIdentityLteTest extends AndroidTestCase {
                 CI, PCI, TAC, EARFCN, BANDWIDTH, null, null, ALPHA_LONG, ALPHA_SHORT);
 
         Parcel p = Parcel.obtain();
-        p.writeInt(CellIdentity.TYPE_LTE);
+        p.writeInt(CellInfo.TYPE_LTE);
         p.writeString(invalidMcc);
         p.writeString(invalidMnc);
         p.writeString(ALPHA_LONG);

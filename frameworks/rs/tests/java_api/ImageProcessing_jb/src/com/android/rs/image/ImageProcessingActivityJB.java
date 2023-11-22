@@ -17,23 +17,22 @@
 package com.android.rs.imagejb;
 
 import android.app.Activity;
-
 import android.content.Intent;
+import android.graphics.Point;
+import android.graphics.SurfaceTexture;
 import android.os.Bundle;
+import android.renderscript.Allocation;
+import android.renderscript.RenderScript;
+import android.util.Log;
+import android.view.Surface;
+import android.view.TextureView;
+import android.view.View;
+import android.view.WindowManager;
 import android.widget.SeekBar;
 import android.widget.Spinner;
 import android.widget.TextView;
-import android.view.View;
-import android.view.TextureView;
-import android.view.Surface;
-import android.graphics.SurfaceTexture;
-import android.graphics.Point;
-import android.view.WindowManager;
 
-import android.util.Log;
-import android.renderscript.Allocation;
-import android.renderscript.RenderScript;
-import android.support.test.InstrumentationRegistry;
+import androidx.test.InstrumentationRegistry;
 
 public class ImageProcessingActivityJB extends Activity
                                        implements SeekBar.OnSeekBarChangeListener,

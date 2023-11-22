@@ -20,7 +20,6 @@ sourceFiles = [
     "display_surface.cpp",
     "hardware_composer.cpp",
     "vr_flinger.cpp",
-    "vsync_service.cpp",
 ]
 
 includeFiles = [ "include" ]
@@ -40,6 +39,7 @@ sharedLibraries = [
     "android.hardware.graphics.allocator@2.0",
     "android.hardware.graphics.composer@2.1",
     "android.hardware.graphics.composer@2.2",
+    "android.hardware.graphics.composer@2.3",
     "libbinder",
     "libbase",
     "libbufferhubqueue",
@@ -47,6 +47,7 @@ sharedLibraries = [
     "liblog",
     "libhardware",
     "libnativewindow",
+    "libprocessgroup",
     "libutils",
     "libEGL",
     "libGLESv1_CM",
@@ -64,6 +65,7 @@ sharedLibraries = [
 headerLibraries = [
     "android.hardware.graphics.composer@2.1-command-buffer",
     "android.hardware.graphics.composer@2.2-command-buffer",
+    "android.hardware.graphics.composer@2.3-command-buffer",
     "libdvr_headers",
     "libsurfaceflinger_headers",
 ]
@@ -84,11 +86,12 @@ cc_library_static {
         "-Wno-error=sign-compare", // to fix later
         "-Wno-unused-variable",
     ],
-    cppflags: [
-        "-std=c++1z"
-    ],
     shared_libs: sharedLibraries,
     whole_static_libs: staticLibraries,
     header_libs: headerLibraries,
     name: "libvrflinger",
 }
+
+subdirs = [
+    "tests",
+]

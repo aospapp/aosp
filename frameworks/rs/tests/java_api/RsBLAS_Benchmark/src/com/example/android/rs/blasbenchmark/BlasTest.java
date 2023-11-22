@@ -19,18 +19,17 @@ package com.example.android.rs.blasbenchmark;
 
 import android.app.Activity;
 import android.os.Bundle;
+import android.test.ActivityInstrumentationTestCase2;
+import android.test.suitebuilder.annotation.MediumTest;
 import android.util.Log;
 
 import com.example.android.rs.blasbenchmark.BlasTestList.TestName;
-
-import android.test.ActivityInstrumentationTestCase2;
-import android.test.suitebuilder.annotation.MediumTest;
 
 /**
  * BLAS benchmark test.
  * To run the test, please use command
  *
- * adb shell am instrument -w com.example.android.rs.blasbenchmark/android.support.test.runner.AndroidJUnitRunner
+ * adb shell am instrument -w com.example.android.rs.blasbenchmark/androidx.test.runner.AndroidJUnitRunner
  *
  */
 public class BlasTest extends ActivityInstrumentationTestCase2<BlasBenchmark> {

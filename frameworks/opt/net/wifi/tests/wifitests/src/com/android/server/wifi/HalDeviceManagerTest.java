@@ -45,16 +45,19 @@ import android.hardware.wifi.V1_0.IWifiEventCallback;
 import android.hardware.wifi.V1_0.IWifiIface;
 import android.hardware.wifi.V1_0.IWifiNanIface;
 import android.hardware.wifi.V1_0.IWifiP2pIface;
+import android.hardware.wifi.V1_0.IWifiRttController;
 import android.hardware.wifi.V1_0.IWifiStaIface;
 import android.hardware.wifi.V1_0.IfaceType;
 import android.hardware.wifi.V1_0.WifiStatus;
 import android.hardware.wifi.V1_0.WifiStatusCode;
-import android.hidl.manager.V1_0.IServiceManager;
 import android.hidl.manager.V1_0.IServiceNotification;
+import android.hidl.manager.V1_2.IServiceManager;
 import android.os.Handler;
 import android.os.IHwBinder;
 import android.os.test.TestLooper;
 import android.util.Log;
+
+import androidx.test.filters.SmallTest;
 
 import com.android.server.wifi.HalDeviceManager.InterfaceDestroyedListener;
 
@@ -72,6 +75,7 @@ import org.mockito.MockitoAnnotations;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -80,10 +84,12 @@ import java.util.Set;
 /**
  * Unit test harness for HalDeviceManagerTest.
  */
+@SmallTest
 public class HalDeviceManagerTest {
     private HalDeviceManager mDut;
     @Mock IServiceManager mServiceManagerMock;
     @Mock IWifi mWifiMock;
+    @Mock IWifiRttController mRttControllerMock;
     @Mock HalDeviceManager.ManagerStatusListener mManagerStatusListenerMock;
     @Mock private Clock mClock;
     private TestLooper mTestLooper;
@@ -130,14 +136,14 @@ public class HalDeviceManagerTest {
                 anyLong())).thenReturn(true);
         when(mServiceManagerMock.registerForNotifications(anyString(), anyString(),
                 any(IServiceNotification.Stub.class))).thenReturn(true);
-        when(mServiceManagerMock.getTransport(
-                eq(IWifi.kInterfaceName), eq(HalDeviceManager.HAL_INSTANCE_NAME)))
-                .thenReturn(IServiceManager.Transport.HWBINDER);
+        when(mServiceManagerMock.listManifestByInterface(eq(IWifi.kInterfaceName)))
+                .thenReturn(new ArrayList(Arrays.asList("default")));
         when(mWifiMock.linkToDeath(any(IHwBinder.DeathRecipient.class), anyLong())).thenReturn(
                 true);
         when(mWifiMock.registerEventCallback(any(IWifiEventCallback.class))).thenReturn(mStatusOk);
         when(mWifiMock.start()).thenReturn(mStatusOk);
         when(mWifiMock.stop()).thenReturn(mStatusOk);
+        when(mWifiMock.isStarted()).thenReturn(true);
 
         mDut = new HalDeviceManagerSpy();
     }
@@ -509,12 +515,201 @@ public class HalDeviceManagerTest {
      */
     @Test
     public void testIsSupportedFalse() throws Exception {
-        when(mServiceManagerMock.getTransport(
-                eq(IWifi.kInterfaceName), eq(HalDeviceManager.HAL_INSTANCE_NAME)))
-                .thenReturn(IServiceManager.Transport.EMPTY);
+        when(mServiceManagerMock.listManifestByInterface(eq(IWifi.kInterfaceName)))
+                .thenReturn(new ArrayList());
         mInOrder = inOrder(mServiceManagerMock, mWifiMock);
         executeAndValidateInitializationSequence(false);
         assertFalse(mDut.isSupported());
+    }
+
+    /**
+     * Validate RTT configuration when the callback is registered first and the chip is
+     * configured later - i.e. RTT isn't available immediately.
+     */
+    @Test
+    public void testAndTriggerRttLifecycleCallbacksRegBeforeChipConfig() throws Exception {
+        HalDeviceManager.InterfaceRttControllerLifecycleCallback cb = mock(
+                HalDeviceManager.InterfaceRttControllerLifecycleCallback.class);
+
+        InOrder io = inOrder(cb);
+
+        // initialize a test chip (V1 is fine since we're not testing any specifics of
+        // concurrency in this test).
+        ChipMockBase chipMock = new TestChipV1();
+        chipMock.initialize();
+        mInOrder = inOrder(mServiceManagerMock, mWifiMock, chipMock.chip,
+                mManagerStatusListenerMock);
+        executeAndValidateInitializationSequence();
+        executeAndValidateStartupSequence();
+
+        // register initial cb: don't expect RTT since chip isn't configured
+        mDut.registerRttControllerLifecycleCallback(cb, mHandler);
+        mTestLooper.dispatchAll();
+        io.verify(cb, times(0)).onNewRttController(any());
+
+        // create a STA - that will get the chip configured and get us an RTT controller
+        validateInterfaceSequence(chipMock,
+                false, // chipModeValid
+                -1000, // chipModeId (only used if chipModeValid is true)
+                IfaceType.STA,
+                "wlan0",
+                TestChipV1.STA_CHIP_MODE_ID,
+                false, // high priority
+                null, // tearDownList
+                null, // destroyedListener
+                null // availableListener
+        );
+        verify(chipMock.chip).createRttController(any(), any());
+        io.verify(cb).onNewRttController(any());
+
+        verifyNoMoreInteractions(cb);
+    }
+
+    /**
+     * Validate the RTT Controller lifecycle using a multi-mode chip (i.e. a chip which can
+     * switch modes, during which RTT is destroyed).
+     *
+     * 1. Validate that an RTT is created as soon as the callback is registered - if the chip
+     * is already configured (i.e. it is possible to create the RTT controller).
+     *
+     * 2. Validate that only the registered callback is triggered, not previously registered ones
+     * and not duplicate ones.
+     *
+     * 3. Validate that onDestroy callbacks are triggered on mode change.
+     */
+    @Test
+    public void testAndTriggerRttLifecycleCallbacksMultiModeChip() throws Exception {
+        HalDeviceManager.InterfaceRttControllerLifecycleCallback cb1 = mock(
+                HalDeviceManager.InterfaceRttControllerLifecycleCallback.class);
+        HalDeviceManager.InterfaceRttControllerLifecycleCallback cb2 = mock(
+                HalDeviceManager.InterfaceRttControllerLifecycleCallback.class);
+
+        InOrder io1 = inOrder(cb1);
+        InOrder io2 = inOrder(cb2);
+
+        // initialize a test chip (V1 is a must since we're testing a multi-mode chip) & create a
+        // STA (which will configure the chip).
+        ChipMockBase chipMock = new TestChipV1();
+        chipMock.initialize();
+        mInOrder = inOrder(mServiceManagerMock, mWifiMock, chipMock.chip,
+                mManagerStatusListenerMock);
+        executeAndValidateInitializationSequence();
+        executeAndValidateStartupSequence();
+        validateInterfaceSequence(chipMock,
+                false, // chipModeValid
+                -1000, // chipModeId (only used if chipModeValid is true)
+                IfaceType.STA,
+                "wlan0",
+                TestChipV1.STA_CHIP_MODE_ID,
+                false, // high priority
+                null, // tearDownList
+                null, // destroyedListener
+                null // availableListener
+        );
+        mInOrder.verify(chipMock.chip, times(0)).createRttController(any(), any());
+
+        // register initial cb - expect the cb right away
+        mDut.registerRttControllerLifecycleCallback(cb1, mHandler);
+        mTestLooper.dispatchAll();
+        verify(chipMock.chip).createRttController(any(), any());
+        io1.verify(cb1).onNewRttController(mRttControllerMock);
+
+        // register a second callback and the first one again
+        mDut.registerRttControllerLifecycleCallback(cb2, mHandler);
+        mDut.registerRttControllerLifecycleCallback(cb1, mHandler);
+        mTestLooper.dispatchAll();
+        io2.verify(cb2).onNewRttController(mRttControllerMock);
+
+        // change to AP mode (which for TestChipV1 doesn't allow RTT): trigger onDestroyed for all
+        validateInterfaceSequence(chipMock,
+                true, // chipModeValid
+                TestChipV1.STA_CHIP_MODE_ID, // chipModeId (only used if chipModeValid is true)
+                IfaceType.AP,
+                "wlan0",
+                TestChipV1.AP_CHIP_MODE_ID,
+                false, // high priority
+                null, // tearDownList
+                null, // destroyedListener
+                null // availableListener
+        );
+        mTestLooper.dispatchAll();
+        verify(chipMock.chip, times(2)).createRttController(any(), any()); // but returns a null!
+        io1.verify(cb1).onRttControllerDestroyed();
+        io2.verify(cb2).onRttControllerDestroyed();
+
+        // change back to STA mode (which for TestChipV1 will re-allow RTT): trigger onNew for all
+        validateInterfaceSequence(chipMock,
+                true, // chipModeValid
+                TestChipV1.AP_CHIP_MODE_ID, // chipModeId (only used if chipModeValid is true)
+                IfaceType.STA,
+                "wlan0",
+                TestChipV1.STA_CHIP_MODE_ID,
+                false, // high priority
+                null, // tearDownList
+                null, // destroyedListener
+                null // availableListener
+        );
+        mTestLooper.dispatchAll();
+        verify(chipMock.chip, times(3)).createRttController(any(), any());
+        io1.verify(cb1).onNewRttController(mRttControllerMock);
+        io2.verify(cb2).onNewRttController(mRttControllerMock);
+
+        verifyNoMoreInteractions(cb1, cb2);
+    }
+
+    /**
+     * Validate the RTT Controller lifecycle using a single-mode chip. Specifically validate
+     * that RTT isn't impacted during STA -> AP change.
+     */
+    @Test
+    public void testAndTriggerRttLifecycleCallbacksSingleModeChip() throws Exception {
+        HalDeviceManager.InterfaceRttControllerLifecycleCallback cb = mock(
+                HalDeviceManager.InterfaceRttControllerLifecycleCallback.class);
+
+        InOrder io = inOrder(cb);
+
+        // initialize a test chip (V2 is a must since we need a single mode chip)
+        // & create a STA (which will configure the chip).
+        ChipMockBase chipMock = new TestChipV2();
+        chipMock.initialize();
+        mInOrder = inOrder(mServiceManagerMock, mWifiMock, chipMock.chip,
+                mManagerStatusListenerMock);
+        executeAndValidateInitializationSequence();
+        executeAndValidateStartupSequence();
+        validateInterfaceSequence(chipMock,
+                false, // chipModeValid
+                -1000, // chipModeId (only used if chipModeValid is true)
+                IfaceType.STA,
+                "wlan0",
+                TestChipV2.CHIP_MODE_ID,
+                false, // high priority
+                null, // tearDownList
+                null, // destroyedListener
+                null // availableListener
+        );
+        mInOrder.verify(chipMock.chip, times(0)).createRttController(any(), any());
+
+        // register initial cb - expect the cb right away
+        mDut.registerRttControllerLifecycleCallback(cb, mHandler);
+        mTestLooper.dispatchAll();
+        verify(chipMock.chip).createRttController(any(), any());
+        io.verify(cb).onNewRttController(mRttControllerMock);
+
+        // create an AP: no mode change for TestChipV2 -> expect no impact on RTT
+        validateInterfaceSequence(chipMock,
+                true, // chipModeValid
+                TestChipV2.CHIP_MODE_ID, // chipModeId (only used if chipModeValid is true)
+                IfaceType.AP,
+                "wlan0",
+                TestChipV2.CHIP_MODE_ID,
+                false, // high priority
+                null, // tearDownList
+                null, // destroyedListener
+                null // availableListener
+        );
+        mTestLooper.dispatchAll();
+
+        verifyNoMoreInteractions(cb);
     }
 
     //////////////////////////////////////////////////////////////////////////////////////
@@ -2196,6 +2391,7 @@ public class HalDeviceManagerTest {
     ///////////////////////////////////////////////////////////////////////////////////////
     // utilities
     ///////////////////////////////////////////////////////////////////////////////////////
+
     private void dumpDut(String prefix) {
         StringWriter sw = new StringWriter();
         mDut.dump(null, new PrintWriter(sw), null);
@@ -2216,9 +2412,9 @@ public class HalDeviceManagerTest {
         mInOrder.verify(mServiceManagerMock).registerForNotifications(eq(IWifi.kInterfaceName),
                 eq(""), mServiceNotificationCaptor.capture());
 
-        // The service should already be up at this point.
-        mInOrder.verify(mServiceManagerMock).getTransport(eq(IWifi.kInterfaceName),
-                eq(HalDeviceManager.HAL_INSTANCE_NAME));
+        // If not using the lazy version of the IWifi service, the process should already be up at
+        // this point.
+        mInOrder.verify(mServiceManagerMock).listManifestByInterface(eq(IWifi.kInterfaceName));
 
         // verify: wifi initialization sequence if vendor HAL is supported.
         if (isSupported) {
@@ -2232,7 +2428,7 @@ public class HalDeviceManagerTest {
         }
     }
 
-    private void executeAndValidateStartupSequence()throws Exception {
+    private void executeAndValidateStartupSequence() throws Exception {
         executeAndValidateStartupSequence(1, true);
     }
 
@@ -2682,6 +2878,7 @@ public class HalDeviceManagerTest {
         }
 
         public WifiStatus answer(int chipMode) {
+            mChipMockBase.chipModeValid = true;
             mChipMockBase.chipModeId = chipMode;
             return mStatusOk;
         }
@@ -2782,6 +2979,24 @@ public class HalDeviceManagerTest {
         }
     }
 
+    private class CreateRttControllerAnswer extends MockAnswerUtil.AnswerWithArguments {
+        private final ChipMockBase mChipMockBase;
+        private final IWifiRttController mRttController;
+
+        CreateRttControllerAnswer(ChipMockBase chipMockBase, IWifiRttController rttController) {
+            mChipMockBase = chipMockBase;
+            mRttController = rttController;
+        }
+
+        public void answer(IWifiIface boundIface, IWifiChip.createRttControllerCallback cb) {
+            if (mChipMockBase.chipModeIdValidForRtt == mChipMockBase.chipModeId) {
+                cb.onValues(mStatusOk, mRttController);
+            } else {
+                cb.onValues(mStatusFail, null);
+            }
+        }
+    }
+
     private class RemoveXxxIfaceAnswer extends MockAnswerUtil.AnswerWithArguments {
         private ChipMockBase mChipMockBase;
         private int mType;
@@ -2848,6 +3063,7 @@ public class HalDeviceManagerTest {
         public int chipId;
         public boolean chipModeValid = false;
         public int chipModeId = -1000;
+        public int chipModeIdValidForRtt = -1; // single chip mode ID where RTT can be created
         public Map<Integer, ArrayList<String>> interfaceNames = new HashMap<>();
         public Map<Integer, Map<String, IWifiIface>> interfacesByName = new HashMap<>();
 
@@ -2898,6 +3114,9 @@ public class HalDeviceManagerTest {
                     anyString());
             doAnswer(new RemoveXxxIfaceAnswer(this, IfaceType.NAN)).when(chip).removeNanIface(
                     anyString());
+
+            doAnswer(new CreateRttControllerAnswer(this, mRttControllerMock)).when(
+                    chip).createRttController(any(), any());
         }
     }
 
@@ -2960,6 +3179,8 @@ public class HalDeviceManagerTest {
             cm.availableCombinations.add(cic);
             availableModes.add(cm);
 
+            chipModeIdValidForRtt = STA_CHIP_MODE_ID;
+
             doAnswer(new GetAvailableModesAnswer(this)).when(chip)
                     .getAvailableModes(any(IWifiChip.getAvailableModesCallback.class));
         }
@@ -3017,6 +3238,8 @@ public class HalDeviceManagerTest {
             cic.limits.add(cicl);
             cm.availableCombinations.add(cic);
             availableModes.add(cm);
+
+            chipModeIdValidForRtt = CHIP_MODE_ID;
 
             doAnswer(new GetAvailableModesAnswer(this)).when(chip)
                     .getAvailableModes(any(IWifiChip.getAvailableModesCallback.class));
@@ -3088,6 +3311,8 @@ public class HalDeviceManagerTest {
             cm.availableCombinations.add(cic);
             availableModes.add(cm);
 
+            chipModeIdValidForRtt = CHIP_MODE_ID;
+
             doAnswer(new GetAvailableModesAnswer(this)).when(chip)
                     .getAvailableModes(any(IWifiChip.getAvailableModesCallback.class));
         }
@@ -3156,6 +3381,8 @@ public class HalDeviceManagerTest {
 
             cm.availableCombinations.add(cic);
             availableModes.add(cm);
+
+            chipModeIdValidForRtt = CHIP_MODE_ID;
 
             doAnswer(new GetAvailableModesAnswer(this)).when(chip)
                     .getAvailableModes(any(IWifiChip.getAvailableModesCallback.class));

@@ -19,6 +19,8 @@ package com.android.server.wifi.util;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
+import androidx.test.filters.SmallTest;
+
 import org.junit.Test;
 
 import java.util.Random;
@@ -26,6 +28,7 @@ import java.util.Random;
 /**
  * Unit tests for {@link com.android.server.wifi.util.KalmanFilter}.
  */
+@SmallTest
 public class KalmanFilterTest {
     /**
      * Test that constructor works

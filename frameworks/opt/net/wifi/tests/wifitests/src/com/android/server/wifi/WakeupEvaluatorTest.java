@@ -24,6 +24,8 @@ import static org.junit.Assert.assertTrue;
 import android.net.wifi.ScanResult;
 import android.util.ArraySet;
 
+import androidx.test.filters.SmallTest;
+
 import com.android.server.wifi.util.ScanResultUtil;
 
 import com.google.android.collect.Sets;
@@ -34,11 +36,10 @@ import org.junit.Test;
 import java.util.Collections;
 import java.util.Set;
 
-
-
 /**
  * Unit tests for {@link WakeupEvaluator}.
  */
+@SmallTest
 public class WakeupEvaluatorTest {
 
     private static final String SAVED_SSID_1 = "saved ssid 1";
@@ -48,8 +49,9 @@ public class WakeupEvaluatorTest {
     private static final int FREQ_24 = 2402;
     private static final int FREQ_5 = 5000;
 
-    private static final int THRESHOLD_24 = -10;
-    private static final int THRESHOLD_5 = -1;
+    private static final int THRESHOLD_24 = -100;
+    private static final int THRESHOLD_5 = -90;
+    private final ScoringParams mScoringParams = new ScoringParams();
 
     private WakeupEvaluator mWakeupEvaluator;
 
@@ -76,7 +78,10 @@ public class WakeupEvaluatorTest {
 
     @Before
     public void setUp() {
-        mWakeupEvaluator = new WakeupEvaluator(THRESHOLD_24, THRESHOLD_5);
+        String params = "rssi2=-120:" + THRESHOLD_24 + ":-2:-1" + ","
+                      + "rssi5=-120:" + THRESHOLD_5 + ":-2:-1";
+        assertTrue(params, mScoringParams.update(params));
+        mWakeupEvaluator = new WakeupEvaluator(mScoringParams);
     }
 
     /**

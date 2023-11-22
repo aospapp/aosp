@@ -40,7 +40,10 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.content.SharedPreferences;
+import android.content.pm.ApplicationInfo;
+import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
+import android.content.pm.PackageManager.NameNotFoundException;
 import android.content.pm.ResolveInfo;
 import android.content.pm.ServiceInfo;
 import android.content.res.AssetManager;
@@ -258,6 +261,10 @@ public class ContextFixture implements TestFixture<Context> {
         public String getSystemServiceName(Class<?> serviceClass) {
             if (serviceClass == SubscriptionManager.class) {
                 return Context.TELEPHONY_SUBSCRIPTION_SERVICE;
+            } else if (serviceClass == AppOpsManager.class) {
+                return Context.APP_OPS_SERVICE;
+            } else if (serviceClass == TelecomManager.class) {
+                return Context.TELECOM_SERVICE;
             }
             return super.getSystemServiceName(serviceClass);
         }
@@ -275,6 +282,11 @@ public class ContextFixture implements TestFixture<Context> {
         @Override
         public Resources getResources() {
             return mResources;
+        }
+
+        @Override
+        public ApplicationInfo getApplicationInfo() {
+            return mApplicationInfo;
         }
 
         @Override
@@ -362,6 +374,7 @@ public class ContextFixture implements TestFixture<Context> {
         public void sendOrderedBroadcast(Intent intent, String receiverPermission, Bundle options,
                 BroadcastReceiver resultReceiver, Handler scheduler, int initialCode,
                 String initialData, Bundle initialExtras) {
+            mLastBroadcastOptions = options;
             sendOrderedBroadcast(intent, receiverPermission, resultReceiver, scheduler,
                     initialCode, initialData, initialExtras);
         }
@@ -423,6 +436,7 @@ public class ContextFixture implements TestFixture<Context> {
                 BroadcastReceiver resultReceiver, Handler scheduler, int initialCode,
                 String initialData, Bundle initialExtras) {
             logd("sendOrderedBroadcastAsUser called for " + intent.getAction());
+            mLastBroadcastOptions = options;
             sendBroadcast(intent);
             if (resultReceiver != null) {
                 synchronized (mOrderedBroadcastReceivers) {
@@ -493,6 +507,14 @@ public class ContextFixture implements TestFixture<Context> {
         public String getPackageName() {
             return "com.android.internal.telephony";
         }
+
+        @Override
+        public Context getApplicationContext() {
+            return null;
+        }
+
+        @Override
+        public void startActivity(Intent intent) {}
     }
 
     private final Multimap<String, ComponentName> mComponentNamesByAction =
@@ -515,7 +537,8 @@ public class ContextFixture implements TestFixture<Context> {
     private final Multimap<Intent, BroadcastReceiver> mOrderedBroadcastReceivers =
             ArrayListMultimap.create();
     private final HashSet<String> mPermissionTable = new HashSet<>();
-
+    private final HashSet<String> mSystemFeatures = new HashSet<>();
+    private Bundle mLastBroadcastOptions;
 
 
     // The application context is the most important object this class provides to the system
@@ -526,6 +549,7 @@ public class ContextFixture implements TestFixture<Context> {
     // when(...) logic to be used to add specific little responses where needed.
 
     private final Resources mResources = mock(Resources.class);
+    private final ApplicationInfo mApplicationInfo = mock(ApplicationInfo.class);
     private final PackageManager mPackageManager = mock(PackageManager.class);
     private final TelephonyManager mTelephonyManager = mock(TelephonyManager.class);
     private final DownloadManager mDownloadManager = mock(DownloadManager.class);
@@ -542,6 +566,7 @@ public class ContextFixture implements TestFixture<Context> {
     private final BatteryManager mBatteryManager = mock(BatteryManager.class);
     private final EuiccManager mEuiccManager = mock(EuiccManager.class);
     private final TelecomManager mTelecomManager = mock(TelecomManager.class);
+    private final PackageInfo mPackageInfo = mock(PackageInfo.class);
 
     private final ContentProvider mContentProvider = spy(new FakeContentProvider());
 
@@ -572,9 +597,21 @@ public class ContextFixture implements TestFixture<Context> {
             }
         }).when(mPackageManager).queryIntentServicesAsUser((Intent) any(), anyInt(), anyInt());
 
+        try {
+            doReturn(mPackageInfo).when(mPackageManager).getPackageInfoAsUser(any(), anyInt(),
+                    anyInt());
+        } catch (NameNotFoundException e) {
+        }
+
+        doAnswer((Answer<Boolean>)
+                invocation -> mSystemFeatures.contains((String) invocation.getArgument(0)))
+                .when(mPackageManager).hasSystemFeature(any());
+
         doReturn(mBundle).when(mCarrierConfigManager).getConfigForSubId(anyInt());
         //doReturn(mBundle).when(mCarrierConfigManager).getConfig(anyInt());
         doReturn(mBundle).when(mCarrierConfigManager).getConfig();
+
+        doReturn(true).when(mEuiccManager).isEnabled();
 
         mConfiguration.locale = Locale.US;
         doReturn(mConfiguration).when(mResources).getConfiguration();
@@ -679,6 +716,14 @@ public class ContextFixture implements TestFixture<Context> {
                 mPermissionTable.remove(permission);
             }
         }
+    }
+
+    public void addSystemFeature(String feature) {
+        mSystemFeatures.add(feature);
+    }
+
+    public Bundle getLastBroadcastOptions() {
+        return mLastBroadcastOptions;
     }
 
     private static void logd(String s) {

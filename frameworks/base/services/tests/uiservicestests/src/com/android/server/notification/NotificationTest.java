@@ -22,20 +22,18 @@ import static junit.framework.Assert.assertNull;
 
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.Matchers.anyInt;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
-import static org.mockito.Matchers.any;
-import static org.mockito.Matchers.anyInt;
 
 import android.app.ActivityManager;
 import android.app.Notification;
-import android.app.Person;
 import android.app.PendingIntent;
+import android.app.Person;
 import android.app.RemoteInput;
 import android.content.Context;
 import android.content.pm.ApplicationInfo;
-import android.content.pm.PackageManager;
 import android.content.res.Resources;
 import android.graphics.Bitmap;
 import android.graphics.Color;
@@ -43,12 +41,14 @@ import android.graphics.Typeface;
 import android.graphics.drawable.Icon;
 import android.net.Uri;
 import android.os.Build;
-import android.support.test.filters.SmallTest;
-import android.support.test.runner.AndroidJUnit4;
 import android.text.SpannableStringBuilder;
 import android.text.Spanned;
 import android.text.style.StyleSpan;
+import android.util.Pair;
 import android.widget.RemoteViews;
+
+import androidx.test.filters.SmallTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import com.android.server.UiServiceTestCase;
 
@@ -540,6 +540,95 @@ public class NotificationTest extends UiServiceTestCase {
                 .build();
 
         assertFalse(Notification.areActionsVisiblyDifferent(n1, n2));
+    }
+
+    @Test
+    public void testFreeformRemoteInputActionPair_noRemoteInput() {
+        PendingIntent intent = mock(PendingIntent.class);
+        Icon icon = mock(Icon.class);
+        Notification notification = new Notification.Builder(mContext, "test")
+                .addAction(new Notification.Action.Builder(icon, "TEXT 1", intent)
+                        .build())
+                .build();
+        assertNull(notification.findRemoteInputActionPair(false));
+    }
+
+    @Test
+    public void testFreeformRemoteInputActionPair_hasRemoteInput() {
+        PendingIntent intent = mock(PendingIntent.class);
+        Icon icon = mock(Icon.class);
+
+        RemoteInput remoteInput = new RemoteInput.Builder("a").build();
+
+        Notification.Action actionWithRemoteInput =
+                new Notification.Action.Builder(icon, "TEXT 1", intent)
+                        .addRemoteInput(remoteInput)
+                        .addRemoteInput(remoteInput)
+                        .build();
+
+        Notification.Action actionWithoutRemoteInput =
+                new Notification.Action.Builder(icon, "TEXT 2", intent)
+                        .build();
+
+        Notification notification = new Notification.Builder(mContext, "test")
+                .addAction(actionWithoutRemoteInput)
+                .addAction(actionWithRemoteInput)
+                .build();
+
+        Pair<RemoteInput, Notification.Action> remoteInputActionPair =
+                notification.findRemoteInputActionPair(false);
+
+        assertNotNull(remoteInputActionPair);
+        assertEquals(remoteInput, remoteInputActionPair.first);
+        assertEquals(actionWithRemoteInput, remoteInputActionPair.second);
+    }
+
+    @Test
+    public void testFreeformRemoteInputActionPair_requestFreeform_noFreeformRemoteInput() {
+        PendingIntent intent = mock(PendingIntent.class);
+        Icon icon = mock(Icon.class);
+        Notification notification = new Notification.Builder(mContext, "test")
+                .addAction(new Notification.Action.Builder(icon, "TEXT 1", intent)
+                        .addRemoteInput(
+                                new RemoteInput.Builder("a")
+                                        .setAllowFreeFormInput(false).build())
+                        .build())
+                .build();
+        assertNull(notification.findRemoteInputActionPair(true));
+    }
+
+    @Test
+    public void testFreeformRemoteInputActionPair_requestFreeform_hasFreeformRemoteInput() {
+        PendingIntent intent = mock(PendingIntent.class);
+        Icon icon = mock(Icon.class);
+
+        RemoteInput remoteInput =
+                new RemoteInput.Builder("a").setAllowFreeFormInput(false).build();
+        RemoteInput freeformRemoteInput =
+                new RemoteInput.Builder("b").setAllowFreeFormInput(true).build();
+
+        Notification.Action actionWithFreeformRemoteInput =
+                new Notification.Action.Builder(icon, "TEXT 1", intent)
+                        .addRemoteInput(remoteInput)
+                        .addRemoteInput(freeformRemoteInput)
+                        .build();
+
+        Notification.Action actionWithoutFreeformRemoteInput =
+                new Notification.Action.Builder(icon, "TEXT 2", intent)
+                        .addRemoteInput(remoteInput)
+                        .build();
+
+        Notification notification = new Notification.Builder(mContext, "test")
+                .addAction(actionWithoutFreeformRemoteInput)
+                .addAction(actionWithFreeformRemoteInput)
+                .build();
+
+        Pair<RemoteInput, Notification.Action> remoteInputActionPair =
+                notification.findRemoteInputActionPair(true);
+
+        assertNotNull(remoteInputActionPair);
+        assertEquals(freeformRemoteInput, remoteInputActionPair.first);
+        assertEquals(actionWithFreeformRemoteInput, remoteInputActionPair.second);
     }
 }
 

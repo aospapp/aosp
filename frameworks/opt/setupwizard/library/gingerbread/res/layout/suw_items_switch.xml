@@ -17,17 +17,17 @@
 
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
-    style="@style/SuwItemContainer.Verbose"
+    style="@style/SuwItemContainer"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:clipToPadding="false"
+    android:baselineAligned="false"
     android:orientation="horizontal">
 
     <FrameLayout
         android:id="@+id/suw_items_icon_container"
         android:layout_width="@dimen/suw_items_icon_container_width"
         android:layout_height="wrap_content"
-        android:layout_gravity="top"
+        android:layout_gravity="center_vertical"
         android:gravity="start">
 
         <ImageView
@@ -41,13 +41,13 @@
     <LinearLayout
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginBottom="@dimen/suw_items_verbose_padding_bottom_extra"
+        android:layout_marginBottom="@dimen/suw_items_padding_bottom_extra"
         android:layout_weight="1"
         android:orientation="vertical">
 
         <com.android.setupwizardlib.view.RichTextView
             android:id="@+id/suw_items_title"
-            style="@style/SuwItemTitle.Verbose"
+            style="@style/SuwItemTitle"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:gravity="start"
@@ -67,7 +67,7 @@
 
     </LinearLayout>
 
-    <android.support.v7.widget.SwitchCompat
+    <androidx.appcompat.widget.SwitchCompat
         android:id="@+id/suw_items_switch"
         style="@style/SuwSwitchStyle"
         android:layout_width="wrap_content"

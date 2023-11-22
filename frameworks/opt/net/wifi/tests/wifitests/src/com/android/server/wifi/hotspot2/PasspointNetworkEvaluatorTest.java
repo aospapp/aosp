@@ -19,7 +19,9 @@ package com.android.server.wifi.hotspot2;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.anyInt;
 import static org.mockito.Mockito.eq;
@@ -29,26 +31,36 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.mockito.MockitoAnnotations.initMocks;
 
+import android.net.wifi.EAPConstants;
 import android.net.wifi.ScanResult;
 import android.net.wifi.WifiConfiguration;
+import android.net.wifi.WifiEnterpriseConfig;
 import android.net.wifi.hotspot2.PasspointConfiguration;
 import android.net.wifi.hotspot2.pps.HomeSp;
-import android.support.test.filters.SmallTest;
+import android.telephony.SubscriptionManager;
+import android.telephony.TelephonyManager;
 import android.util.LocalLog;
 import android.util.Pair;
 
+import androidx.test.filters.SmallTest;
+
+import com.android.server.wifi.CarrierNetworkConfig;
 import com.android.server.wifi.NetworkUpdateResult;
 import com.android.server.wifi.ScanDetail;
 import com.android.server.wifi.WifiConfigManager;
+import com.android.server.wifi.WifiConfigurationTestUtil;
+import com.android.server.wifi.WifiInjector;
+import com.android.server.wifi.WifiNetworkSelector.NetworkEvaluator.OnConnectableListener;
 import com.android.server.wifi.util.ScanResultUtil;
+import com.android.server.wifi.util.TelephonyUtil;
 
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 
-import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -69,7 +81,14 @@ public class PasspointNetworkEvaluatorTest {
     private static final PasspointProvider TEST_PROVIDER2 = generateProvider(TEST_CONFIG2);
 
     @Mock PasspointManager mPasspointManager;
+    @Mock PasspointConfiguration mPasspointConfiguration;
     @Mock WifiConfigManager mWifiConfigManager;
+    @Mock OnConnectableListener mOnConnectableListener;
+    @Mock TelephonyManager mTelephonyManager;
+    @Mock TelephonyManager mDataTelephonyManager;
+    @Mock SubscriptionManager mSubscriptionManager;
+    @Mock CarrierNetworkConfig mCarrierNetworkConfig;
+    @Mock WifiInjector mWifiInjector;
     LocalLog mLocalLog;
     PasspointNetworkEvaluator mEvaluator;
 
@@ -106,7 +125,7 @@ public class PasspointNetworkEvaluatorTest {
      * Helper function for generating {@link ScanDetail} for testing.
      *
      * @param ssid The SSID associated with the scan
-     * @param rssiLevel The RSSI level associated with the scan
+     * @param bssid The BSSID associated with the scan
      * @return {@link ScanDetail}
      */
     private static ScanDetail generateScanDetail(String ssid, String bssid) {
@@ -132,8 +151,14 @@ public class PasspointNetworkEvaluatorTest {
     public void setUp() throws Exception {
         initMocks(this);
         mLocalLog = new LocalLog(512);
-        mEvaluator = new PasspointNetworkEvaluator(mPasspointManager, mWifiConfigManager,
-                mLocalLog);
+        mEvaluator = new PasspointNetworkEvaluator(mPasspointManager, mWifiConfigManager, mLocalLog,
+                mCarrierNetworkConfig, mWifiInjector, mSubscriptionManager);
+        when(mWifiInjector.makeTelephonyManager()).thenReturn(mTelephonyManager);
+        when(mTelephonyManager.createForSubscriptionId(anyInt())).thenReturn(mDataTelephonyManager);
+        // SIM is present
+        when(mSubscriptionManager.getActiveSubscriptionIdList()).thenReturn(new int[1]);
+        when(mDataTelephonyManager.getSimOperator()).thenReturn("123456");
+        when(mDataTelephonyManager.getSimState()).thenReturn(TelephonyManager.SIM_STATE_READY);
     }
 
     /**
@@ -146,11 +171,10 @@ public class PasspointNetworkEvaluatorTest {
         List<ScanDetail> scanDetails = Arrays.asList(new ScanDetail[] {
                 generateScanDetail(TEST_SSID1, TEST_BSSID1),
                 generateScanDetail(TEST_SSID2, TEST_BSSID2)});
-        List<Pair<ScanDetail, WifiConfiguration>> connectableNetworks = new ArrayList<>();
         when(mPasspointManager.matchProvider(any(ScanResult.class))).thenReturn(null);
         assertEquals(null, mEvaluator.evaluateNetworks(
-                scanDetails, null, null, false, false, connectableNetworks));
-        assertTrue(connectableNetworks.isEmpty());
+                scanDetails, null, null, false, false, mOnConnectableListener));
+        verify(mOnConnectableListener, never()).onConnectable(any(), any(), anyInt());
     }
 
     /**
@@ -167,10 +191,9 @@ public class PasspointNetworkEvaluatorTest {
         when(scanDetail.getNetworkDetail()).thenReturn(networkDetail);
 
         List<ScanDetail> scanDetails = Arrays.asList(new ScanDetail[] {scanDetail});
-        List<Pair<ScanDetail, WifiConfiguration>> connectableNetworks = new ArrayList<>();
         assertEquals(null, mEvaluator.evaluateNetworks(
-                scanDetails, null, null, false, false, connectableNetworks));
-        assertTrue(connectableNetworks.isEmpty());
+                scanDetails, null, null, false, false, mOnConnectableListener));
+        verify(mOnConnectableListener, never()).onConnectable(any(), any(), anyInt());
         // Verify that no provider matching is performed.
         verify(mPasspointManager, never()).matchProvider(any(ScanResult.class));
     }
@@ -191,8 +214,6 @@ public class PasspointNetworkEvaluatorTest {
         Pair<PasspointProvider, PasspointMatch> homeProvider = Pair.create(
                 TEST_PROVIDER1, PasspointMatch.HomeProvider);
 
-        List<Pair<ScanDetail, WifiConfiguration>> connectableNetworks = new ArrayList<>();
-
         // Return homeProvider for the first ScanDetail (TEST_SSID1) and a null (no match) for
         // for the second (TEST_SSID2);
         when(mPasspointManager.matchProvider(any(ScanResult.class))).thenReturn(homeProvider)
@@ -201,8 +222,8 @@ public class PasspointNetworkEvaluatorTest {
                 .thenReturn(new NetworkUpdateResult(TEST_NETWORK_ID));
         when(mWifiConfigManager.getConfiguredNetwork(TEST_NETWORK_ID)).thenReturn(TEST_CONFIG1);
         assertNotNull(mEvaluator.evaluateNetworks(scanDetails, null, null, false,
-                false, connectableNetworks));
-        assertEquals(1, connectableNetworks.size());
+                false, mOnConnectableListener));
+        verify(mOnConnectableListener).onConnectable(any(), any(), anyInt());
 
         // Verify the content of the WifiConfiguration that was added to WifiConfigManager.
         ArgumentCaptor<WifiConfiguration> addedConfig =
@@ -210,6 +231,8 @@ public class PasspointNetworkEvaluatorTest {
         verify(mWifiConfigManager).addOrUpdateNetwork(addedConfig.capture(), anyInt());
         assertEquals(ScanResultUtil.createQuotedSSID(TEST_SSID1), addedConfig.getValue().SSID);
         assertEquals(TEST_FQDN1, addedConfig.getValue().FQDN);
+        assertNotNull(addedConfig.getValue().enterpriseConfig);
+        assertEquals("", addedConfig.getValue().enterpriseConfig.getAnonymousIdentity());
         assertTrue(addedConfig.getValue().isHomeProviderNetwork);
         verify(mWifiConfigManager).enableNetwork(eq(TEST_NETWORK_ID), eq(false), anyInt());
         verify(mWifiConfigManager).setNetworkCandidateScanResult(
@@ -234,8 +257,6 @@ public class PasspointNetworkEvaluatorTest {
         Pair<PasspointProvider, PasspointMatch> roamingProvider = Pair.create(
                 TEST_PROVIDER1, PasspointMatch.RoamingProvider);
 
-        List<Pair<ScanDetail, WifiConfiguration>> connectableNetworks = new ArrayList<>();
-
         // Return roamingProvider for the first ScanDetail (TEST_SSID1) and a null (no match) for
         // for the second (TEST_SSID2);
         when(mPasspointManager.matchProvider(any(ScanResult.class))).thenReturn(roamingProvider)
@@ -244,8 +265,8 @@ public class PasspointNetworkEvaluatorTest {
                 .thenReturn(new NetworkUpdateResult(TEST_NETWORK_ID));
         when(mWifiConfigManager.getConfiguredNetwork(TEST_NETWORK_ID)).thenReturn(TEST_CONFIG1);
         assertNotNull(mEvaluator.evaluateNetworks(scanDetails, null, null, false,
-                false, connectableNetworks));
-        assertEquals(1, connectableNetworks.size());
+                false, mOnConnectableListener));
+        verify(mOnConnectableListener).onConnectable(any(), any(), anyInt());
 
         // Verify the content of the WifiConfiguration that was added to WifiConfigManager.
         ArgumentCaptor<WifiConfiguration> addedConfig =
@@ -253,6 +274,8 @@ public class PasspointNetworkEvaluatorTest {
         verify(mWifiConfigManager).addOrUpdateNetwork(addedConfig.capture(), anyInt());
         assertEquals(ScanResultUtil.createQuotedSSID(TEST_SSID1), addedConfig.getValue().SSID);
         assertEquals(TEST_FQDN1, addedConfig.getValue().FQDN);
+        assertNotNull(addedConfig.getValue().enterpriseConfig);
+        assertEquals("", addedConfig.getValue().enterpriseConfig.getAnonymousIdentity());
         assertFalse(addedConfig.getValue().isHomeProviderNetwork);
         verify(mWifiConfigManager).enableNetwork(eq(TEST_NETWORK_ID), eq(false), anyInt());
         verify(mWifiConfigManager).setNetworkCandidateScanResult(
@@ -279,8 +302,6 @@ public class PasspointNetworkEvaluatorTest {
         Pair<PasspointProvider, PasspointMatch> roamingProvider = Pair.create(
                 TEST_PROVIDER2, PasspointMatch.RoamingProvider);
 
-        List<Pair<ScanDetail, WifiConfiguration>> connectableNetworks = new ArrayList<>();
-
         // Return homeProvider for the first ScanDetail (TEST_SSID1) and
         // roamingProvider for the second (TEST_SSID2);
         when(mPasspointManager.matchProvider(any(ScanResult.class)))
@@ -289,8 +310,8 @@ public class PasspointNetworkEvaluatorTest {
                 .thenReturn(new NetworkUpdateResult(TEST_NETWORK_ID));
         when(mWifiConfigManager.getConfiguredNetwork(TEST_NETWORK_ID)).thenReturn(TEST_CONFIG1);
         assertNotNull(mEvaluator.evaluateNetworks(scanDetails, null, null, false,
-                false, connectableNetworks));
-        assertEquals(1, connectableNetworks.size());
+                false, mOnConnectableListener));
+        verify(mOnConnectableListener).onConnectable(any(), any(), anyInt());
 
         // Verify the content of the WifiConfiguration that was added to WifiConfigManager.
         ArgumentCaptor<WifiConfiguration> addedConfig =
@@ -298,6 +319,8 @@ public class PasspointNetworkEvaluatorTest {
         verify(mWifiConfigManager).addOrUpdateNetwork(addedConfig.capture(), anyInt());
         assertEquals(ScanResultUtil.createQuotedSSID(TEST_SSID1), addedConfig.getValue().SSID);
         assertEquals(TEST_FQDN1, addedConfig.getValue().FQDN);
+        assertNotNull(addedConfig.getValue().enterpriseConfig);
+        assertEquals("", addedConfig.getValue().enterpriseConfig.getAnonymousIdentity());
         assertTrue(addedConfig.getValue().isHomeProviderNetwork);
         verify(mWifiConfigManager).enableNetwork(eq(TEST_NETWORK_ID), eq(false), anyInt());
         verify(mWifiConfigManager).setNetworkCandidateScanResult(
@@ -329,12 +352,13 @@ public class PasspointNetworkEvaluatorTest {
         String currentBssid = TEST_BSSID2;
 
         // Returning the same matching provider for both ScanDetail.
-        List<Pair<ScanDetail, WifiConfiguration>> connectableNetworks = new ArrayList<>();
         when(mPasspointManager.matchProvider(any(ScanResult.class)))
                 .thenReturn(homeProvider).thenReturn(homeProvider);
+
         WifiConfiguration config = mEvaluator.evaluateNetworks(scanDetails, currentNetwork,
-                currentBssid, true, false, connectableNetworks);
-        assertEquals(1, connectableNetworks.size());
+                currentBssid, true, false, mOnConnectableListener);
+
+        verify(mOnConnectableListener).onConnectable(any(), any(), anyInt());
 
         // Verify no new network is added to WifiConfigManager.
         verify(mWifiConfigManager, never()).addOrUpdateNetwork(
@@ -360,14 +384,206 @@ public class PasspointNetworkEvaluatorTest {
         Pair<PasspointProvider, PasspointMatch> homeProvider = Pair.create(
                 testProvider, PasspointMatch.HomeProvider);
 
-        List<Pair<ScanDetail, WifiConfiguration>> connectableNetworks = new ArrayList<>();
         when(mPasspointManager.matchProvider(any(ScanResult.class))).thenReturn(homeProvider);
         when(testProvider.isSimCredential()).thenReturn(true);
-        when(mWifiConfigManager.isSimPresent()).thenReturn(false);
+        // SIM is absent
+        when(mSubscriptionManager.getActiveSubscriptionIdList()).thenReturn(new int[0]);
+
         assertEquals(null, mEvaluator.evaluateNetworks(
-                scanDetails, null, null, false, false, connectableNetworks));
-        assertTrue(connectableNetworks.isEmpty());
+                scanDetails, null, null, false, false, mOnConnectableListener));
+
+        verify(mOnConnectableListener, never()).onConnectable(any(), any(), anyInt());
         verify(testProvider, never()).getWifiConfig();
+    }
+
+    /**
+     * Verify that anonymous identity is empty when matching a SIM credential provider with a
+     * network that supports encrypted IMSI and anonymous identity. The anonymous identity will be
+     * populated with {@code anonymous@<realm>} by ClientModeImpl's handling of the
+     * CMD_START_CONNECT event.
+     */
+    @Test
+    public void evaluateSIMProviderWithNetworkSupportingEncryptedIMSI() {
+        // Setup ScanDetail and match providers.
+        List<ScanDetail> scanDetails = Collections.singletonList(
+                generateScanDetail(TEST_SSID1, TEST_BSSID1));
+        WifiConfiguration config = WifiConfigurationTestUtil.createEapNetwork(
+                WifiEnterpriseConfig.Eap.SIM, WifiEnterpriseConfig.Phase2.NONE);
+        config.networkId = TEST_NETWORK_ID;
+        PasspointProvider testProvider = generateProvider(config);
+        Pair<PasspointProvider, PasspointMatch> homeProvider = Pair.create(
+                testProvider, PasspointMatch.HomeProvider);
+        when(mPasspointManager.matchProvider(any(ScanResult.class))).thenReturn(homeProvider);
+        when(testProvider.isSimCredential()).thenReturn(true);
+        // SIM is present
+        when(mSubscriptionManager.getActiveSubscriptionIdList()).thenReturn(new int[1]);
+        when(mCarrierNetworkConfig.isCarrierEncryptionInfoAvailable()).thenReturn(true);
+        when(mWifiConfigManager.addOrUpdateNetwork(any(WifiConfiguration.class), anyInt()))
+                .thenReturn(new NetworkUpdateResult(TEST_NETWORK_ID));
+        when(mWifiConfigManager.getConfiguredNetwork(TEST_NETWORK_ID)).thenReturn(config);
+
+        WifiConfiguration result = mEvaluator.evaluateNetworks(scanDetails, null, null, false,
+                false, mOnConnectableListener);
+
+        assertEquals("", result.enterpriseConfig.getAnonymousIdentity());
+        assertTrue(TelephonyUtil.isSimEapMethod(result.enterpriseConfig.getEapMethod()));
+    }
+
+    /**
+     * Verify that it never creates an ephemeral Passpoint Configuration when the carrier does not
+     * support encrypted IMSI.
+     */
+    @Test
+    public void skipCreateEphemeralPasspointConfigurationWhenNoSupportEncryptedIMSI() {
+        // Setup ScanDetail and match providers.
+        List<ScanDetail> scanDetails = Arrays.asList(new ScanDetail[] {
+                generateScanDetail(TEST_SSID1, TEST_BSSID1)});
+        when(mCarrierNetworkConfig.isCarrierEncryptionInfoAvailable()).thenReturn(false);
+        when(mPasspointManager.hasCarrierProvider(anyString())).thenReturn(false);
+
+        assertEquals(null, mEvaluator.evaluateNetworks(
+                scanDetails, null, null, false, false, mOnConnectableListener));
+        verify(mPasspointManager, never()).createEphemeralPasspointConfigForCarrier(anyInt());
+    }
+
+    /**
+     * Verify that it never creates an ephemeral Passpoint Configuration when there is no SIM on the
+     * device.
+     */
+    @Test
+    public void skipCreateEphemeralPasspointConfigurationWithoutSIMCard() {
+        // Setup ScanDetail and match providers.
+        List<ScanDetail> scanDetails = Collections.singletonList(
+                generateScanDetail(TEST_SSID1, TEST_BSSID1));
+        // SIM is absent
+        when(mSubscriptionManager.getActiveSubscriptionIdList()).thenReturn(new int[0]);
+        when(mPasspointManager.hasCarrierProvider(anyString())).thenReturn(false);
+        when(mCarrierNetworkConfig.isCarrierEncryptionInfoAvailable()).thenReturn(true);
+
+        assertNull(mEvaluator.evaluateNetworks(
+                scanDetails, null, null, false, false, mOnConnectableListener));
+        verify(mPasspointManager, never()).createEphemeralPasspointConfigForCarrier(anyInt());
+    }
+
+    /**
+     * Verify that it never creates an ephemeral Passpoint Configuration when the carrier is not
+     * MNO.
+     */
+    @Test
+    public void skipCreateEphemeralPasspointConfigurationForNonMNO() {
+        // Setup ScanDetail and match providers.
+        List<ScanDetail> scanDetails = Arrays.asList(new ScanDetail[]{
+                generateScanDetail(TEST_SSID1, TEST_BSSID1)});
+        when(mDataTelephonyManager.getSimState()).thenReturn(TelephonyManager.SIM_STATE_READY);
+
+        // MVNO carrier is enabled.
+        when(mDataTelephonyManager.getCarrierIdFromSimMccMnc()).thenReturn(1);
+        when(mDataTelephonyManager.getSimCarrierId()).thenReturn(20);
+        when(mCarrierNetworkConfig.isCarrierEncryptionInfoAvailable()).thenReturn(true);
+        when(mPasspointManager.hasCarrierProvider(anyString())).thenReturn(false);
+        when(mPasspointManager.findEapMethodFromNAIRealmMatchedWithCarrier(
+                any(List.class))).thenReturn(
+                EAPConstants.EAP_AKA);
+
+        assertEquals(null, mEvaluator.evaluateNetworks(
+                scanDetails, null, null, false, false, mOnConnectableListener));
+        verify(mPasspointManager, never()).createEphemeralPasspointConfigForCarrier(anyInt());
+    }
+
+    /**
+     * Verify that it never creates an ephemeral Passpoint Configuration when the scan result is the
+     * one disconnected by user.
+     */
+    @Test
+    public void skipCreateEphemeralPasspointConfigurationForApDisconnectedByUser() {
+        // Setup ScanDetail and match providers.
+        List<ScanDetail> scanDetails = Arrays.asList(new ScanDetail[]{
+                generateScanDetail(TEST_SSID1, TEST_BSSID1)});
+        when(mDataTelephonyManager.getSimState()).thenReturn(TelephonyManager.SIM_STATE_READY);
+        when(mDataTelephonyManager.getSimCarrierId()).thenReturn(20);
+        when(mCarrierNetworkConfig.isCarrierEncryptionInfoAvailable()).thenReturn(true);
+        when(mPasspointManager.hasCarrierProvider(anyString())).thenReturn(false);
+        when(mPasspointManager.findEapMethodFromNAIRealmMatchedWithCarrier(
+                any(List.class))).thenReturn(
+                EAPConstants.EAP_AKA);
+        when(mWifiConfigManager.wasEphemeralNetworkDeleted("\"" + TEST_SSID1 + "\""))
+                .thenReturn(true);
+
+        assertEquals(null, mEvaluator.evaluateNetworks(
+                scanDetails, null, null, false, false, mOnConnectableListener));
+        verify(mPasspointManager, never()).createEphemeralPasspointConfigForCarrier(anyInt());
+    }
+
+    /**
+     * Verify that it never creates an ephemeral Passpoint Configuration when the profile for the
+     * carrier already exists.
+     */
+    @Test
+    public void skipCreateEphemeralPasspointConfigurationWhenProfileExists() {
+        // Setup ScanDetail and match providers.
+        List<ScanDetail> scanDetails = Arrays.asList(new ScanDetail[] {
+                generateScanDetail(TEST_SSID1, TEST_BSSID1)});
+        when(mCarrierNetworkConfig.isCarrierEncryptionInfoAvailable()).thenReturn(true);
+        when(mPasspointManager.hasCarrierProvider(anyString())).thenReturn(true);
+
+        assertEquals(null, mEvaluator.evaluateNetworks(
+                scanDetails, null, null, false, false, mOnConnectableListener));
+        verify(mPasspointManager, never()).createEphemeralPasspointConfigForCarrier(anyInt());
+    }
+
+    /**
+     * Verify that it creates an ephemeral Passpoint Configuration when a EAP-Method is found from
+     * NAI realms matched with the carrier.
+     */
+    @Test
+    public void createEphemeralPasspointConfigurationWhenEapMethodIsFoundFromMatchingNAIRealm() {
+        // Setup ScanDetail
+        List<ScanDetail> scanDetails = Arrays.asList(new ScanDetail[]{
+                generateScanDetail(TEST_SSID1, TEST_BSSID1)});
+        when(mDataTelephonyManager.getSimState()).thenReturn(TelephonyManager.SIM_STATE_READY);
+
+        // MNO carrier is enabled.
+        when(mDataTelephonyManager.getCarrierIdFromSimMccMnc()).thenReturn(1);
+        when(mDataTelephonyManager.getSimCarrierId()).thenReturn(1);
+        when(mCarrierNetworkConfig.isCarrierEncryptionInfoAvailable()).thenReturn(true);
+        when(mPasspointManager.hasCarrierProvider(anyString())).thenReturn(false);
+        when(mPasspointManager.findEapMethodFromNAIRealmMatchedWithCarrier(
+                any(List.class))).thenReturn(
+                EAPConstants.EAP_AKA);
+
+        assertEquals(null, mEvaluator.evaluateNetworks(
+                scanDetails, null, null, false, false, mOnConnectableListener));
+        verify(mPasspointManager).findEapMethodFromNAIRealmMatchedWithCarrier(any(List.class));
+        verify(mPasspointManager).createEphemeralPasspointConfigForCarrier(
+                eq(EAPConstants.EAP_AKA));
+    }
+
+    /**
+     * Verify that it installs the ephemeral configuration when the config is created for the
+     * carrier.
+     */
+    @Test
+    public void installEphemeralPasspointConfiguration() {
+        // Setup ScanDetail
+        List<ScanDetail> scanDetails = Arrays.asList(new ScanDetail[]{
+                generateScanDetail(TEST_SSID1, TEST_BSSID1)});
+        when(mDataTelephonyManager.getSimState()).thenReturn(TelephonyManager.SIM_STATE_READY);
+
+        // MNO carrier is enabled.
+        when(mDataTelephonyManager.getCarrierIdFromSimMccMnc()).thenReturn(1);
+        when(mDataTelephonyManager.getSimCarrierId()).thenReturn(1);
+        when(mCarrierNetworkConfig.isCarrierEncryptionInfoAvailable()).thenReturn(true);
+        when(mPasspointManager.hasCarrierProvider(anyString())).thenReturn(false);
+        when(mPasspointManager.findEapMethodFromNAIRealmMatchedWithCarrier(
+                any(List.class))).thenReturn(
+                EAPConstants.EAP_AKA);
+        when(mPasspointManager.createEphemeralPasspointConfigForCarrier(
+                EAPConstants.EAP_AKA)).thenReturn(mPasspointConfiguration);
+
+        assertEquals(null, mEvaluator.evaluateNetworks(
+                scanDetails, null, null, false, false, mOnConnectableListener));
+        verify(mPasspointManager).installEphemeralPasspointConfigForCarrier(
+                eq(mPasspointConfiguration));
     }
 
     /**
@@ -391,11 +607,12 @@ public class PasspointNetworkEvaluatorTest {
         String currentBssid = TEST_BSSID1;
 
         // Match the current connected network to a home provider.
-        List<Pair<ScanDetail, WifiConfiguration>> connectableNetworks = new ArrayList<>();
         when(mPasspointManager.matchProvider(any(ScanResult.class))).thenReturn(homeProvider);
-        WifiConfiguration config = mEvaluator.evaluateNetworks(scanDetails, currentNetwork,
-                currentBssid, true, false, connectableNetworks);
-        assertEquals(1, connectableNetworks.size());
+
+        assertNotNull(mEvaluator.evaluateNetworks(scanDetails, currentNetwork,
+                currentBssid, true, false, mOnConnectableListener));
+
+        verify(mOnConnectableListener).onConnectable(any(), any(), anyInt());
 
         // Verify network candidate information is updated.
         ArgumentCaptor<ScanResult> updatedCandidateScanResult =
@@ -408,5 +625,68 @@ public class PasspointNetworkEvaluatorTest {
         verify(mWifiConfigManager).updateScanDetailForNetwork(eq(TEST_NETWORK_ID),
                 updatedCandidateScanDetail.capture());
         assertEquals(TEST_BSSID2, updatedCandidateScanDetail.getValue().getBSSIDString());
+    }
+
+    /**
+     * Verify that the current configuration for the passpoint network is disabled, it returns
+     * {@null} for the candidate.
+     */
+    @Test
+    public void evaluateNetworkWithDisabledWifiConfig() {
+        List<ScanDetail> scanDetails = Arrays.asList(new ScanDetail[]{
+                generateScanDetail(TEST_SSID1, TEST_BSSID1),
+                generateScanDetail(TEST_SSID2, TEST_BSSID2)});
+
+        WifiConfiguration disableConfig = new WifiConfiguration();
+        WifiConfiguration.NetworkSelectionStatus selectionStatus =
+                new WifiConfiguration.NetworkSelectionStatus();
+        selectionStatus.setNetworkSelectionDisableReason(
+                WifiConfiguration.NetworkSelectionStatus.DISABLED_DHCP_FAILURE);
+        selectionStatus.setNetworkSelectionStatus(
+                WifiConfiguration.NetworkSelectionStatus.NETWORK_SELECTION_TEMPORARY_DISABLED);
+        disableConfig.setNetworkSelectionStatus(selectionStatus);
+        disableConfig.networkId = TEST_NETWORK_ID;
+        TEST_CONFIG1.networkId = TEST_NETWORK_ID;
+
+        // Setup matching providers for ScanDetail with TEST_SSID1.
+        Pair<PasspointProvider, PasspointMatch> homeProvider = Pair.create(
+                TEST_PROVIDER1, PasspointMatch.HomeProvider);
+
+        // Return homeProvider for the first ScanDetail (TEST_SSID1) and a null (no match) for
+        // for the second (TEST_SSID2);
+        when(mPasspointManager.matchProvider(any(ScanResult.class))).thenReturn(homeProvider)
+                .thenReturn(null);
+        when(mWifiConfigManager.getConfiguredNetwork(anyString())).thenReturn(disableConfig);
+
+        assertNull(mEvaluator.evaluateNetworks(scanDetails, null, null, false,
+                false, mOnConnectableListener));
+        verify(mWifiConfigManager, never()).addOrUpdateNetwork(any(WifiConfiguration.class),
+                anyInt());
+        verify(mOnConnectableListener, never()).onConnectable(any(), any(), anyInt());
+    }
+
+    /**
+     * Verify that when a network matching a home provider is found, but the network was
+     * disconnected previously by user, it returns {@code null} for candidate.
+     */
+    @Test
+    public void evaluateScanResultWithHomeMatchButPreviouslyUserDisconnected() {
+        List<ScanDetail> scanDetails = Arrays.asList(new ScanDetail[]{
+                generateScanDetail(TEST_SSID1, TEST_BSSID1)});
+
+        // Setup matching providers for ScanDetail with TEST_SSID1.
+        Pair<PasspointProvider, PasspointMatch> homeProvider = Pair.create(
+                TEST_PROVIDER1, PasspointMatch.HomeProvider);
+
+        // Return homeProvider for the first ScanDetail (TEST_SSID1).
+        when(mPasspointManager.matchProvider(any(ScanResult.class))).thenReturn(homeProvider);
+        when(mWifiConfigManager.addOrUpdateNetwork(any(WifiConfiguration.class), anyInt()))
+                .thenReturn(new NetworkUpdateResult(TEST_NETWORK_ID));
+        when(mWifiConfigManager.getConfiguredNetwork(TEST_NETWORK_ID)).thenReturn(TEST_CONFIG1);
+        when(mWifiConfigManager.wasEphemeralNetworkDeleted("\"" + TEST_SSID1 + "\""))
+                .thenReturn(true);
+        assertEquals(null, mEvaluator.evaluateNetworks(
+                scanDetails, null, null, false, false, mOnConnectableListener));
+        verify(mOnConnectableListener, never()).onConnectable(any(), any(), anyInt());
     }
 }

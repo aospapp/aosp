@@ -61,7 +61,7 @@ static SLresult IPlay_SetPlayState(SLPlayItf self, SLuint32 state)
                     // note that USE_OUTPUTMIXEXT does not support ATTR_ABQ_ENQUEUE
                     attr |= ATTR_BQ_ENQUEUE;
                 }
-                // fall through
+                FALLTHROUGH_INTENDED;
 
             case (SL_PLAYSTATE_STOPPED  << 2) | SL_PLAYSTATE_PAUSED:
             case (SL_PLAYSTATE_PLAYING  << 2) | SL_PLAYSTATE_PAUSED:

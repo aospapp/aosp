@@ -16,6 +16,8 @@
 
 package com.android.server.wifi.hotspot2;
 
+import static android.net.NetworkCapabilities.NET_CAPABILITY_TRUSTED;
+
 import static org.junit.Assert.*;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.anyInt;
@@ -42,7 +44,8 @@ import android.net.wifi.WifiManager;
 import android.net.wifi.WifiSsid;
 import android.os.Handler;
 import android.os.test.TestLooper;
-import android.support.test.filters.SmallTest;
+
+import androidx.test.filters.SmallTest;
 
 import com.android.server.wifi.TestUtil;
 
@@ -55,7 +58,7 @@ import org.mockito.MockitoAnnotations;
 import java.net.InetAddress;
 
 /**
- * Unit tests for {@link com.android.server.wifi.hotspot2.PasspointProvisioner}.
+ * Unit tests for {@link OsuNetworkConnection}.
  */
 @SmallTest
 public class OsuNetworkConnectionTest {
@@ -66,6 +69,7 @@ public class OsuNetworkConnectionTest {
     private static final int TEST_NETWORK_ID = 6;
     private static final String TEST_NAI = null;
     private static final String TEST_NAI_OSEN = "access.test.com";
+    private static final String TEST_PROVIDER_NAME = "testService";
     private static final WifiSsid TEST_SSID = WifiSsid.createFromAsciiEncoded("Test SSID");
 
     private OsuNetworkConnection mNetworkConnection;
@@ -89,6 +93,7 @@ public class OsuNetworkConnectionTest {
         when(mWifiManager.isWifiEnabled()).thenReturn(true);
         when(mWifiManager.enableNetwork(TEST_NETWORK_ID, true)).thenReturn(true);
         when(mWifiManager.addNetwork(any(WifiConfiguration.class))).thenReturn(TEST_NETWORK_ID);
+        when(mWifiManager.getConnectionInfo()).thenReturn(mWifiInfo);
         when(mWifiInfo.getNetworkId()).thenReturn(TEST_NETWORK_ID);
         mLooper = new TestLooper();
         mHandler = new Handler(mLooper.getLooper());
@@ -160,7 +165,7 @@ public class OsuNetworkConnectionTest {
     public void verifyNetworkConnectionWhenWifiIsDisabled() {
         when(mWifiManager.isWifiEnabled()).thenReturn(false);
         mNetworkConnection.init(mHandler);
-        assertEquals(false, mNetworkConnection.connect(TEST_SSID, TEST_NAI));
+        assertEquals(false, mNetworkConnection.connect(TEST_SSID, TEST_NAI, TEST_PROVIDER_NAME));
     }
 
     /**
@@ -169,7 +174,8 @@ public class OsuNetworkConnectionTest {
     @Test
     public void verifyOSENUnsupported() {
         mNetworkConnection.init(mHandler);
-        assertEquals(false, mNetworkConnection.connect(TEST_SSID, TEST_NAI_OSEN));
+        assertEquals(false,
+                mNetworkConnection.connect(TEST_SSID, TEST_NAI_OSEN, TEST_PROVIDER_NAME));
     }
 
     /**
@@ -180,7 +186,7 @@ public class OsuNetworkConnectionTest {
     public void verifyNetworkConnectionWhenAddNetworkFails() {
         when(mWifiManager.addNetwork(any(WifiConfiguration.class))).thenReturn(-1);
         mNetworkConnection.init(mHandler);
-        assertEquals(false, mNetworkConnection.connect(TEST_SSID, TEST_NAI));
+        assertEquals(false, mNetworkConnection.connect(TEST_SSID, TEST_NAI, TEST_PROVIDER_NAME));
         verify(mWifiManager, never()).removeNetwork(TEST_NETWORK_ID);
     }
 
@@ -192,7 +198,7 @@ public class OsuNetworkConnectionTest {
     public void verifyNetworkConnectionWhenEnableNetworkFails() {
         when(mWifiManager.enableNetwork(TEST_NETWORK_ID, true)).thenReturn(false);
         mNetworkConnection.init(mHandler);
-        assertEquals(false, mNetworkConnection.connect(TEST_SSID, TEST_NAI));
+        assertEquals(false, mNetworkConnection.connect(TEST_SSID, TEST_NAI, TEST_PROVIDER_NAME));
         verify(mWifiManager).removeNetwork(TEST_NETWORK_ID);
     }
 
@@ -206,20 +212,47 @@ public class OsuNetworkConnectionTest {
         mNetworkConnection.init(mHandler);
 
         mNetworkConnection.setEventCallback(mNetworkCallbacks);
-        assertEquals(true, mNetworkConnection.connect(TEST_SSID, TEST_NAI));
+        assertEquals(true, mNetworkConnection.connect(TEST_SSID, TEST_NAI, TEST_PROVIDER_NAME));
 
         ArgumentCaptor<ConnectivityManager.NetworkCallback> networkCallbackCaptor =
                 ArgumentCaptor.forClass(ConnectivityManager.NetworkCallback.class);
         verify(mConnectivityManager).requestNetwork(any(NetworkRequest.class),
                 networkCallbackCaptor.capture(), any(Handler.class), anyInt());
         ConnectivityManager.NetworkCallback callback = networkCallbackCaptor.getValue();
+        callback.onAvailable(mCurrentNetwork);
         callback.onLinkPropertiesChanged(mCurrentNetwork, createProvisionedLinkProperties());
         verify(mNetworkCallbacks).onConnected(mCurrentNetwork);
 
         callback.onLost(mCurrentNetwork);
         verify(mNetworkCallbacks).onDisconnected();
+
         mNetworkConnection.disconnectIfNeeded();
+
+        verify(mConnectivityManager).unregisterNetworkCallback(any(ConnectivityManager
+                .NetworkCallback.class));
         verify(mWifiManager).removeNetwork(TEST_NETWORK_ID);
+    }
+
+    /**
+     * Verifies that onConnected callback are never invoked when onLinkPropertiesChanged is invoked
+     * without onAvailable of NetworkCallback.
+     */
+    @Test
+    public void verifyNetworkCallbackWithoutOnAvailable() {
+        mNetworkConnection.init(mHandler);
+
+        mNetworkConnection.setEventCallback(mNetworkCallbacks);
+        assertEquals(true, mNetworkConnection.connect(TEST_SSID, TEST_NAI, TEST_PROVIDER_NAME));
+
+        ArgumentCaptor<ConnectivityManager.NetworkCallback> networkCallbackCaptor =
+                ArgumentCaptor.forClass(ConnectivityManager.NetworkCallback.class);
+        verify(mConnectivityManager).requestNetwork(any(NetworkRequest.class),
+                networkCallbackCaptor.capture(), any(Handler.class), anyInt());
+        ConnectivityManager.NetworkCallback callback = networkCallbackCaptor.getValue();
+
+        callback.onLinkPropertiesChanged(mCurrentNetwork, createProvisionedLinkProperties());
+
+        verify(mNetworkCallbacks, never()).onConnected(mCurrentNetwork);
     }
 
     /**
@@ -232,7 +265,7 @@ public class OsuNetworkConnectionTest {
         mNetworkConnection.init(mHandler);
 
         mNetworkConnection.setEventCallback(mNetworkCallbacks);
-        assertEquals(true, mNetworkConnection.connect(TEST_SSID, TEST_NAI));
+        assertEquals(true, mNetworkConnection.connect(TEST_SSID, TEST_NAI, TEST_PROVIDER_NAME));
 
         ArgumentCaptor<ConnectivityManager.NetworkCallback> networkCallbackCaptor =
                 ArgumentCaptor.forClass(ConnectivityManager.NetworkCallback.class);
@@ -244,7 +277,11 @@ public class OsuNetworkConnectionTest {
 
         callback.onUnavailable();
         verify(mNetworkCallbacks).onTimeOut();
+
         mNetworkConnection.disconnectIfNeeded();
+
+        verify(mConnectivityManager).unregisterNetworkCallback(any(ConnectivityManager
+                .NetworkCallback.class));
         verify(mWifiManager).removeNetwork(TEST_NETWORK_ID);
     }
 
@@ -255,9 +292,39 @@ public class OsuNetworkConnectionTest {
     @Test
     public void verifyNetworkDisconnect() {
         mNetworkConnection.init(mHandler);
-        assertEquals(true, mNetworkConnection.connect(TEST_SSID, TEST_NAI));
+        assertEquals(true, mNetworkConnection.connect(TEST_SSID, TEST_NAI, TEST_PROVIDER_NAME));
+
         mNetworkConnection.disconnectIfNeeded();
+
+        verify(mConnectivityManager).unregisterNetworkCallback(any(ConnectivityManager
+                .NetworkCallback.class));
         verify(mWifiManager).removeNetwork(TEST_NETWORK_ID);
     }
-}
 
+    /**
+     * Verifies that {@link WifiConfiguration} has been created properly for OSU network.
+     * It is supposed to create a network as ephemeral network and suppress no internet access
+     * notification.
+     */
+    @Test
+    public void verifyWifiConfigurationForOsuNetwork() {
+        mNetworkConnection.init(mHandler);
+
+        assertEquals(true, mNetworkConnection.connect(TEST_SSID, TEST_NAI, TEST_PROVIDER_NAME));
+
+        ArgumentCaptor<WifiConfiguration> wifiConfigurationCaptor = ArgumentCaptor.forClass(
+                WifiConfiguration.class);
+        verify(mWifiManager, times(1)).addNetwork(wifiConfigurationCaptor.capture());
+        WifiConfiguration wifiConfiguration = wifiConfigurationCaptor.getValue();
+        assertTrue(wifiConfiguration.isNoInternetAccessExpected());
+        assertTrue(wifiConfiguration.isEphemeral());
+        assertTrue(wifiConfiguration.osu);
+
+        ArgumentCaptor<NetworkRequest> networkRequestCaptor = ArgumentCaptor.forClass(
+                NetworkRequest.class);
+        verify(mConnectivityManager, times(1)).requestNetwork(networkRequestCaptor.capture(),
+                any(ConnectivityManager.NetworkCallback.class), any(Handler.class), anyInt());
+        assertFalse(networkRequestCaptor.getValue().hasCapability(NET_CAPABILITY_TRUSTED));
+
+    }
+}

@@ -17,6 +17,8 @@
 #ifndef MINIKIN_TEST_FREE_TYPE_MINIKIN_FONT_FOR_TEST_H
 #define MINIKIN_TEST_FREE_TYPE_MINIKIN_FONT_FOR_TEST_H
 
+#include <string>
+
 #include "minikin/MinikinFont.h"
 
 #include <ft2build.h>

@@ -30,6 +30,7 @@
 #include <GLES/glext.h>
 #endif
 
+#include <malloc.h> // for memalign()
 #include <unistd.h> // for close()
 
 using android::renderscript::Allocation;

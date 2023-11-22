@@ -16,14 +16,14 @@
 
 package com.android.server.wifi;
 
-import com.android.internal.app.IBatteryStats;
-
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.anyInt;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
-import android.support.test.filters.SmallTest;
+import androidx.test.filters.SmallTest;
+
+import com.android.internal.app.IBatteryStats;
 
 import org.junit.Before;
 import org.junit.Test;

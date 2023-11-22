@@ -33,8 +33,6 @@ public:
 
     float getAt(size_t) const override { return mWidth; }
     float getMin() const override { return mWidth; }
-    float getLeftPaddingAt(size_t) const override { return 0; }
-    float getRightPaddingAt(size_t) const override { return 0; }
 
 private:
     float mWidth;
@@ -43,18 +41,24 @@ private:
 // The run implemenataion for returning the same width for all characters.
 class ConstantRun : public Run {
 public:
-    ConstantRun(const Range& range, const std::string& lang, float width)
-            : Run(range), mPaint(nullptr /* font collection */), mWidth(width) {
+    ConstantRun(const Range& range, const std::string& lang, float width, float ascent,
+                float descent)
+            : Run(range),
+              mPaint(nullptr /* font collection */),
+              mWidth(width),
+              mAscent(ascent),
+              mDescent(descent) {
         mLocaleListId = LocaleListCache::getId(lang);
     }
 
     virtual bool isRtl() const override { return false; }
-    virtual bool canHyphenate() const override { return true; }
+    virtual bool canBreak() const override { return true; }
     virtual uint32_t getLocaleListId() const { return mLocaleListId; }
 
-    virtual void getMetrics(const U16StringPiece&, float* advances, MinikinExtent*,
+    virtual void getMetrics(const U16StringPiece&, std::vector<float>* advances, LayoutPieces*,
                             LayoutPieces*) const {
-        std::fill(advances, advances + mRange.getLength(), mWidth);
+        std::fill(advances->begin() + mRange.getStart(), advances->begin() + mRange.getEnd(),
+                  mWidth);
     }
 
     virtual std::pair<float, MinikinRect> getBounds(const U16StringPiece& /* text */,
@@ -63,10 +67,15 @@ public:
         return std::make_pair(mWidth, MinikinRect());
     }
 
+    virtual MinikinExtent getExtent(const U16StringPiece& /* text */, const Range& /* range */,
+                                    const LayoutPieces& /* pieces */) const override {
+        return {mAscent, mDescent};
+    }
+
     virtual const MinikinPaint* getPaint() const { return &mPaint; }
 
     virtual float measureHyphenPiece(const U16StringPiece&, const Range& range,
-                                     StartHyphenEdit start, EndHyphenEdit end, float*,
+                                     StartHyphenEdit start, EndHyphenEdit end,
                                      LayoutPieces*) const {
         uint32_t extraCharForHyphen = 0;
         if (isInsertion(start)) {
@@ -78,21 +87,25 @@ public:
         return mWidth * (range.getLength() + extraCharForHyphen);
     }
 
+    virtual void appendLayout(const U16StringPiece&, const Range&, const Range&,
+                              const LayoutPieces&, const MinikinPaint&, uint32_t, StartHyphenEdit,
+                              EndHyphenEdit, Layout*) const {}
+
 private:
     MinikinPaint mPaint;
     uint32_t mLocaleListId;
     float mWidth;
+    float mAscent;
+    float mDescent;
 };
 
 struct LineBreakExpectation {
-    LineBreakExpectation(const std::string& lineContent, float width, StartHyphenEdit startEdit,
-                         EndHyphenEdit endEdit)
-            : mLineContent(lineContent), mWidth(width), mStartEdit(startEdit), mEndEdit(endEdit){};
-
     std::string mLineContent;
     float mWidth;
     StartHyphenEdit mStartEdit;
     EndHyphenEdit mEndEdit;
+    float mAscent;
+    float mDescent;
 };
 
 static bool sameLineBreak(const std::vector<LineBreakExpectation>& expected,
@@ -134,6 +147,12 @@ static bool sameLineBreak(const std::vector<LineBreakExpectation>& expected,
         if (expected[i].mEndEdit != endHyphenEdit(edit)) {
             return false;
         }
+        if (expected[i].mAscent != actual.ascents[i]) {
+            return false;
+        }
+        if (expected[i].mDescent != actual.descents[i]) {
+            return false;
+        }
     }
     return true;
 }
@@ -146,8 +165,9 @@ static std::string toString(const std::vector<LineBreakExpectation>& lines) {
 
         char lineMsg[128] = {};
         snprintf(lineMsg, sizeof(lineMsg),
-                 "Line %2d, Width: %5.1f, Hyphen(%hhu, %hhu), Text: \"%s\"\n", i, line.mWidth,
-                 line.mStartEdit, line.mEndEdit, line.mLineContent.c_str());
+                 "Line %2d, Width: %5.1f, Hyphen(%hhu, %hhu), Extent(%5.1f, %5.1f), Text: \"%s\"\n",
+                 i, line.mWidth, line.mStartEdit, line.mEndEdit, line.mAscent, line.mDescent,
+                 line.mLineContent.c_str());
         out += lineMsg;
     }
     return out;
@@ -172,8 +192,9 @@ static std::string toString(const U16StringPiece& textBuf, const LineBreakResult
         }
         char lineMsg[128] = {};
         snprintf(lineMsg, sizeof(lineMsg),
-                 "Line %2d, Width: %5.1f, Hyphen(%hhu, %hhu), Text: \"%s\"\n", i, lines.widths[i],
-                 startEdit, endEdit, hyphenatedStr.c_str());
+                 "Line %2d, Width: %5.1f, Hyphen(%hhu, %hhu), Extent(%5.1f, %5.1f), Text: \"%s\"\n",
+                 i, lines.widths[i], startEdit, endEdit, lines.ascents[i], lines.descents[i],
+                 hyphenatedStr.c_str());
         out += lineMsg;
     }
     return out;

@@ -2,8 +2,6 @@ cc_test {
 
     name: "DrmSessionManager_test",
 
-    tags: ["tests"],
-
     srcs: ["DrmSessionManager_test.cpp"],
 
     shared_libs: [
@@ -13,9 +11,8 @@ cc_test {
         "libutils",
         "android.hardware.drm@1.0",
         "android.hardware.drm@1.1",
+        "android.hardware.drm@1.2",
     ],
-
-    compile_multilib: "32",
 
     cflags: [
         "-Werror",

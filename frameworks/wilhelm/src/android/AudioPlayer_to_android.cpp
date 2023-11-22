@@ -117,9 +117,9 @@ SLresult aplayer_setPlayState(const android::sp<android::GenericPlayer> &ap, SLu
          case ANDROID_UNINITIALIZED:
              *pObjState = ANDROID_PREPARING;
              ap->prepare();
-             // intended fall through
+             FALLTHROUGH_INTENDED;
          case ANDROID_PREPARING:
-             // intended fall through
+             FALLTHROUGH_INTENDED;
          case ANDROID_READY:
              ap->play();
              break;
@@ -1064,6 +1064,7 @@ SLresult android_audioPlayer_checkSourceSink(CAudioPlayer *pAudioPlayer)
             // checkDataFormat() already checked representation
             df_representation = &df_pcm->representation;
             } // SL_ANDROID_DATAFORMAT_PCM_EX - fall through to next test.
+            FALLTHROUGH_INTENDED;
         case SL_DATAFORMAT_PCM: {
             // checkDataFormat() already did generic checks, now do the Android-specific checks
             const SLDataFormat_PCM *df_pcm = (const SLDataFormat_PCM *) pAudioSrc->pFormat;
@@ -1360,6 +1361,7 @@ static void audioTrack_callBack_pullFromBuffQueue(int event, void* user, void *i
     case android::AudioTrack::EVENT_LOOP_END:
     case android::AudioTrack::EVENT_STREAM_END:
         // These are unexpected so fall through
+        FALLTHROUGH_INTENDED;
     default:
         // FIXME where does the notification of SL_PLAYEVENT_HEADMOVING fit?
         SL_LOGE("Encountered unknown AudioTrack event %d for CAudioPlayer %p", event,
@@ -1598,7 +1600,7 @@ static void checkAndSetPerformanceModePost(CAudioPlayer *pAudioPlayer)
             break;
         }
         pAudioPlayer->mPerformanceMode = ANDROID_PERFORMANCE_MODE_LATENCY_EFFECTS;
-        /* FALL THROUGH */
+        FALLTHROUGH_INTENDED;
     case ANDROID_PERFORMANCE_MODE_LATENCY_EFFECTS:
         if ((flags & AUDIO_OUTPUT_FLAG_FAST) == 0) {
             pAudioPlayer->mPerformanceMode = ANDROID_PERFORMANCE_MODE_NONE;
@@ -1695,6 +1697,9 @@ SLresult android_audioPlayer_realize(CAudioPlayer *pAudioPlayer, SLboolean async
                 pAudioPlayer->mSessionId);
         android::status_t status = pat->initCheck();
         if (status != android::NO_ERROR) {
+            // AudioTracks are meant to be refcounted, so their dtor is protected.
+            static_cast<void>(android::sp<android::AudioTrack>(pat));
+
             SL_LOGE("AudioTrack::initCheck status %u", status);
             // FIXME should return a more specific result depending on status
             result = SL_RESULT_CONTENT_UNSUPPORTED;
@@ -1960,16 +1965,22 @@ SLresult android_audioPlayer_destroy(CAudioPlayer *pAudioPlayer) {
     SL_LOGV("android_audioPlayer_destroy(%p)", pAudioPlayer);
     switch (pAudioPlayer->mAndroidObjType) {
 
-    case AUDIOPLAYER_FROM_PCM_BUFFERQUEUE: // intended fall-throughk, both types of players
-                                           //   use the TrackPlayerBase for playback
     case AUDIOPLAYER_FROM_URIFD:
+        if (pAudioPlayer->mObject.mEngine->mAudioManager != 0) {
+            pAudioPlayer->mObject.mEngine->mAudioManager->releasePlayer(pAudioPlayer->mPIId);
+        }
+        // intended fall-throughk, both types of players
+        // use the TrackPlayerBase for playback
+        FALLTHROUGH_INTENDED;
+    case AUDIOPLAYER_FROM_PCM_BUFFERQUEUE:
         if (pAudioPlayer->mTrackPlayer != 0) {
             pAudioPlayer->mTrackPlayer->destroy();
         }
-
-        // intended fall-through
-    case AUDIOPLAYER_FROM_TS_ANDROIDBUFFERQUEUE:    // intended fall-through
-    case AUDIOPLAYER_FROM_URIFD_TO_PCM_BUFFERQUEUE: // intended fall-through
+        FALLTHROUGH_INTENDED;
+    case AUDIOPLAYER_FROM_TS_ANDROIDBUFFERQUEUE:
+        FALLTHROUGH_INTENDED;
+    case AUDIOPLAYER_FROM_URIFD_TO_PCM_BUFFERQUEUE:
+        FALLTHROUGH_INTENDED;
     case AUDIOPLAYER_FROM_ADTS_ABQ_TO_PCM_BUFFERQUEUE:
         pAudioPlayer->mAPlayer.clear();
         break;
@@ -2262,8 +2273,10 @@ void android_audioPlayer_setPlayState(CAudioPlayer *ap) {
         }
         break;
 
-    case AUDIOPLAYER_FROM_TS_ANDROIDBUFFERQUEUE:     // intended fall-through
-    case AUDIOPLAYER_FROM_URIFD_TO_PCM_BUFFERQUEUE:  // intended fall-through
+    case AUDIOPLAYER_FROM_TS_ANDROIDBUFFERQUEUE:
+        FALLTHROUGH_INTENDED;
+    case AUDIOPLAYER_FROM_URIFD_TO_PCM_BUFFERQUEUE:
+        FALLTHROUGH_INTENDED;
     case AUDIOPLAYER_FROM_ADTS_ABQ_TO_PCM_BUFFERQUEUE:
         // FIXME report and use the return code to the lock mechanism, which is where play state
         //   changes are updated (see object_unlock_exclusive_attributes())
@@ -2337,7 +2350,8 @@ SLresult android_audioPlayer_getDuration(IPlay *pPlayItf, SLmillisecond *pDurMse
     CAudioPlayer *ap = (CAudioPlayer *)pPlayItf->mThis;
     switch (ap->mAndroidObjType) {
 
-      case AUDIOPLAYER_FROM_URIFD:  // intended fall-through
+      case AUDIOPLAYER_FROM_URIFD:
+        FALLTHROUGH_INTENDED;
       case AUDIOPLAYER_FROM_URIFD_TO_PCM_BUFFERQUEUE: {
         int32_t durationMsec = ANDROID_UNKNOWN_TIME;
         if (ap->mAPlayer != 0) {
@@ -2522,6 +2536,7 @@ void android_audioPlayer_androidBufferQueue_clear_l(CAudioPlayer *ap) {
       } break;
     case AUDIOPLAYER_FROM_ADTS_ABQ_TO_PCM_BUFFERQUEUE:
       // nothing to do here, fall through
+      FALLTHROUGH_INTENDED;
     default:
       break;
     }

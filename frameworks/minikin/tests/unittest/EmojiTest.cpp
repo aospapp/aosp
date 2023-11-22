@@ -32,6 +32,19 @@ TEST(EmojiTest, isEmojiTest) {
     EXPECT_TRUE(isEmoji(0x1F6F7));  // SLED
     EXPECT_TRUE(isEmoji(0x1F9E6));  // SOCKS
 
+    EXPECT_TRUE(isEmoji(0x1F6D5));  // HINDU TEMPLE
+    EXPECT_TRUE(isEmoji(0x1F7E7));  // ORANGE SQUARE
+    EXPECT_TRUE(isEmoji(0x1F9CF));  // DEAF PERSON
+    EXPECT_TRUE(isEmoji(0x1F9CE));  // PERSON KNEELING
+    EXPECT_TRUE(isEmoji(0x1F9A6));  // OTTER
+    EXPECT_TRUE(isEmoji(0x1F9A9));  // FLAMINGO
+    EXPECT_TRUE(isEmoji(0x1F9C6));  // FALAFEL
+    EXPECT_TRUE(isEmoji(0x1F9AA));  // OYSTER
+    EXPECT_TRUE(isEmoji(0x1FA82));  // PARACHUTE
+    EXPECT_TRUE(isEmoji(0x1FA80));  // YO-YO
+    EXPECT_TRUE(isEmoji(0x1FA70));  // BALLET SHOES
+    EXPECT_TRUE(isEmoji(0x1FA79));  // ADHESIVE BANDAGE
+
     EXPECT_FALSE(isEmoji(0x0000));   // <control>
     EXPECT_FALSE(isEmoji(0x0061));   // LATIN SMALL LETTER A
     EXPECT_FALSE(isEmoji(0x1F93B));  // MODERN PENTATHLON

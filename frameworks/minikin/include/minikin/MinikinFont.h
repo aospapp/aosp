@@ -14,113 +14,24 @@
  * limitations under the License.
  */
 
-#ifndef MINIKIN_FONT_H
-#define MINIKIN_FONT_H
+#ifndef MINIKIN_MINIKIN_FONT_H
+#define MINIKIN_MINIKIN_FONT_H
 
-#include <string>
+#include <cstdint>
+#include <memory>
+#include <vector>
 
-#include "minikin/FontFamily.h"
-#include "minikin/Hyphenator.h"
-
-// An abstraction for platform fonts, allowing Minikin to be used with
-// multiple actual implementations of fonts.
+#include "minikin/FontVariation.h"
 
 namespace minikin {
 
-class FontCollection;
-class MinikinFont;
+class FontFakery;
+struct MinikinExtent;
+struct MinikinPaint;
+struct MinikinRect;
 
-// Possibly move into own .h file?
-// Note: if you add a field here, either add it to LayoutCacheKey or to skipCache()
-struct MinikinPaint {
-    MinikinPaint(const std::shared_ptr<FontCollection>& font)
-            : size(0),
-              scaleX(0),
-              skewX(0),
-              letterSpacing(0),
-              wordSpacing(0),
-              paintFlags(0),
-              localeListId(0),
-              familyVariant(FontFamily::Variant::DEFAULT),
-              fontFeatureSettings(),
-              font(font) {}
-
-    bool skipCache() const { return !fontFeatureSettings.empty(); }
-
-    float size;
-    float scaleX;
-    float skewX;
-    float letterSpacing;
-    float wordSpacing;
-    uint32_t paintFlags;
-    uint32_t localeListId;
-    FontStyle fontStyle;
-    FontFamily::Variant familyVariant;
-    std::string fontFeatureSettings;
-    std::shared_ptr<FontCollection> font;
-
-    void copyFrom(const MinikinPaint& paint) { *this = paint; }
-
-    MinikinPaint(MinikinPaint&&) = default;
-    MinikinPaint& operator=(MinikinPaint&&) = default;
-
-    inline bool operator==(const MinikinPaint& paint) {
-        return size == paint.size && scaleX == paint.scaleX && skewX == paint.skewX &&
-               letterSpacing == paint.letterSpacing && wordSpacing == paint.wordSpacing &&
-               paintFlags == paint.paintFlags && localeListId == paint.localeListId &&
-               fontStyle == paint.fontStyle && familyVariant == paint.familyVariant &&
-               fontFeatureSettings == paint.fontFeatureSettings && font.get() == paint.font.get();
-    }
-
-private:
-    // Forbid implicit copy and assign. Use copyFrom instead.
-    MinikinPaint(const MinikinPaint&) = default;
-    MinikinPaint& operator=(const MinikinPaint&) = default;
-};
-
-// Only a few flags affect layout, but those that do should have values
-// consistent with Android's paint flags.
-enum MinikinPaintFlags {
-    LinearTextFlag = 0x40,
-};
-
-struct MinikinRect {
-    float mLeft = 0.0;
-    float mTop = 0.0;
-    float mRight = 0.0;
-    float mBottom = 0.0;
-    bool isEmpty() const { return mLeft == mRight || mTop == mBottom; }
-    void set(const MinikinRect& r) {
-        mLeft = r.mLeft;
-        mTop = r.mTop;
-        mRight = r.mRight;
-        mBottom = r.mBottom;
-    }
-    void offset(float dx, float dy) {
-        mLeft += dx;
-        mTop += dy;
-        mRight += dx;
-        mBottom += dy;
-    }
-    void setEmpty() { mLeft = mTop = mRight = mBottom = 0.0; }
-    void join(const MinikinRect& r);
-};
-
-// For holding vertical extents.
-struct MinikinExtent {
-    float ascent = 0.0;    // negative
-    float descent = 0.0;   // positive
-    float line_gap = 0.0;  // positive
-
-    void reset() { ascent = descent = line_gap = 0.0; }
-
-    void extendBy(const MinikinExtent& e) {
-        ascent = std::min(ascent, e.ascent);
-        descent = std::max(descent, e.descent);
-        line_gap = std::max(line_gap, e.line_gap);
-    }
-};
-
+// An abstraction for platform fonts, allowing Minikin to be used with
+// multiple actual implementations of fonts.
 class MinikinFont {
 public:
     explicit MinikinFont(int32_t uniqueId) : mUniqueId(uniqueId) {}
@@ -129,6 +40,13 @@ public:
 
     virtual float GetHorizontalAdvance(uint32_t glyph_id, const MinikinPaint& paint,
                                        const FontFakery& fakery) const = 0;
+    virtual void GetHorizontalAdvances(uint16_t* glyph_ids, uint32_t count,
+                                       const MinikinPaint& paint, const FontFakery& fakery,
+                                       float* outAdvances) const {
+        for (uint32_t i = 0; i < count; ++i) {
+            outAdvances[i] = GetHorizontalAdvance(glyph_ids[i], paint, fakery);
+        }
+    }
 
     virtual void GetBounds(MinikinRect* bounds, uint32_t glyph_id, const MinikinPaint& paint,
                            const FontFakery& fakery) const = 0;
@@ -165,4 +83,4 @@ private:
 
 }  // namespace minikin
 
-#endif  // MINIKIN_FONT_H
+#endif  // MINIKIN_MINIKIN_FONT_H

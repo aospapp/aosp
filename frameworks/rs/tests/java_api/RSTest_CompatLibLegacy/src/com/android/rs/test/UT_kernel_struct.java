@@ -18,7 +18,7 @@ package com.android.rs.test_compatlegacy;
 
 import android.content.Context;
 import android.content.res.Resources;
-import android.support.v8.renderscript.*;
+import androidx.renderscript.*;
 import android.util.Log;
 
 public class UT_kernel_struct extends UnitTest {

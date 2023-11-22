@@ -18,6 +18,8 @@
 #define ANDROID_SERVERS_CAMERA3_STREAM_INTERFACE_H
 
 #include <utils/RefBase.h>
+
+#include <camera/CameraMetadata.h>
 #include "Camera3StreamBufferListener.h"
 #include "Camera3StreamBufferFreedListener.h"
 
@@ -128,13 +130,15 @@ class Camera3StreamInterface : public virtual RefBase {
      * modified after this call, but can still be read until the destruction of
      * the stream.
      *
+     * streamReconfigured: set to true when a stream is being reconfigured.
+     *
      * Returns:
      *   OK on a successful configuration
      *   NO_INIT in case of a serious error from the HAL device
      *   NO_MEMORY in case of an error registering buffers
      *   INVALID_OPERATION in case connecting to the consumer failed
      */
-    virtual status_t finishConfiguration() = 0;
+    virtual status_t finishConfiguration(/*out*/bool* streamReconfigured = nullptr) = 0;
 
     /**
      * Cancels the stream configuration process. This returns the stream to the
@@ -160,6 +164,11 @@ class Camera3StreamInterface : public virtual RefBase {
      * PREPARING state. Otherwise, returns NOT_ENOUGH_DATA and transitions
      * to PREPARING.
      *
+     * blockRequest specifies whether prepare will block upcoming capture
+     * request. This flag should only be set to false if the caller guarantees
+     * the whole buffer preparation process is done before capture request
+     * comes in.
+     *
      * Returns:
      *    OK if no more buffers need to be preallocated
      *    NOT_ENOUGH_DATA if calls to prepareNextBuffer are needed to finish
@@ -168,12 +177,12 @@ class Camera3StreamInterface : public virtual RefBase {
      *    INVALID_OPERATION if called when not in CONFIGURED state, or a
      *        valid buffer has already been returned to this stream.
      */
-    virtual status_t startPrepare(int maxCount) = 0;
+    virtual status_t startPrepare(int maxCount, bool blockRequest) = 0;
 
     /**
-     * Check if the stream is mid-preparing.
+     * Check if the request on a stream is blocked by prepare.
      */
-    virtual bool     isPreparing() const = 0;
+    virtual bool     isBlockedByPrepare() const = 0;
 
     /**
      * Continue stream buffer preparation by allocating the next
@@ -237,16 +246,25 @@ class Camera3StreamInterface : public virtual RefBase {
      *
      */
     virtual status_t getBuffer(camera3_stream_buffer *buffer,
+            nsecs_t waitBufferTimeout,
             const std::vector<size_t>& surface_ids = std::vector<size_t>()) = 0;
 
     /**
      * Return a buffer to the stream after use by the HAL.
      *
+     * Multiple surfaces could share the same HAL stream, but a request may
+     * be only for a subset of surfaces. In this case, the
+     * Camera3StreamInterface object needs the surface ID information to attach
+     * buffers for those surfaces. For the case of single surface for a HAL
+     * stream, surface_ids parameter has no effect.
+     *
      * This method may only be called for buffers provided by getBuffer().
      * For bidirectional streams, this method applies to the output-side buffers
      */
     virtual status_t returnBuffer(const camera3_stream_buffer &buffer,
-            nsecs_t timestamp) = 0;
+            nsecs_t timestamp, bool timestampIncreasing = true,
+            const std::vector<size_t>& surface_ids = std::vector<size_t>(),
+            uint64_t frameNumber = 0) = 0;
 
     /**
      * Fill in the camera3_stream_buffer with the next valid buffer for this
@@ -282,6 +300,11 @@ class Camera3StreamInterface : public virtual RefBase {
      * release fence signaled.
      */
     virtual bool     hasOutstandingBuffers() const = 0;
+
+    /**
+     * Get number of buffers currently handed out to HAL
+     */
+    virtual size_t   getOutstandingBuffersCount() const = 0;
 
     enum {
         TIMEOUT_NEVER = -1
@@ -323,6 +346,12 @@ class Camera3StreamInterface : public virtual RefBase {
      * Camera3Stream.
      */
     virtual void setBufferFreedListener(wp<Camera3StreamBufferFreedListener> listener) = 0;
+
+    /**
+     * Notify buffer stream listeners about incoming request with particular frame number.
+     */
+    virtual void fireBufferRequestForFrameNumber(uint64_t frameNumber,
+            const CameraMetadata& settings) = 0;
 };
 
 } // namespace camera3

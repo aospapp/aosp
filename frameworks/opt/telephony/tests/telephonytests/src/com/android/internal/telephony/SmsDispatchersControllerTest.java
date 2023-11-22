@@ -21,7 +21,6 @@ import static com.android.internal.telephony.TelephonyTestUtils.waitForMs;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyString;
 import static org.mockito.Matchers.isNull;
@@ -32,11 +31,6 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 import android.app.ActivityManager;
-import android.app.PendingIntent;
-import android.content.BroadcastReceiver;
-import android.content.Context;
-import android.content.Intent;
-import android.content.IntentFilter;
 import android.os.HandlerThread;
 import android.os.Message;
 import android.provider.Telephony.Sms.Intents;
@@ -46,7 +40,6 @@ import android.util.Singleton;
 
 import org.junit.After;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
@@ -59,6 +52,7 @@ public class SmsDispatchersControllerTest extends TelephonyTest {
     private ImsSmsDispatcherTestHandler mImsSmsDispatcherTestHandler;
     private boolean mInjectionCallbackTriggered = false;
     private static final String TEST_INTENT = "com.android.internal.telephony.TEST_INTENT";
+    private static final int TEST_TIMEOUT = 5000;
 
     private class ImsSmsDispatcherTestHandler extends HandlerThread {
 
@@ -93,7 +87,7 @@ public class SmsDispatchersControllerTest extends TelephonyTest {
         super.tearDown();
     }
 
-    @Test @SmallTest @FlakyTest @Ignore
+    @Test @SmallTest @FlakyTest
     public void testSmsHandleStateUpdate() throws Exception {
         assertEquals(SmsConstants.FORMAT_UNKNOWN, mSmsDispatchersController.getImsSmsFormat());
         //Mock ImsNetWorkStateChange with GSM phone type
@@ -107,13 +101,13 @@ public class SmsDispatchersControllerTest extends TelephonyTest {
         assertTrue(mSmsDispatchersController.isIms());
     }
 
-    @Test @SmallTest @FlakyTest @Ignore
+    @Test @SmallTest @FlakyTest
     public void testSendImsGmsTest() throws Exception {
         switchImsSmsFormat(PhoneConstants.PHONE_TYPE_GSM);
         mSmsDispatchersController.sendText("111"/* desAddr*/, "222" /*scAddr*/, TAG,
-                null, null, null, null, false, -1, false, -1);
-        verify(mSimulatedCommandsVerifier).sendImsGsmSms(eq("038122f2"),
-                eq("0100038111f1000014c9f67cda9c12d37378983e4697e5d4f29c0e"), eq(0), eq(0),
+                null, null, null, null, false, -1, false, -1, false);
+        verify(mSimulatedCommandsVerifier).sendImsGsmSms(eq("038122F2"),
+                eq("0100038111F100001CD3F69C989EC3C3F431BA2C9F0FDF6EBAFCCD6697E5D4F29C0E"), eq(0), eq(0),
                 any(Message.class));
     }
 
@@ -121,21 +115,21 @@ public class SmsDispatchersControllerTest extends TelephonyTest {
     public void testSendImsGmsTestWithOutDesAddr() throws Exception {
         switchImsSmsFormat(PhoneConstants.PHONE_TYPE_GSM);
         mSmsDispatchersController.sendText(null, "222" /*scAddr*/, TAG,
-                null, null, null, null, false, -1, false, -1);
+                null, null, null, null, false, -1, false, -1, false);
         verify(mSimulatedCommandsVerifier, times(0)).sendImsGsmSms(anyString(), anyString(),
                 anyInt(), anyInt(), any(Message.class));
     }
 
-    @Test @SmallTest
+    @Test @SmallTest @FlakyTest /* flakes 0.73% of the time on gce, 0.57% on marlin */
     public void testSendImsCdmaTest() throws Exception {
         switchImsSmsFormat(PhoneConstants.PHONE_TYPE_CDMA);
         mSmsDispatchersController.sendText("111"/* desAddr*/, "222" /*scAddr*/, TAG,
-                null, null, null, null, false, -1, false, -1);
+                null, null, null, null, false, -1, false, -1, false);
         verify(mSimulatedCommandsVerifier).sendImsCdmaSms((byte[])any(), eq(0), eq(0),
                 any(Message.class));
     }
 
-    @Test @SmallTest
+    @Test @SmallTest @FlakyTest /* flakes 0.71% of the time on marlin, 0.61% on gce */
     public void testSendRetrySmsCdmaTest() throws Exception {
         // newFormat will be based on voice technology
         ArgumentCaptor<byte[]> captor = ArgumentCaptor.forClass(byte[].class);
@@ -150,7 +144,7 @@ public class SmsDispatchersControllerTest extends TelephonyTest {
         assertNull(captor.getAllValues().get(0));
     }
 
-    @Test @SmallTest
+    @Test @SmallTest @FlakyTest /* flakes 0.85% of the time on gce, 0.43% on marlin */
     public void testSendRetrySmsGsmTest() throws Exception {
         // newFormat will be based on voice technology will be GSM if phone type is not CDMA
         switchImsSmsFormat(PhoneConstants.PHONE_TYPE_GSM);
@@ -183,6 +177,9 @@ public class SmsDispatchersControllerTest extends TelephonyTest {
         mSimulatedCommands.setImsRegistrationState(new int[]{1, phoneType});
         mSimulatedCommands.notifyImsNetworkStateChanged();
         /* wait for async msg get handled */
-        waitForMs(200);
+        waitForHandlerAction(mSmsDispatchersController, TEST_TIMEOUT);
+        /* handle EVENT_IMS_STATE_DONE */
+        waitForHandlerAction(mSmsDispatchersController, TEST_TIMEOUT);
+        assertTrue(mSmsDispatchersController.isIms());
     }
 }

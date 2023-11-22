@@ -17,15 +17,22 @@
 #ifndef MINIKIN_LAYOUT_CACHE_H
 #define MINIKIN_LAYOUT_CACHE_H
 
-#include "minikin/Layout.h"
+#include "minikin/LayoutCore.h"
 
 #include <mutex>
 
-#include <utils/JenkinsHash.h>
 #include <utils/LruCache.h>
 
-namespace minikin {
+#include "minikin/FontCollection.h"
+#include "minikin/Hasher.h"
+#include "minikin/MinikinPaint.h"
 
+#ifdef _WIN32
+#include <io.h>
+#endif
+
+namespace minikin {
+const uint32_t LENGTH_LIMIT_CACHE = 128;
 // Layout cache datatypes
 class LayoutCacheKey {
 public:
@@ -42,7 +49,7 @@ public:
               mSkewX(paint.skewX),
               mLetterSpacing(paint.letterSpacing),
               mWordSpacing(paint.wordSpacing),
-              mPaintFlags(paint.paintFlags),
+              mFontFlags(paint.fontFlags),
               mLocaleListId(paint.localeListId),
               mFamilyVariant(paint.familyVariant),
               mStartHyphen(startHyphen),
@@ -54,7 +61,7 @@ public:
         return mId == o.mId && mStart == o.mStart && mCount == o.mCount && mStyle == o.mStyle &&
                mSize == o.mSize && mScaleX == o.mScaleX && mSkewX == o.mSkewX &&
                mLetterSpacing == o.mLetterSpacing && mWordSpacing == o.mWordSpacing &&
-               mPaintFlags == o.mPaintFlags && mLocaleListId == o.mLocaleListId &&
+               mFontFlags == o.mFontFlags && mLocaleListId == o.mLocaleListId &&
                mFamilyVariant == o.mFamilyVariant && mStartHyphen == o.mStartHyphen &&
                mEndHyphen == o.mEndHyphen && mIsRtl == o.mIsRtl && mNchars == o.mNchars &&
                !memcmp(mChars, o.mChars, mNchars * sizeof(uint16_t));
@@ -72,13 +79,6 @@ public:
         mChars = NULL;
     }
 
-    void doLayout(Layout* layout, const MinikinPaint& paint) const {
-        layout->mAdvances.resize(mCount, 0);
-        layout->mExtents.resize(mCount);
-        layout->doLayoutRun(mChars, mStart, mCount, mNchars, mIsRtl, paint, mStartHyphen,
-                            mEndHyphen);
-    }
-
     uint32_t getMemoryUsage() const { return sizeof(LayoutCacheKey) + sizeof(uint16_t) * mNchars; }
 
 private:
@@ -93,9 +93,9 @@ private:
     float mSkewX;
     float mLetterSpacing;
     float mWordSpacing;
-    int32_t mPaintFlags;
+    int32_t mFontFlags;
     uint32_t mLocaleListId;
-    FontFamily::Variant mFamilyVariant;
+    FamilyVariant mFamilyVariant;
     StartHyphenEdit mStartHyphen;
     EndHyphenEdit mEndHyphen;
     bool mIsRtl;
@@ -104,29 +104,27 @@ private:
     android::hash_t mHash;
 
     android::hash_t computeHash() const {
-        uint32_t hash = android::JenkinsHashMix(0, mId);
-        hash = android::JenkinsHashMix(hash, mStart);
-        hash = android::JenkinsHashMix(hash, mCount);
-        hash = android::JenkinsHashMix(hash, android::hash_type(mStyle.identifier()));
-        hash = android::JenkinsHashMix(hash, android::hash_type(mSize));
-        hash = android::JenkinsHashMix(hash, android::hash_type(mScaleX));
-        hash = android::JenkinsHashMix(hash, android::hash_type(mSkewX));
-        hash = android::JenkinsHashMix(hash, android::hash_type(mLetterSpacing));
-        hash = android::JenkinsHashMix(hash, android::hash_type(mWordSpacing));
-        hash = android::JenkinsHashMix(hash, android::hash_type(mPaintFlags));
-        hash = android::JenkinsHashMix(hash, android::hash_type(mLocaleListId));
-        hash = android::JenkinsHashMix(hash,
-                                       android::hash_type(static_cast<uint8_t>(mFamilyVariant)));
-        hash = android::JenkinsHashMix(
-                hash,
-                android::hash_type(static_cast<uint8_t>(packHyphenEdit(mStartHyphen, mEndHyphen))));
-        hash = android::JenkinsHashMix(hash, android::hash_type(mIsRtl));
-        hash = android::JenkinsHashMixShorts(hash, mChars, mNchars);
-        return android::JenkinsHashWhiten(hash);
+        return Hasher()
+                .update(mId)
+                .update(mStart)
+                .update(mCount)
+                .update(mStyle.identifier())
+                .update(mSize)
+                .update(mScaleX)
+                .update(mSkewX)
+                .update(mLetterSpacing)
+                .update(mWordSpacing)
+                .update(mFontFlags)
+                .update(mLocaleListId)
+                .update(static_cast<uint8_t>(mFamilyVariant))
+                .update(packHyphenEdit(mStartHyphen, mEndHyphen))
+                .update(mIsRtl)
+                .updateShorts(mChars, mNchars)
+                .hash();
     }
 };
 
-class LayoutCache : private android::OnEntryRemoved<LayoutCacheKey, Layout*> {
+class LayoutCache : private android::OnEntryRemoved<LayoutCacheKey, LayoutPiece*> {
 public:
     void clear() {
         std::lock_guard<std::mutex> lock(mMutex);
@@ -138,29 +136,26 @@ public:
     void getOrCreate(const U16StringPiece& text, const Range& range, const MinikinPaint& paint,
                      bool dir, StartHyphenEdit startHyphen, EndHyphenEdit endHyphen, F& f) {
         LayoutCacheKey key(text, range, paint, dir, startHyphen, endHyphen);
-        if (paint.skipCache()) {
-            Layout layoutForWord;
-            key.doLayout(&layoutForWord, paint);
-            f(layoutForWord);
+        if (paint.skipCache() || range.getLength() >= LENGTH_LIMIT_CACHE) {
+            f(LayoutPiece(text, range, dir, paint, startHyphen, endHyphen), paint);
             return;
         }
-
         mRequestCount++;
         {
             std::lock_guard<std::mutex> lock(mMutex);
-            Layout* layout = mCache.get(key);
+            LayoutPiece* layout = mCache.get(key);
             if (layout != nullptr) {
                 mCacheHitCount++;
-                f(*layout);
+                f(*layout, paint);
                 return;
             }
         }
         // Doing text layout takes long time, so releases the mutex during doing layout.
         // Don't care even if we do the same layout in other thred.
         key.copyText();
-        std::unique_ptr<Layout> layout = std::make_unique<Layout>();
-        key.doLayout(layout.get(), paint);
-        f(*layout);
+        std::unique_ptr<LayoutPiece> layout =
+                std::make_unique<LayoutPiece>(text, range, dir, paint, startHyphen, endHyphen);
+        f(*layout, paint);
         {
             std::lock_guard<std::mutex> lock(mMutex);
             mCache.put(key, layout.release());
@@ -169,10 +164,23 @@ public:
 
     void dumpStats(int fd) {
         std::lock_guard<std::mutex> lock(mMutex);
+#ifdef _WIN32
+        float ratio = (mRequestCount == 0) ? 0 : mCacheHitCount / (float)mRequestCount;
+        int count = _scprintf(
+                "\nLayout Cache Info:\n  Usage: %zd/%zd entries\n  Hit ratio: %d/%d (%f)\n",
+                mCache.size(), kMaxEntries, mCacheHitCount, mRequestCount, ratio);
+        int size = count + 1;
+        char* buffer = new char[size];
+        sprintf_s(buffer, size,
+                  "\nLayout Cache Info:\n  Usage: %zd/%zd entries\n  Hit ratio: %d/%d (%f)\n",
+                  mCache.size(), kMaxEntries, mCacheHitCount, mRequestCount, ratio);
+        _write(fd, buffer, sizeof(buffer));
+#else
         dprintf(fd, "\nLayout Cache Info:\n");
         dprintf(fd, "  Usage: %zd/%zd entries\n", mCache.size(), kMaxEntries);
         float ratio = (mRequestCount == 0) ? 0 : mCacheHitCount / (float)mRequestCount;
         dprintf(fd, "  Hit ratio: %d/%d (%f)\n", mCacheHitCount, mRequestCount, ratio);
+#endif
     }
 
     static LayoutCache& getInstance() {
@@ -185,14 +193,19 @@ protected:
         mCache.setOnEntryRemovedListener(this);
     }
 
+    uint32_t getCacheSize() {
+        std::lock_guard<std::mutex> lock(mMutex);
+        return mCache.size();
+    }
+
 private:
     // callback for OnEntryRemoved
-    void operator()(LayoutCacheKey& key, Layout*& value) {
+    void operator()(LayoutCacheKey& key, LayoutPiece*& value) {
         key.freeText();
         delete value;
     }
 
-    android::LruCache<LayoutCacheKey, Layout*> mCache GUARDED_BY(mMutex);
+    android::LruCache<LayoutCacheKey, LayoutPiece*> mCache GUARDED_BY(mMutex);
 
     int32_t mRequestCount;
     int32_t mCacheHitCount;

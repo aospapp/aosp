@@ -27,12 +27,6 @@ cc_defaults {
             cflags: ["-DNN_DEBUGGABLE"],
         },
     },
-    /* To enable address sanitizer, uncomment the block below
-     * here and in runtime/test/Android.bp. You will have to
-     * do a full 'adb sync' after building. */
-    /* sanitize: {
-      address: true,
-    }, */
 }
 
 cc_library_headers {

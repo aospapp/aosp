@@ -24,7 +24,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
-import libcore.util.TimeZoneFinder;
+import libcore.timezone.TimeZoneFinder;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -161,7 +161,7 @@ public class TimeZoneLookupHelperTest {
 
         // Summer, known DST state (DST == true).
         {
-            String summerTimeNitzStringWithDst = summerTimeNitzString + ",4";
+            String summerTimeNitzStringWithDst = summerTimeNitzString + ",1";
             NitzData nitzData = NitzData.parse(summerTimeNitzStringWithDst);
             int expectedUtcOffset = (int) TimeUnit.HOURS.toMillis(2);
             Integer expectedDstOffset = (int) TimeUnit.HOURS.toMillis(1);

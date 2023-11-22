@@ -73,33 +73,10 @@ public class ReplaceMethodCallsAdapter extends ClassVisitor {
             }
         });
 
-        // Case 2: java.util.Locale.toLanguageTag() and java.util.Locale.getScript()
-        METHOD_REPLACERS.add(new MethodReplacer() {
-
-            private final String LOCALE_TO_STRING =
-                    Type.getMethodDescriptor(STRING, Type.getType(Locale.class));
-
-            @Override
-            public boolean isNeeded(String owner, String name, String desc, String sourceClass) {
-                return JAVA_LOCALE_CLASS.equals(owner) && "()Ljava/lang/String;".equals(desc) &&
-                        ("toLanguageTag".equals(name) || "getScript".equals(name));
-            }
-
-            @Override
-            public void replace(MethodInformation mi) {
-                mi.opcode = Opcodes.INVOKESTATIC;
-                mi.owner = ANDROID_LOCALE_CLASS;
-                mi.desc = LOCALE_TO_STRING;
-            }
-        });
-
-        // Case 3: java.util.Locale.adjustLanguageCode() or java.util.Locale.forLanguageTag() or
-        // java.util.Locale.getDefault()
+        // Case 2: java.util.Locale.adjustLanguageCode() or java.util.Locale.getDefault()
         METHOD_REPLACERS.add(new MethodReplacer() {
 
             private final String STRING_TO_STRING = Type.getMethodDescriptor(STRING, STRING);
-            private final String STRING_TO_LOCALE = Type.getMethodDescriptor(
-                    Type.getType(Locale.class), STRING);
             private final String VOID_TO_LOCALE =
                     Type.getMethodDescriptor(Type.getType(Locale.class));
 
@@ -107,7 +84,6 @@ public class ReplaceMethodCallsAdapter extends ClassVisitor {
             public boolean isNeeded(String owner, String name, String desc, String sourceClass) {
                 return JAVA_LOCALE_CLASS.equals(owner) &&
                         ("adjustLanguageCode".equals(name) && desc.equals(STRING_TO_STRING) ||
-                        "forLanguageTag".equals(name) && desc.equals(STRING_TO_LOCALE) ||
                         "getDefault".equals(name) && desc.equals(VOID_TO_LOCALE));
             }
 
@@ -117,7 +93,7 @@ public class ReplaceMethodCallsAdapter extends ClassVisitor {
             }
         });
 
-        // Case 4: java.lang.System.log?()
+        // Case 3: java.lang.System.log?()
         METHOD_REPLACERS.add(new MethodReplacer() {
             @Override
             public boolean isNeeded(String owner, String name, String desc, String sourceClass) {
@@ -134,7 +110,7 @@ public class ReplaceMethodCallsAdapter extends ClassVisitor {
             }
         });
 
-        // Case 5: java.lang.System time calls
+        // Case 4: java.lang.System time calls
         METHOD_REPLACERS.add(new MethodReplacer() {
             @Override
             public boolean isNeeded(String owner, String name, String desc, String sourceClass) {
@@ -160,7 +136,7 @@ public class ReplaceMethodCallsAdapter extends ClassVisitor {
             }
         });
 
-        // Case 6: java.util.LinkedHashMap.eldest()
+        // Case 5: java.util.LinkedHashMap.eldest()
         METHOD_REPLACERS.add(new MethodReplacer() {
 
             private final String VOID_TO_MAP_ENTRY =
@@ -183,7 +159,7 @@ public class ReplaceMethodCallsAdapter extends ClassVisitor {
             }
         });
 
-        // Case 7: android.content.Context.getClassLoader() in LayoutInflater
+        // Case 6: android.content.Context.getClassLoader() in LayoutInflater
         METHOD_REPLACERS.add(new MethodReplacer() {
             // When LayoutInflater asks for a class loader, we must return the class loader that
             // cannot return app's custom views/classes. This is so that in case of any failure

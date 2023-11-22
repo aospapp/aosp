@@ -4,7 +4,7 @@ import com.android.rs.refocus.d1new.RefocusFilterd1new;
 import com.android.rs.refocus.f32.RefocusFilterF32;
 
 import android.graphics.Bitmap;
-import android.support.v8.renderscript.RenderScript;
+import androidx.renderscript.RenderScript;
 import android.util.Log;
 import android.util.Pair;
 import java.util.ArrayList;

@@ -29,18 +29,19 @@ namespace minikin {
 class TestableLayoutCache : public LayoutCache {
 public:
     TestableLayoutCache(uint32_t maxEntries) : LayoutCache(maxEntries) {}
+    using LayoutCache::getCacheSize;
 };
 
 class LayoutCapture {
 public:
     LayoutCapture() {}
 
-    void operator()(const Layout& layout) { mLayout = &layout; }
+    void operator()(const LayoutPiece& layout, const MinikinPaint& /* dir */) { mLayout = &layout; }
 
-    const Layout* get() const { return mLayout; }
+    const LayoutPiece* get() const { return mLayout; }
 
 private:
-    const Layout* mLayout;
+    const LayoutPiece* mLayout;
 };
 
 TEST(LayoutCacheTest, cacheHitTest) {
@@ -198,11 +199,11 @@ TEST(LayoutCacheTest, cacheMissTest) {
         SCOPED_TRACE("Different paint flags");
         auto collection = buildFontCollection("Ascii.ttf");
         MinikinPaint paint1(collection);
-        paint1.paintFlags = 0;
+        paint1.fontFlags = 0;
         layoutCache.getOrCreate(text1, Range(0, text1.size()), paint1, false /* LTR */,
                                 StartHyphenEdit::NO_EDIT, EndHyphenEdit::NO_EDIT, layout1);
         MinikinPaint paint2(collection);
-        paint2.paintFlags = LinearTextFlag;
+        paint2.fontFlags = LinearMetrics_Flag;
         layoutCache.getOrCreate(text1, Range(0, text1.size()), paint2, false /* LTR */,
                                 StartHyphenEdit::NO_EDIT, EndHyphenEdit::NO_EDIT, layout2);
         EXPECT_NE(layout1.get(), layout2.get());
@@ -224,11 +225,11 @@ TEST(LayoutCacheTest, cacheMissTest) {
         SCOPED_TRACE("Different family variant");
         auto collection = buildFontCollection("Ascii.ttf");
         MinikinPaint paint1(collection);
-        paint1.familyVariant = FontFamily::Variant::DEFAULT;
+        paint1.familyVariant = FamilyVariant::DEFAULT;
         layoutCache.getOrCreate(text1, Range(0, text1.size()), paint1, false /* LTR */,
                                 StartHyphenEdit::NO_EDIT, EndHyphenEdit::NO_EDIT, layout1);
         MinikinPaint paint2(collection);
-        paint2.familyVariant = FontFamily::Variant::COMPACT;
+        paint2.familyVariant = FamilyVariant::COMPACT;
         layoutCache.getOrCreate(text1, Range(0, text1.size()), paint2, false /* LTR */,
                                 StartHyphenEdit::NO_EDIT, EndHyphenEdit::NO_EDIT, layout2);
         EXPECT_NE(layout1.get(), layout2.get());
@@ -260,7 +261,7 @@ TEST(LayoutCacheTest, cacheOverflowTest) {
                             EndHyphenEdit::NO_EDIT, layout1);
 
     for (char c = 'a'; c <= 'z'; c++) {
-        auto text1 = utf8ToUtf16(std::string(c, 10));
+        auto text1 = utf8ToUtf16(std::string(10, c));
         LayoutCapture layout2;
         layoutCache.getOrCreate(text1, Range(0, text1.size()), paint, false /* LTR */,
                                 StartHyphenEdit::NO_EDIT, EndHyphenEdit::NO_EDIT, layout2);
@@ -270,6 +271,20 @@ TEST(LayoutCacheTest, cacheOverflowTest) {
     layoutCache.getOrCreate(text, range, paint, false /* LTR */, StartHyphenEdit::NO_EDIT,
                             EndHyphenEdit::NO_EDIT, layout3);
     EXPECT_NE(layout1.get(), layout3.get());
+}
+
+TEST(LayoutCacheTest, cacheLengthLimitTest) {
+    auto text = utf8ToUtf16(std::string(130, 'a'));
+    Range range(0, text.size());
+    MinikinPaint paint(buildFontCollection("Ascii.ttf"));
+
+    TestableLayoutCache layoutCache(140);
+
+    LayoutCapture layout;
+    layoutCache.getOrCreate(text, range, paint, false /* LTR */, StartHyphenEdit::NO_EDIT,
+                            EndHyphenEdit::NO_EDIT, layout);
+
+    EXPECT_EQ(layoutCache.getCacheSize(), 0u);
 }
 
 }  // namespace minikin

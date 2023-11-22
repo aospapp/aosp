@@ -42,8 +42,11 @@ GrallocConsumer::GrallocConsumer (const Context *rsc, Allocation *a, uint32_t nu
         format = AIMAGE_FORMAT_YUV_420_888;
     }
 
-    media_status_t ret = AImageReader_new(
-            width, height, format,
+    // GRALLOC_USAGE_RENDERSCRIPT
+    const uint64_t USAGE_RENDERSCRIPT = 0x00100000U;
+    uint64_t usage = AHARDWAREBUFFER_USAGE_CPU_READ_OFTEN | USAGE_RENDERSCRIPT;
+    media_status_t ret = AImageReader_newWithUsage(
+            width, height, format, usage,
             mNumAlloc, &mImgReader);
     if (ret != AMEDIA_OK || mImgReader == nullptr) {
         ALOGE("Error creating image reader. ret %d", ret);

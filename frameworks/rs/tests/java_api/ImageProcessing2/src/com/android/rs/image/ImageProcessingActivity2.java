@@ -23,7 +23,7 @@ import android.os.Bundle;
 import android.graphics.BitmapFactory;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
-import android.support.v8.renderscript.*;
+import androidx.renderscript.*;
 import android.os.Handler;
 import android.os.Message;
 import android.widget.AdapterView;

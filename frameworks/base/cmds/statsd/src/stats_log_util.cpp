@@ -25,15 +25,16 @@
 #include <utils/Log.h>
 #include <utils/SystemClock.h>
 
+using android::util::AtomsInfo;
 using android::util::FIELD_COUNT_REPEATED;
 using android::util::FIELD_TYPE_BOOL;
+using android::util::FIELD_TYPE_FIXED64;
 using android::util::FIELD_TYPE_FLOAT;
 using android::util::FIELD_TYPE_INT32;
 using android::util::FIELD_TYPE_INT64;
-using android::util::FIELD_TYPE_UINT64;
-using android::util::FIELD_TYPE_FIXED64;
 using android::util::FIELD_TYPE_MESSAGE;
 using android::util::FIELD_TYPE_STRING;
+using android::util::FIELD_TYPE_UINT64;
 using android::util::ProtoOutputStream;
 
 namespace android {
@@ -58,6 +59,33 @@ const int FIELD_ID_PULL_ATOM_ID = 1;
 const int FIELD_ID_TOTAL_PULL = 2;
 const int FIELD_ID_TOTAL_PULL_FROM_CACHE = 3;
 const int FIELD_ID_MIN_PULL_INTERVAL_SEC = 4;
+const int FIELD_ID_AVERAGE_PULL_TIME_NANOS = 5;
+const int FIELD_ID_MAX_PULL_TIME_NANOS = 6;
+const int FIELD_ID_AVERAGE_PULL_DELAY_NANOS = 7;
+const int FIELD_ID_MAX_PULL_DELAY_NANOS = 8;
+const int FIELD_ID_DATA_ERROR = 9;
+const int FIELD_ID_PULL_TIMEOUT = 10;
+const int FIELD_ID_PULL_EXCEED_MAX_DELAY = 11;
+const int FIELD_ID_PULL_FAILED = 12;
+const int FIELD_ID_STATS_COMPANION_FAILED = 13;
+const int FIELD_ID_STATS_COMPANION_BINDER_TRANSACTION_FAILED = 14;
+const int FIELD_ID_EMPTY_DATA = 15;
+const int FIELD_ID_PULL_REGISTERED_COUNT = 16;
+const int FIELD_ID_PULL_UNREGISTERED_COUNT = 17;
+// for AtomMetricStats proto
+const int FIELD_ID_ATOM_METRIC_STATS = 17;
+const int FIELD_ID_METRIC_ID = 1;
+const int FIELD_ID_HARD_DIMENSION_LIMIT_REACHED = 2;
+const int FIELD_ID_LATE_LOG_EVENT_SKIPPED = 3;
+const int FIELD_ID_SKIPPED_FORWARD_BUCKETS = 4;
+const int FIELD_ID_BAD_VALUE_TYPE = 5;
+const int FIELD_ID_CONDITION_CHANGE_IN_NEXT_BUCKET = 6;
+const int FIELD_ID_INVALIDATED_BUCKET = 7;
+const int FIELD_ID_BUCKET_DROPPED = 8;
+const int FIELD_ID_MIN_BUCKET_BOUNDARY_DELAY_NS = 9;
+const int FIELD_ID_MAX_BUCKET_BOUNDARY_DELAY_NS = 10;
+const int FIELD_ID_BUCKET_UNKNOWN_CONDITION = 11;
+const int FIELD_ID_BUCKET_COUNT = 12;
 
 namespace {
 
@@ -294,8 +322,9 @@ void writeDimensionPathToProto(const std::vector<Matcher>& fieldMatchers,
 // }
 //
 //
-void writeFieldValueTreeToStreamHelper(const std::vector<FieldValue>& dims, size_t* index,
-                                       int depth, int prefix, ProtoOutputStream* protoOutput) {
+void writeFieldValueTreeToStreamHelper(int tagId, const std::vector<FieldValue>& dims,
+                                       size_t* index, int depth, int prefix,
+                                       ProtoOutputStream* protoOutput) {
     size_t count = dims.size();
     while (*index < count) {
         const auto& dim = dims[*index];
@@ -319,8 +348,37 @@ void writeFieldValueTreeToStreamHelper(const std::vector<FieldValue>& dims, size
                 case FLOAT:
                     protoOutput->write(FIELD_TYPE_FLOAT | fieldNum, dim.mValue.float_value);
                     break;
-                case STRING:
-                    protoOutput->write(FIELD_TYPE_STRING | fieldNum, dim.mValue.str_value);
+                case STRING: {
+                    bool isBytesField = false;
+                    // Bytes field is logged via string format in log_msg format. So here we check
+                    // if this string field is a byte field.
+                    std::map<int, std::vector<int>>::const_iterator itr;
+                    if (depth == 0 && (itr = AtomsInfo::kBytesFieldAtoms.find(tagId)) !=
+                                              AtomsInfo::kBytesFieldAtoms.end()) {
+                        const std::vector<int>& bytesFields = itr->second;
+                        for (int bytesField : bytesFields) {
+                            if (bytesField == fieldNum) {
+                                // This is a bytes field
+                                isBytesField = true;
+                                break;
+                            }
+                        }
+                    }
+                    if (isBytesField) {
+                        if (dim.mValue.str_value.length() > 0) {
+                            protoOutput->write(FIELD_TYPE_MESSAGE | fieldNum,
+                                               (const char*)dim.mValue.str_value.c_str(),
+                                               dim.mValue.str_value.length());
+                        }
+                    } else {
+                        protoOutput->write(FIELD_TYPE_STRING | fieldNum, dim.mValue.str_value);
+                    }
+                    break;
+                }
+                case STORAGE:
+                    protoOutput->write(FIELD_TYPE_MESSAGE | fieldNum,
+                                       (const char*)dim.mValue.storage_value.data(),
+                                       dim.mValue.storage_value.size());
                     break;
                 default:
                     break;
@@ -337,7 +395,7 @@ void writeFieldValueTreeToStreamHelper(const std::vector<FieldValue>& dims, size
             }
             // Directly jump to the leaf value because the repeated position field is implied
             // by the position of the sub msg in the parent field.
-            writeFieldValueTreeToStreamHelper(dims, index, valueDepth,
+            writeFieldValueTreeToStreamHelper(tagId, dims, index, valueDepth,
                                               dim.mField.getPrefix(valueDepth), protoOutput);
             if (msg_token != 0) {
                 protoOutput->end(msg_token);
@@ -354,7 +412,7 @@ void writeFieldValueTreeToStream(int tagId, const std::vector<FieldValue>& value
     uint64_t atomToken = protoOutput->start(FIELD_TYPE_MESSAGE | tagId);
 
     size_t index = 0;
-    writeFieldValueTreeToStreamHelper(values, &index, 0, 0, protoOutput);
+    writeFieldValueTreeToStreamHelper(tagId, values, &index, 0, 0, protoOutput);
     protoOutput->end(atomToken);
 }
 
@@ -405,6 +463,61 @@ void writePullerStatsToStream(const std::pair<int, StatsdStats::PulledAtomStats>
                        (long long)pair.second.totalPullFromCache);
     protoOutput->write(FIELD_TYPE_INT64 | FIELD_ID_MIN_PULL_INTERVAL_SEC,
                        (long long)pair.second.minPullIntervalSec);
+    protoOutput->write(FIELD_TYPE_INT64 | FIELD_ID_AVERAGE_PULL_TIME_NANOS,
+                       (long long)pair.second.avgPullTimeNs);
+    protoOutput->write(FIELD_TYPE_INT64 | FIELD_ID_MAX_PULL_TIME_NANOS,
+                       (long long)pair.second.maxPullTimeNs);
+    protoOutput->write(FIELD_TYPE_INT64 | FIELD_ID_AVERAGE_PULL_DELAY_NANOS,
+                       (long long)pair.second.avgPullDelayNs);
+    protoOutput->write(FIELD_TYPE_INT64 | FIELD_ID_MAX_PULL_DELAY_NANOS,
+                       (long long)pair.second.maxPullDelayNs);
+    protoOutput->write(FIELD_TYPE_INT64 | FIELD_ID_DATA_ERROR, (long long)pair.second.dataError);
+    protoOutput->write(FIELD_TYPE_INT64 | FIELD_ID_PULL_TIMEOUT,
+                       (long long)pair.second.pullTimeout);
+    protoOutput->write(FIELD_TYPE_INT64 | FIELD_ID_PULL_EXCEED_MAX_DELAY,
+                       (long long)pair.second.pullExceedMaxDelay);
+    protoOutput->write(FIELD_TYPE_INT64 | FIELD_ID_PULL_FAILED,
+                       (long long)pair.second.pullFailed);
+    protoOutput->write(FIELD_TYPE_INT64 | FIELD_ID_STATS_COMPANION_FAILED,
+                       (long long)pair.second.statsCompanionPullFailed);
+    protoOutput->write(FIELD_TYPE_INT64 | FIELD_ID_STATS_COMPANION_BINDER_TRANSACTION_FAILED,
+                       (long long)pair.second.statsCompanionPullBinderTransactionFailed);
+    protoOutput->write(FIELD_TYPE_INT64 | FIELD_ID_EMPTY_DATA,
+                       (long long)pair.second.emptyData);
+    protoOutput->write(FIELD_TYPE_INT64 | FIELD_ID_PULL_REGISTERED_COUNT,
+                       (long long) pair.second.registeredCount);
+    protoOutput->write(FIELD_TYPE_INT64 | FIELD_ID_PULL_UNREGISTERED_COUNT,
+                       (long long) pair.second.unregisteredCount);
+    protoOutput->end(token);
+}
+
+void writeAtomMetricStatsToStream(const std::pair<int64_t, StatsdStats::AtomMetricStats> &pair,
+                                  util::ProtoOutputStream *protoOutput) {
+    uint64_t token = protoOutput->start(FIELD_TYPE_MESSAGE | FIELD_ID_ATOM_METRIC_STATS |
+                                        FIELD_COUNT_REPEATED);
+    protoOutput->write(FIELD_TYPE_INT64 | FIELD_ID_METRIC_ID, (long long)pair.first);
+    protoOutput->write(FIELD_TYPE_INT64 | FIELD_ID_HARD_DIMENSION_LIMIT_REACHED,
+                       (long long)pair.second.hardDimensionLimitReached);
+    protoOutput->write(FIELD_TYPE_INT64 | FIELD_ID_LATE_LOG_EVENT_SKIPPED,
+                       (long long)pair.second.lateLogEventSkipped);
+    protoOutput->write(FIELD_TYPE_INT64 | FIELD_ID_SKIPPED_FORWARD_BUCKETS,
+                       (long long)pair.second.skippedForwardBuckets);
+    protoOutput->write(FIELD_TYPE_INT64 | FIELD_ID_BAD_VALUE_TYPE,
+                       (long long)pair.second.badValueType);
+    protoOutput->write(FIELD_TYPE_INT64 | FIELD_ID_CONDITION_CHANGE_IN_NEXT_BUCKET,
+                       (long long)pair.second.conditionChangeInNextBucket);
+    protoOutput->write(FIELD_TYPE_INT64 | FIELD_ID_INVALIDATED_BUCKET,
+                       (long long)pair.second.invalidatedBucket);
+    protoOutput->write(FIELD_TYPE_INT64 | FIELD_ID_BUCKET_DROPPED,
+                       (long long)pair.second.bucketDropped);
+    protoOutput->write(FIELD_TYPE_INT64 | FIELD_ID_MIN_BUCKET_BOUNDARY_DELAY_NS,
+                       (long long)pair.second.minBucketBoundaryDelayNs);
+    protoOutput->write(FIELD_TYPE_INT64 | FIELD_ID_MAX_BUCKET_BOUNDARY_DELAY_NS,
+                       (long long)pair.second.maxBucketBoundaryDelayNs);
+    protoOutput->write(FIELD_TYPE_INT64 | FIELD_ID_BUCKET_UNKNOWN_CONDITION,
+                       (long long)pair.second.bucketUnknownCondition);
+    protoOutput->write(FIELD_TYPE_INT64 | FIELD_ID_BUCKET_COUNT,
+                       (long long)pair.second.bucketCount);
     protoOutput->end(token);
 }
 
@@ -432,8 +545,15 @@ int64_t getWallClockMillis() {
     return time(nullptr) * MS_PER_SEC;
 }
 
-int64_t truncateTimestampNsToFiveMinutes(int64_t timestampNs) {
-    return timestampNs / NS_PER_SEC / (5 * 60) * NS_PER_SEC * (5 * 60);
+int64_t truncateTimestampIfNecessary(int atomId, int64_t timestampNs) {
+    if (AtomsInfo::kTruncatingTimestampAtomBlackList.find(atomId) !=
+            AtomsInfo::kTruncatingTimestampAtomBlackList.end() ||
+        (atomId >= StatsdStats::kTimestampTruncationStartTag &&
+         atomId <= StatsdStats::kTimestampTruncationEndTag)) {
+        return timestampNs / NS_PER_SEC / (5 * 60) * NS_PER_SEC * (5 * 60);
+    } else {
+        return timestampNs;
+    }
 }
 
 int64_t NanoToMillis(const int64_t nano) {

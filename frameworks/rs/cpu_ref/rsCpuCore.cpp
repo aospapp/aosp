@@ -183,7 +183,7 @@ void RsdCpuReferenceImpl::unlockMutex() {
 // Determine if the CPU we're running on supports SIMD instructions.
 static void GetCpuInfo() {
     // Read the CPU flags from /proc/cpuinfo.
-    FILE *cpuinfo = fopen("/proc/cpuinfo", "r");
+    FILE *cpuinfo = fopen("/proc/cpuinfo", "re");
 
     if (!cpuinfo) {
         return;
@@ -506,7 +506,7 @@ static const char *format_bytes(FormatBuf *outBuf, const uint8_t *inBuf, const i
   return *outBuf;
 }
 
-static void reduce_get_accumulator(uint8_t *&accumPtr, const MTLaunchStructReduce *mtls,
+static void reduce_get_accumulator(uint8_t *&accumPtr, MTLaunchStructReduce *mtls,
                                    const char *walkerName, uint32_t threadIdx) {
   rsAssert(!accumPtr);
 
@@ -531,7 +531,7 @@ static void reduce_get_accumulator(uint8_t *&accumPtr, const MTLaunchStructReduc
 }
 
 static void walk_1d_reduce(void *usr, uint32_t idx) {
-  const MTLaunchStructReduce *mtls = (const MTLaunchStructReduce *)usr;
+  MTLaunchStructReduce *mtls = (MTLaunchStructReduce *)usr;
   RsExpandKernelDriverInfo redp = mtls->redp;
 
   // find accumulator
@@ -570,7 +570,7 @@ static void walk_1d_reduce(void *usr, uint32_t idx) {
 }
 
 static void walk_2d_reduce(void *usr, uint32_t idx) {
-  const MTLaunchStructReduce *mtls = (const MTLaunchStructReduce *)usr;
+  MTLaunchStructReduce *mtls = (MTLaunchStructReduce *)usr;
   RsExpandKernelDriverInfo redp = mtls->redp;
 
   // find accumulator
@@ -609,7 +609,7 @@ static void walk_2d_reduce(void *usr, uint32_t idx) {
 }
 
 static void walk_3d_reduce(void *usr, uint32_t idx) {
-  const MTLaunchStructReduce *mtls = (const MTLaunchStructReduce *)usr;
+  MTLaunchStructReduce *mtls = (MTLaunchStructReduce *)usr;
   RsExpandKernelDriverInfo redp = mtls->redp;
 
   // find accumulator

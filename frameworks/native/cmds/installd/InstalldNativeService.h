@@ -60,6 +60,16 @@ public:
 
     binder::Status fixupAppData(const std::unique_ptr<std::string>& uuid, int32_t flags);
 
+    binder::Status snapshotAppData(const std::unique_ptr<std::string>& volumeUuid,
+            const std::string& packageName, const int32_t user, const int32_t snapshotId,
+            int32_t storageFlags, int64_t* _aidl_return);
+    binder::Status restoreAppDataSnapshot(const std::unique_ptr<std::string>& volumeUuid,
+            const std::string& packageName, const int32_t appId, const std::string& seInfo,
+            const int32_t user, const int32_t snapshotId, int32_t storageFlags);
+    binder::Status destroyAppDataSnapshot(const std::unique_ptr<std::string> &volumeUuid,
+            const std::string& packageName, const int32_t user, const int64_t ceSnapshotInode,
+            const int32_t snapshotId, int32_t storageFlags);
+
     binder::Status getAppSize(const std::unique_ptr<std::string>& uuid,
             const std::vector<std::string>& packageNames, int32_t userId, int32_t flags,
             int32_t appId, const std::vector<int64_t>& ceDataInodes,
@@ -88,6 +98,9 @@ public:
             int32_t targetSdkVersion, const std::unique_ptr<std::string>& profileName,
             const std::unique_ptr<std::string>& dexMetadataPath,
             const std::unique_ptr<std::string>& compilationReason);
+
+    binder::Status compileLayouts(const std::string& apkPath, const std::string& packageName,
+                                  const std::string& outDexFile, int uid, bool* _aidl_return);
 
     binder::Status rmdex(const std::string& codePath, const std::string& instructionSet);
 
@@ -142,6 +155,8 @@ public:
             const std::string& codePath, const std::unique_ptr<std::string>& dexMetadata,
             bool* _aidl_return);
 
+    binder::Status migrateLegacyObbData();
+
 private:
     std::recursive_mutex mLock;
 
@@ -150,14 +165,11 @@ private:
 
     /* Map of all storage mounts from source to target */
     std::unordered_map<std::string, std::string> mStorageMounts;
-    /* Map of all quota mounts from target to source */
-    std::unordered_map<std::string, std::string> mQuotaReverseMounts;
 
     /* Map from UID to cache quota size */
     std::unordered_map<uid_t, int64_t> mCacheQuotas;
 
     std::string findDataMediaPath(const std::unique_ptr<std::string>& uuid, userid_t userid);
-    std::string findQuotaDeviceForUuid(const std::unique_ptr<std::string>& uuid);
 };
 
 }  // namespace installd

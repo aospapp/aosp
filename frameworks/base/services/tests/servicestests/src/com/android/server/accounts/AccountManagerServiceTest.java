@@ -17,6 +17,7 @@
 package com.android.server.accounts;
 
 import static android.database.sqlite.SQLiteDatabase.deleteDatabase;
+
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyBoolean;
 import static org.mockito.Matchers.anyInt;
@@ -25,7 +26,6 @@ import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.atLeast;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.nullable;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -35,11 +35,10 @@ import android.accounts.AccountManagerInternal;
 import android.accounts.CantAddAccountActivity;
 import android.accounts.IAccountManagerResponse;
 import android.app.AppOpsManager;
+import android.app.INotificationManager;
 import android.app.admin.DevicePolicyManager;
 import android.app.admin.DevicePolicyManagerInternal;
-import android.app.INotificationManager;
 import android.content.BroadcastReceiver;
-import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
@@ -48,6 +47,7 @@ import android.content.pm.ActivityInfo;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
+import android.content.pm.PackageManagerInternal;
 import android.content.pm.ResolveInfo;
 import android.content.pm.Signature;
 import android.content.pm.UserInfo;
@@ -67,7 +67,6 @@ import android.test.mock.MockContext;
 import android.test.suitebuilder.annotation.SmallTest;
 import android.util.Log;
 
-import com.android.frameworks.servicestests.R;
 import com.android.server.LocalServices;
 
 import org.mockito.ArgumentCaptor;
@@ -90,7 +89,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
-
 /**
  * Tests for {@link AccountManagerService}.
  * <p>Run with:<pre>
@@ -98,7 +96,7 @@ import java.util.concurrent.atomic.AtomicLong;
  * adb install -r ${OUT}/data/app/FrameworksServicesTests/FrameworksServicesTests.apk
  * adb shell am instrument -w -e package com.android.server.accounts \
  * com.android.frameworks.servicestests\
- * /android.support.test.runner.AndroidJUnitRunner
+ * /androidx.test.runner.AndroidJUnitRunner
  * </pre>
  */
 public class AccountManagerServiceTest extends AndroidTestCase {
@@ -114,6 +112,7 @@ public class AccountManagerServiceTest extends AndroidTestCase {
     @Mock private IAccountManagerResponse mMockAccountManagerResponse;
     @Mock private IBinder mMockBinder;
     @Mock private INotificationManager mMockNotificationManager;
+    @Mock private PackageManagerInternal mMockPackageManagerInternal;
 
     @Captor private ArgumentCaptor<Intent> mIntentCaptor;
     @Captor private ArgumentCaptor<Bundle> mBundleCaptor;
@@ -158,6 +157,9 @@ public class AccountManagerServiceTest extends AndroidTestCase {
         when(mMockContext.getSystemService(Context.DEVICE_POLICY_SERVICE)).thenReturn(
                 mMockDevicePolicyManager);
         when(mMockAccountManagerResponse.asBinder()).thenReturn(mMockBinder);
+        when(mMockPackageManagerInternal.hasSignatureCapability(anyInt(), anyInt(), anyInt()))
+                .thenReturn(true);
+        LocalServices.addService(PackageManagerInternal.class, mMockPackageManagerInternal);
 
         Context realTestContext = getContext();
         MyMockContext mockContext = new MyMockContext(realTestContext, mMockContext);
@@ -177,6 +179,7 @@ public class AccountManagerServiceTest extends AndroidTestCase {
             cdl.countDown();
         });
         cdl.await(1, TimeUnit.SECONDS);
+        LocalServices.removeServiceForTest(PackageManagerInternal.class);
         super.tearDown();
     }
 
@@ -610,6 +613,8 @@ public class AccountManagerServiceTest extends AndroidTestCase {
                 any(Intent.class), anyInt(), anyInt())).thenReturn(resolveInfo);
         when(mMockPackageManager.checkSignatures(
                 anyInt(), anyInt())).thenReturn(PackageManager.SIGNATURE_NO_MATCH);
+        when(mMockPackageManagerInternal.hasSignatureCapability(anyInt(), anyInt(), anyInt()))
+                .thenReturn(false);
 
         final CountDownLatch latch = new CountDownLatch(1);
         Response response = new Response(latch, mMockAccountManagerResponse);
@@ -626,7 +631,7 @@ public class AccountManagerServiceTest extends AndroidTestCase {
         waitForLatch(latch);
         verify(mMockAccountManagerResponse, never()).onResult(any(Bundle.class));
         verify(mMockAccountManagerResponse).onError(
-                eq(AccountManager.ERROR_CODE_REMOTE_EXCEPTION), anyString());
+                eq(AccountManager.ERROR_CODE_INVALID_RESPONSE), anyString());
     }
 
     @SmallTest
@@ -792,6 +797,8 @@ public class AccountManagerServiceTest extends AndroidTestCase {
                 any(Intent.class), anyInt(), anyInt())).thenReturn(resolveInfo);
         when(mMockPackageManager.checkSignatures(
                 anyInt(), anyInt())).thenReturn(PackageManager.SIGNATURE_NO_MATCH);
+        when(mMockPackageManagerInternal.hasSignatureCapability(anyInt(), anyInt(), anyInt()))
+                .thenReturn(false);
 
         final CountDownLatch latch = new CountDownLatch(1);
         Response response = new Response(latch, mMockAccountManagerResponse);
@@ -808,7 +815,7 @@ public class AccountManagerServiceTest extends AndroidTestCase {
         waitForLatch(latch);
         verify(mMockAccountManagerResponse, never()).onResult(any(Bundle.class));
         verify(mMockAccountManagerResponse).onError(
-                eq(AccountManager.ERROR_CODE_REMOTE_EXCEPTION), anyString());
+                eq(AccountManager.ERROR_CODE_INVALID_RESPONSE), anyString());
     }
 
     @SmallTest
@@ -1092,6 +1099,8 @@ public class AccountManagerServiceTest extends AndroidTestCase {
                 any(Intent.class), anyInt(), anyInt())).thenReturn(resolveInfo);
         when(mMockPackageManager.checkSignatures(
                 anyInt(), anyInt())).thenReturn(PackageManager.SIGNATURE_NO_MATCH);
+        when(mMockPackageManagerInternal.hasSignatureCapability(anyInt(), anyInt(), anyInt()))
+                .thenReturn(false);
 
         final CountDownLatch latch = new CountDownLatch(1);
         Response response = new Response(latch, mMockAccountManagerResponse);
@@ -1106,7 +1115,7 @@ public class AccountManagerServiceTest extends AndroidTestCase {
         waitForLatch(latch);
         verify(mMockAccountManagerResponse, never()).onResult(any(Bundle.class));
         verify(mMockAccountManagerResponse).onError(
-                eq(AccountManager.ERROR_CODE_REMOTE_EXCEPTION), anyString());
+                eq(AccountManager.ERROR_CODE_INVALID_RESPONSE), anyString());
     }
 
     @SmallTest
@@ -1352,6 +1361,8 @@ public class AccountManagerServiceTest extends AndroidTestCase {
         unlockSystemUser();
         when(mMockPackageManager.checkSignatures(anyInt(), anyInt()))
                     .thenReturn(PackageManager.SIGNATURE_NO_MATCH);
+        when(mMockPackageManagerInternal.hasSignatureCapability(anyInt(), anyInt(), anyInt()))
+                .thenReturn(false);
         try {
             mAms.removeAccountAsUser(
                 mMockAccountManagerResponse, // response
@@ -1688,6 +1699,8 @@ public class AccountManagerServiceTest extends AndroidTestCase {
                 any(Intent.class), anyInt(), anyInt())).thenReturn(resolveInfo);
         when(mMockPackageManager.checkSignatures(
                 anyInt(), anyInt())).thenReturn(PackageManager.SIGNATURE_NO_MATCH);
+        when(mMockPackageManagerInternal.hasSignatureCapability(anyInt(), anyInt(), anyInt()))
+                .thenReturn(false);
 
         final CountDownLatch latch = new CountDownLatch(1);
         Response response = new Response(latch, mMockAccountManagerResponse);
@@ -1701,7 +1714,7 @@ public class AccountManagerServiceTest extends AndroidTestCase {
         waitForLatch(latch);
         verify(mMockAccountManagerResponse, never()).onResult(any(Bundle.class));
         verify(mMockAccountManagerResponse).onError(
-                eq(AccountManager.ERROR_CODE_REMOTE_EXCEPTION), anyString());
+                eq(AccountManager.ERROR_CODE_INVALID_RESPONSE), anyString());
     }
 
     @SmallTest
@@ -1959,6 +1972,8 @@ public class AccountManagerServiceTest extends AndroidTestCase {
                 any(Intent.class), anyInt(), anyInt())).thenReturn(resolveInfo);
         when(mMockPackageManager.checkSignatures(
                 anyInt(), anyInt())).thenReturn(PackageManager.SIGNATURE_NO_MATCH);
+        when(mMockPackageManagerInternal.hasSignatureCapability(anyInt(), anyInt(), anyInt()))
+                .thenReturn(false);
 
         final CountDownLatch latch = new CountDownLatch(1);
         Response response = new Response(latch, mMockAccountManagerResponse);
@@ -1974,7 +1989,7 @@ public class AccountManagerServiceTest extends AndroidTestCase {
         waitForLatch(latch);
         verify(mMockAccountManagerResponse, never()).onResult(any(Bundle.class));
         verify(mMockAccountManagerResponse).onError(
-                eq(AccountManager.ERROR_CODE_REMOTE_EXCEPTION), anyString());
+                eq(AccountManager.ERROR_CODE_INVALID_RESPONSE), anyString());
     }
 
     @SmallTest
@@ -2097,6 +2112,8 @@ public class AccountManagerServiceTest extends AndroidTestCase {
                 any(Intent.class), anyInt(), anyInt())).thenReturn(resolveInfo);
         when(mMockPackageManager.checkSignatures(
                 anyInt(), anyInt())).thenReturn(PackageManager.SIGNATURE_NO_MATCH);
+        when(mMockPackageManagerInternal.hasSignatureCapability(anyInt(), anyInt(), anyInt()))
+                .thenReturn(false);
 
         final CountDownLatch latch = new CountDownLatch(1);
         Response response = new Response(latch, mMockAccountManagerResponse);
@@ -2110,7 +2127,7 @@ public class AccountManagerServiceTest extends AndroidTestCase {
 
         verify(mMockAccountManagerResponse, never()).onResult(any(Bundle.class));
         verify(mMockAccountManagerResponse).onError(
-                eq(AccountManager.ERROR_CODE_REMOTE_EXCEPTION), anyString());
+                eq(AccountManager.ERROR_CODE_INVALID_RESPONSE), anyString());
     }
 
     @SmallTest
@@ -2230,6 +2247,8 @@ public class AccountManagerServiceTest extends AndroidTestCase {
                 any(Intent.class), anyInt(), anyInt())).thenReturn(resolveInfo);
         when(mMockPackageManager.checkSignatures(
                 anyInt(), anyInt())).thenReturn(PackageManager.SIGNATURE_NO_MATCH);
+        when(mMockPackageManagerInternal.hasSignatureCapability(anyInt(), anyInt(), anyInt()))
+                .thenReturn(false);
 
         final CountDownLatch latch = new CountDownLatch(1);
         Response response = new Response(latch, mMockAccountManagerResponse);
@@ -2245,7 +2264,7 @@ public class AccountManagerServiceTest extends AndroidTestCase {
 
         verify(mMockAccountManagerResponse, never()).onResult(any(Bundle.class));
         verify(mMockAccountManagerResponse).onError(
-                eq(AccountManager.ERROR_CODE_REMOTE_EXCEPTION), anyString());
+                eq(AccountManager.ERROR_CODE_INVALID_RESPONSE), anyString());
     }
 
     @SmallTest
@@ -2332,6 +2351,8 @@ public class AccountManagerServiceTest extends AndroidTestCase {
         unlockSystemUser();
         when(mMockPackageManager.checkSignatures(anyInt(), anyInt()))
                     .thenReturn(PackageManager.SIGNATURE_NO_MATCH);
+        when(mMockPackageManagerInternal.hasSignatureCapability(anyInt(), anyInt(), anyInt()))
+                .thenReturn(false);
         try {
             mAms.editProperties(
                 mMockAccountManagerResponse, // response
@@ -2621,6 +2642,8 @@ public class AccountManagerServiceTest extends AndroidTestCase {
                 PackageManager.PERMISSION_DENIED);
         when(mMockPackageManager.checkSignatures(anyInt(), anyInt()))
                     .thenReturn(PackageManager.SIGNATURE_NO_MATCH);
+        when(mMockPackageManagerInternal.hasSignatureCapability(anyInt(), anyInt(), anyInt()))
+                .thenReturn(false);
 
         final CountDownLatch latch = new CountDownLatch(1);
         Response response = new Response(latch, mMockAccountManagerResponse);

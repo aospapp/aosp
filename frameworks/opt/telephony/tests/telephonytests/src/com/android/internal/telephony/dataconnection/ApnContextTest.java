@@ -16,11 +16,20 @@
 
 package com.android.internal.telephony.dataconnection;
 
+import static junit.framework.Assert.assertEquals;
+import static junit.framework.Assert.assertFalse;
+import static junit.framework.Assert.assertTrue;
+
+import static org.mockito.Matchers.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+
 import android.net.NetworkCapabilities;
 import android.net.NetworkConfig;
 import android.net.NetworkRequest;
+import android.telephony.data.ApnSetting;
 import android.test.suitebuilder.annotation.SmallTest;
-import android.util.LocalLog;
 
 import com.android.internal.R;
 import com.android.internal.telephony.DctConstants;
@@ -31,16 +40,6 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mock;
-
-import static junit.framework.Assert.assertEquals;
-import static junit.framework.Assert.assertFalse;
-import static junit.framework.Assert.assertNull;
-import static junit.framework.Assert.assertTrue;
-import static org.mockito.Matchers.eq;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
 
 public class ApnContextTest extends TelephonyTest {
 
@@ -89,27 +88,6 @@ public class ApnContextTest extends TelephonyTest {
 
     @Test
     @SmallTest
-    public void testDataCallAsyncChannel() throws Exception {
-
-        DcAsyncChannel dcAc = mock(DcAsyncChannel.class);
-
-        mApnContext.setDataConnectionAc(dcAc);
-        assertEquals(dcAc, mApnContext.getDcAc());
-        mApnContext.releaseDataConnection("");
-        assertNull(mApnContext.getDcAc());
-        assertEquals(DctConstants.State.IDLE, mApnContext.getState());
-    }
-
-    @Test
-    @SmallTest
-    public void testDependencyMet() throws Exception {
-        assertTrue(mApnContext.getDependencyMet());
-        mApnContext.setDependencyMet(false);
-        assertFalse(mApnContext.getDependencyMet());
-    }
-
-    @Test
-    @SmallTest
     public void testReason() throws Exception {
         mApnContext.setReason("dataEnabled");
         assertEquals("dataEnabled", mApnContext.getReason());
@@ -123,10 +101,9 @@ public class ApnContextTest extends TelephonyTest {
         mApnContext.setState(DctConstants.State.DISCONNECTING);
         assertEquals(DctConstants.State.DISCONNECTING, mApnContext.getState());
         mApnContext.setEnabled(true);
-        mApnContext.setDependencyMet(true);
         assertFalse(mApnContext.isConnectable());
 
-        mApnContext.setState(DctConstants.State.SCANNING);
+        mApnContext.setState(DctConstants.State.RETRYING);
         assertTrue(mApnContext.isConnectable());
         assertTrue(mApnContext.isConnectedOrConnecting());
 
@@ -138,19 +115,70 @@ public class ApnContextTest extends TelephonyTest {
 
     @Test
     @SmallTest
-    public void testNetworkRequest() throws Exception {
-        LocalLog log = new LocalLog(3);
-        NetworkRequest nr = new NetworkRequest.Builder().build();
-        mApnContext.requestNetwork(nr, log);
+    public void testNetworkRequestNormal() throws Exception {
+        NetworkRequest nr1 = new NetworkRequest.Builder().build();
+        mApnContext.requestNetwork(nr1, DcTracker.REQUEST_TYPE_NORMAL, null);
 
-        verify(mDcTracker, times(1)).setEnabled(eq(DctConstants.APN_DEFAULT_ID), eq(true));
-        mApnContext.requestNetwork(nr, log);
-        verify(mDcTracker, times(1)).setEnabled(eq(DctConstants.APN_DEFAULT_ID), eq(true));
+        verify(mDcTracker, times(1)).enableApn(eq(ApnSetting.TYPE_DEFAULT),
+                eq(DcTracker.REQUEST_TYPE_NORMAL), eq(null));
 
-        mApnContext.releaseNetwork(nr, log);
-        verify(mDcTracker, times(1)).setEnabled(eq(DctConstants.APN_DEFAULT_ID), eq(false));
-        mApnContext.releaseNetwork(nr, log);
-        verify(mDcTracker, times(1)).setEnabled(eq(DctConstants.APN_DEFAULT_ID), eq(false));
+        NetworkRequest nr2 = new NetworkRequest.Builder()
+                .addTransportType(NetworkCapabilities.TRANSPORT_CELLULAR)
+                .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                .removeCapability(NetworkCapabilities.NET_CAPABILITY_NOT_RESTRICTED)
+                .build();
+
+        mApnContext.requestNetwork(nr2, DcTracker.REQUEST_TYPE_NORMAL, null);
+        verify(mDcTracker, times(2)).enableApn(eq(ApnSetting.TYPE_DEFAULT),
+                eq(DcTracker.REQUEST_TYPE_NORMAL), eq(null));
+
+        mApnContext.releaseNetwork(nr1, DcTracker.RELEASE_TYPE_NORMAL);
+        verify(mDcTracker, never()).disableApn(eq(ApnSetting.TYPE_DEFAULT),
+                eq(DcTracker.RELEASE_TYPE_NORMAL));
+
+        mApnContext.releaseNetwork(nr2, DcTracker.RELEASE_TYPE_NORMAL);
+        verify(mDcTracker, times(1)).disableApn(eq(ApnSetting.TYPE_DEFAULT),
+                eq(DcTracker.RELEASE_TYPE_NORMAL));
+    }
+
+    @Test
+    @SmallTest
+    public void testNetworkRequestDetach() throws Exception {
+        NetworkRequest nr1 = new NetworkRequest.Builder().build();
+        mApnContext.requestNetwork(nr1, DcTracker.REQUEST_TYPE_NORMAL, null);
+        verify(mDcTracker, times(1)).enableApn(eq(ApnSetting.TYPE_DEFAULT),
+                eq(DcTracker.REQUEST_TYPE_NORMAL), eq(null));
+
+        NetworkRequest nr2 = new NetworkRequest.Builder()
+                .addTransportType(NetworkCapabilities.TRANSPORT_CELLULAR)
+                .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                .removeCapability(NetworkCapabilities.NET_CAPABILITY_NOT_RESTRICTED)
+                .build();
+
+        mApnContext.requestNetwork(nr2, DcTracker.REQUEST_TYPE_NORMAL, null);
+        verify(mDcTracker, times(2)).enableApn(eq(ApnSetting.TYPE_DEFAULT),
+                eq(DcTracker.REQUEST_TYPE_NORMAL), eq(null));
+
+        mApnContext.releaseNetwork(nr1, DcTracker.RELEASE_TYPE_DETACH);
+        verify(mDcTracker, times(1)).disableApn(eq(ApnSetting.TYPE_DEFAULT),
+                eq(DcTracker.RELEASE_TYPE_DETACH));
+
+        mApnContext.releaseNetwork(nr2, DcTracker.RELEASE_TYPE_NORMAL);
+        verify(mDcTracker, times(1)).disableApn(eq(ApnSetting.TYPE_DEFAULT),
+                eq(DcTracker.RELEASE_TYPE_NORMAL));
+    }
+
+    @Test
+    @SmallTest
+    public void testNetworkRequestHandover() throws Exception {
+        NetworkRequest nr1 = new NetworkRequest.Builder().build();
+        mApnContext.requestNetwork(nr1, DcTracker.REQUEST_TYPE_HANDOVER, null);
+        verify(mDcTracker, times(1)).enableApn(eq(ApnSetting.TYPE_DEFAULT),
+                eq(DcTracker.REQUEST_TYPE_HANDOVER), eq(null));
+
+        mApnContext.releaseNetwork(nr1, DcTracker.RELEASE_TYPE_HANDOVER);
+        verify(mDcTracker, times(1)).disableApn(eq(ApnSetting.TYPE_DEFAULT),
+                eq(DcTracker.RELEASE_TYPE_HANDOVER));
     }
 
     @Test
@@ -176,32 +204,31 @@ public class ApnContextTest extends TelephonyTest {
     public void testProvisionApn() throws Exception {
         mContextFixture.putResource(R.string.mobile_provisioning_apn, "fake_apn");
 
-        ApnSetting myApn = new ApnSetting(
+        ApnSetting myApn = ApnSetting.makeApnSetting(
                 2163,                   // id
                 "44010",                // numeric
                 "sp-mode",              // name
                 "fake_apn",             // apn
-                "",                     // proxy
-                "",                     // port
-                "",                     // mmsc
-                "",                     // mmsproxy
-                "",                     // mmsport
+                null,                     // proxy
+                -1,                     // port
+                null,                     // mmsc
+                null,                     // mmsproxy
+                -1,                     // mmsport
                 "",                     // user
                 "",                     // password
                 -1,                     // authtype
-                new String[]{"default", "supl"},     // types
-                "IP",                   // protocol
-                "IP",                   // roaming_protocol
+                ApnSetting.TYPE_DEFAULT | ApnSetting.TYPE_SUPL,     // types
+                ApnSetting.PROTOCOL_IP,                   // protocol
+                ApnSetting.PROTOCOL_IP,                   // roaming_protocol
                 true,                   // carrier_enabled
-                0,                      // bearer
-                0,                      // bearer_bitmask
+                0,                      // networktype_bismask
                 0,                      // profile_id
                 false,                  // modem_cognitive
                 0,                      // max_conns
                 0,                      // wait_time
                 0,                      // max_conns_time
                 0,                      // mtu
-                "",                     // mvno_type
+                -1,                     // mvno_type
                 "");                    // mnvo_match_data
 
         mApnContext.setApnSetting(myApn);
@@ -214,16 +241,9 @@ public class ApnContextTest extends TelephonyTest {
     @SmallTest
     public void testIsReady() throws Exception {
         mApnContext.setEnabled(true);
-        mApnContext.setDependencyMet(true);
         assertTrue(mApnContext.isReady());
 
         mApnContext.setEnabled(false);
-        assertFalse(mApnContext.isReady());
-
-        mApnContext.setDependencyMet(false);
-        assertFalse(mApnContext.isReady());
-
-        mApnContext.setEnabled(true);
         assertFalse(mApnContext.isReady());
     }
 

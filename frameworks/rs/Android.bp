@@ -73,6 +73,17 @@ cc_library_shared {
             enabled: false,
         },
     },
+
+    // Bug: http://b/77445194 - Disable x86 asan where rsdRuntimeStubs.cpp has
+    // undefined reference to half-conversion routines (__gnu_h2f_ieee,
+    // __gnu_f2h_ieee).
+    arch: {
+        x86: {
+            sanitize: {
+                never: true,
+            },
+        },
+    },
 }
 
 // Build rsg-generator ====================
@@ -86,11 +97,7 @@ cc_binary_host {
     ],
 
     cflags: [
-        "-Wall",
-        "-Werror",
-        "-Wno-error=unneeded-internal-declaration",
-        "-Wno-error=unused-function",
-        "-Wno-error=unused-variable",
+        "-Wno-unused-function",
     ],
 
     stl: "none",

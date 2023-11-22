@@ -21,16 +21,16 @@ LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 
 LOCAL_PACKAGE_NAME := RSTest_Compat19
-LOCAL_SDK_VERSION := current
 LOCAL_MODULE_TAGS := tests
 
 LOCAL_STATIC_JAVA_LIBRARIES := \
-    android-support-test \
+    androidx.test.rules \
     android-support-v8-renderscript \
 
 LOCAL_RENDERSCRIPT_TARGET_API := 19
 LOCAL_RENDERSCRIPT_COMPATIBILITY := true
-LOCAL_RENDERSCRIPT_FLAGS := -rs-package-name=android.support.v8.renderscript
+LOCAL_RENDERSCRIPT_FLAGS := -rs-package-name=androidx.renderscript
+LOCAL_SDK_VERSION := current
 LOCAL_MIN_SDK_VERSION := 8
 
 my_rs_unit_tests_path := ../RSUnitTests/supportlibsrc_gen/com/android/rs/unittest

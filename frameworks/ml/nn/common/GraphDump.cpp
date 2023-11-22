@@ -14,15 +14,79 @@
  * limitations under the License.
  */
 
+#define LOG_TAG "GraphDump"
+
 #include "GraphDump.h"
 
 #include "HalInterfaces.h"
 
+#include <android-base/logging.h>
 #include <set>
 #include <iostream>
+#include <sstream>
 
 namespace android {
 namespace nn {
+
+// class Dumper is a wrapper around an std::ostream (if instantiated
+// with a pointer to a stream) or around LOG(INFO) (otherwise).
+//
+// Send fragments of output to it with operator<<(), as per usual
+// stream conventions.  Unlike with LOG(INFO), there is no implicit
+// end-of-line.  To end a line, send Dumper::endl.
+//
+// Example:
+//
+//   Dumper d(nullptr);  // will go to LOG(INFO)
+//   d << "These words are";
+//   d << " all" << " on";
+//   d << " the same line." << Dumper::endl;
+//
+namespace {
+class Dumper {
+public:
+    Dumper(std::ostream* outStream) : mStream(outStream) { }
+
+    Dumper(const Dumper&) = delete;
+    void operator=(const Dumper&) = delete;
+
+    template <typename T>
+    Dumper& operator<<(const T& val) {
+        mStringStream << val;
+        return *this;
+    }
+
+    class EndlType { };
+
+    Dumper& operator<<(EndlType) {
+        if (mStream) {
+            *mStream << mStringStream.str() << std::endl;
+        } else {
+            // TODO: There is a limit of how long a single LOG line
+            // can be; extra characters are truncated.  (See
+            // LOGGER_ENTRY_MAX_PAYLOAD and LOGGER_ENTRY_MAX_LEN.)  We
+            // may want to figure out the linebreak rules for the .dot
+            // format and try to ensure that we generate correct .dot
+            // output whose lines do not exceed some maximum length.
+            // The intelligence for breaking the lines might have to
+            // live in graphDump() rather than in the Dumper class, so
+            // that it can be sensitive to the .dot format.
+            LOG(INFO) << mStringStream.str();
+        }
+        std::ostringstream empty;
+        std::swap(mStringStream, empty);
+        return *this;
+    }
+
+    static const EndlType endl;
+private:
+    std::ostream* mStream;
+    std::ostringstream mStringStream;
+};
+
+const Dumper::EndlType Dumper::endl;
+}
+
 
 // Provide short name for OperandType value.
 static std::string translate(OperandType type) {
@@ -39,14 +103,35 @@ static std::string translate(OperandType type) {
     }
 }
 
-void graphDump(const char* name, const Model& model, std::ostream& outStream) {
+// If the specified Operand of the specified Model has OperandType
+// nnType corresponding to C++ type cppType and is of
+// OperandLifeTime::CONSTANT_COPY, then write the Operand's value to
+// the Dumper.
+namespace {
+template<OperandType nnType, typename cppType>
+void tryValueDump(Dumper& dump, const Model& model, const Operand& opnd) {
+    if (opnd.type != nnType ||
+        opnd.lifetime != OperandLifeTime::CONSTANT_COPY ||
+        opnd.location.length != sizeof(cppType)) {
+        return;
+    }
+
+    cppType val;
+    memcpy(&val, &model.operandValues[opnd.location.offset], sizeof(cppType));
+    dump << " = " << val;
+}
+}
+
+void graphDump(const char* name, const Model& model, std::ostream* outStream) {
     // Operand nodes are named "d" (operanD) followed by operand index.
     // Operation nodes are named "n" (operatioN) followed by operation index.
     // (These names are not the names that are actually displayed -- those
     //  names are given by the "label" attribute.)
 
-    outStream << "// " << name << std::endl;
-    outStream << "digraph {" << std::endl;
+    Dumper dump(outStream);
+
+    dump << "// " << name << Dumper::endl;
+    dump << "digraph {" << Dumper::endl;
 
     // model inputs and outputs
     std::set<uint32_t> modelIO;
@@ -59,11 +144,11 @@ void graphDump(const char* name, const Model& model, std::ostream& outStream) {
 
     // model operands
     for (unsigned i = 0, e = model.operands.size(); i < e; i++) {
-        outStream << "    d" << i << " [";
+        dump << "    d" << i << " [";
         if (modelIO.count(i)) {
-            outStream << "style=filled fillcolor=black fontcolor=white ";
+            dump << "style=filled fillcolor=black fontcolor=white ";
         }
-        outStream << "label=\"" << i;
+        dump << "label=\"" << i;
         const Operand& opnd = model.operands[i];
         const char* kind = nullptr;
         switch (opnd.lifetime) {
@@ -81,59 +166,62 @@ void graphDump(const char* name, const Model& model, std::ostream& outStream) {
                 break;
         }
         if (kind) {
-            outStream << ": " << kind;
+            dump << ": " << kind;
         }
-        outStream << "\\n" << translate(opnd.type);
+        dump << "\\n" << translate(opnd.type);
+        tryValueDump<OperandType::FLOAT32,   float>(dump, model, opnd);
+        tryValueDump<OperandType::INT32,       int>(dump, model, opnd);
+        tryValueDump<OperandType::UINT32, unsigned>(dump, model, opnd);
         if (opnd.dimensions.size()) {
-            outStream << "(";
+            dump << "(";
             for (unsigned i = 0, e = opnd.dimensions.size(); i < e; i++) {
                 if (i > 0) {
-                    outStream << "x";
+                    dump << "x";
                 }
-                outStream << opnd.dimensions[i];
+                dump << opnd.dimensions[i];
             }
-            outStream << ")";
+            dump << ")";
         }
-        outStream << "\"]" << std::endl;
+        dump << "\"]" << Dumper::endl;
     }
 
     // model operations
     for (unsigned i = 0, e = model.operations.size(); i < e; i++) {
         const Operation& operation = model.operations[i];
-        outStream << "    n" << i << " [shape=box";
+        dump << "    n" << i << " [shape=box";
         const uint32_t maxArity = std::max(operation.inputs.size(), operation.outputs.size());
         if (maxArity > 1) {
             if (maxArity == operation.inputs.size()) {
-                outStream << " ordering=in";
+                dump << " ordering=in";
             } else {
-                outStream << " ordering=out";
+                dump << " ordering=out";
             }
         }
-        outStream << " label=\"" << i << ": "
-                  << toString(operation.type) << "\"]" << std::endl;
+        dump << " label=\"" << i << ": "
+             << toString(operation.type) << "\"]" << Dumper::endl;
         {
             // operation inputs
             for (unsigned in = 0, inE = operation.inputs.size(); in < inE; in++) {
-                outStream << "    d" << operation.inputs[in] << " -> n" << i;
+                dump << "    d" << operation.inputs[in] << " -> n" << i;
                 if (inE > 1) {
-                    outStream << " [label=" << in << "]";
+                    dump << " [label=" << in << "]";
                 }
-                outStream << std::endl;
+                dump << Dumper::endl;
             }
         }
 
         {
             // operation outputs
             for (unsigned out = 0, outE = operation.outputs.size(); out < outE; out++) {
-                outStream << "    n" << i << " -> d" << operation.outputs[out];
+                dump << "    n" << i << " -> d" << operation.outputs[out];
                 if (outE > 1) {
-                    outStream << " [label=" << out << "]";
+                    dump << " [label=" << out << "]";
                 }
-                outStream << std::endl;
+                dump << Dumper::endl;
             }
         }
     }
-    outStream << "}" << std::endl;
+    dump << "}" << Dumper::endl;
 }
 
 }  // namespace nn

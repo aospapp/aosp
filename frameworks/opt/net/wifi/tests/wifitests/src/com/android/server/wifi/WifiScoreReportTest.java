@@ -36,6 +36,8 @@ import android.net.NetworkAgent;
 import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiInfo;
 
+import androidx.test.filters.SmallTest;
+
 import com.android.internal.R;
 
 import org.junit.After;
@@ -49,6 +51,7 @@ import java.io.PrintWriter;
 /**
  * Unit tests for {@link com.android.server.wifi.WifiScoreReport}.
  */
+@SmallTest
 public class WifiScoreReportTest {
 
 
@@ -105,18 +108,6 @@ public class WifiScoreReportTest {
         when(resources.getInteger(
                 R.integer.config_wifi_framework_wifi_score_good_rssi_threshold_24GHz))
             .thenReturn(-60);
-        when(resources.getInteger(
-                R.integer.config_wifi_framework_wifi_score_bad_link_speed_24))
-            .thenReturn(6); // Mbps
-        when(resources.getInteger(
-                R.integer.config_wifi_framework_wifi_score_bad_link_speed_5))
-            .thenReturn(12);
-        when(resources.getInteger(
-                R.integer.config_wifi_framework_wifi_score_good_link_speed_24))
-            .thenReturn(24);
-        when(resources.getInteger(
-                R.integer.config_wifi_framework_wifi_score_good_link_speed_5))
-            .thenReturn(36);
     }
 
     /**
@@ -439,5 +430,57 @@ public class WifiScoreReportTest {
         }
         mWifiScoreReport.dump(null, mPrintWriter, null);
         verify(mPrintWriter, atMost(3601)).println(anyString());
+    }
+
+    /**
+     * Test for staying at below transition score for a certain period of time.
+     */
+    @Test
+    public void stayAtBelowTransitionScoreForCertainPeriodOfTime() throws Exception {
+        mWifiScoreReport.enableVerboseLogging(true);
+        mWifiInfo.setFrequency(5220);
+
+        // Reduce RSSI value to fall below the transition score
+        for (int rssi = -60; rssi >= -83; rssi -= 1) {
+            mWifiInfo.setRssi(rssi);
+            mWifiScoreReport.calculateAndReportScore(mWifiInfo, mNetworkAgent, mWifiMetrics);
+        }
+        assertTrue(mWifiInfo.score < ConnectedScore.WIFI_TRANSITION_SCORE);
+
+        // Then, set high RSSI value to exceed the transition score
+        mWifiInfo.setRssi(-50);
+        // 8 seconds elapse
+        for (int i = 0; i < 8; i++) {
+            mWifiScoreReport.calculateAndReportScore(mWifiInfo, mNetworkAgent, mWifiMetrics);
+        }
+        assertTrue(mWifiInfo.score < ConnectedScore.WIFI_TRANSITION_SCORE);
+
+        // 9 seconds elapse
+        mWifiScoreReport.calculateAndReportScore(mWifiInfo, mNetworkAgent, mWifiMetrics);
+        assertTrue(mWifiInfo.score > ConnectedScore.WIFI_TRANSITION_SCORE);
+    }
+
+    /**
+     * Test for resetting the internal timer which is used to keep staying at
+     * below transition score for a certain period of time.
+     */
+    @Test
+    public void stayAtBelowTransitionScoreWithReset() throws Exception {
+        mWifiScoreReport.enableVerboseLogging(true);
+        mWifiInfo.setFrequency(5220);
+
+        // Reduce RSSI value to fall below the transition score
+        for (int rssi = -60; rssi >= -83; rssi -= 1) {
+            mWifiInfo.setRssi(rssi);
+            mWifiScoreReport.calculateAndReportScore(mWifiInfo, mNetworkAgent, mWifiMetrics);
+        }
+        assertTrue(mWifiInfo.score < ConnectedScore.WIFI_TRANSITION_SCORE);
+
+        // Then, set high RSSI value to exceed the transition score
+        mWifiInfo.setRssi(-50);
+        // Reset the internal timer so that no need to wait for 9 seconds
+        mWifiScoreReport.reset();
+        mWifiScoreReport.calculateAndReportScore(mWifiInfo, mNetworkAgent, mWifiMetrics);
+        assertTrue(mWifiInfo.score > ConnectedScore.WIFI_TRANSITION_SCORE);
     }
 }

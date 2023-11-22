@@ -11,6 +11,7 @@ namespace pdx {
 // This is a helper class for constructing Status<T> with an error code.
 struct ErrorStatus {
  public:
+  // NOLINTNEXTLINE(google-explicit-constructor)
   ErrorStatus(int error) : error_{error} {}
   int error() const { return error_; }
 
@@ -31,24 +32,26 @@ class Status {
   // Value copy/move constructors. These are intentionally not marked as
   // explicit to allow direct value returns from functions without having
   // to explicitly wrap them into Status<T>().
-  Status(const T& value) : value_{value} {}        // NOLINT(runtime/explicit)
-  Status(T&& value) : value_{std::move(value)} {}  // NOLINT(runtime/explicit)
+  // NOLINTNEXTLINE(google-explicit-constructor)
+  Status(const T& value) : value_{value} {}
+  // NOLINTNEXTLINE(google-explicit-constructor)
+  Status(T&& value) : value_{std::move(value)} {}
 
   // Constructor for storing an error code inside the Status object.
-  Status(const ErrorStatus& error_status)  // NOLINT(runtime/explicit)
-      : error_{error_status.error()} {}
+  // NOLINTNEXTLINE(google-explicit-constructor)
+  Status(const ErrorStatus& error_status) : error_{error_status.error()} {}
 
   // Copy/move constructors. Move constructor leaves |other| object in empty
   // state.
   Status(const Status& other) = default;
-  Status(Status&& other)
+  Status(Status&& other) noexcept
       : value_{std::move(other.value_)}, error_{other.error_} {
     other.error_ = -1;
   }
 
   // Assignment operators.
   Status& operator=(const Status& other) = default;
-  Status& operator=(Status&& other) {
+  Status& operator=(Status&& other) noexcept {
     error_ = other.error_;
     value_ = std::move(other.value_);
     other.error_ = -1;
@@ -135,8 +138,8 @@ template <>
 class Status<void> {
  public:
   Status() = default;
-  Status(const ErrorStatus& error_status)  // NOLINT(runtime/explicit)
-      : error_{error_status.error()} {}
+  // NOLINTNEXTLINE(google-explicit-constructor)
+  Status(const ErrorStatus& error_status) : error_{error_status.error()} {}
   void SetValue() { error_ = 0; }
   void SetError(int error) { error_ = error; }
 

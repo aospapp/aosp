@@ -27,10 +27,11 @@ my_rs_unit_tests_path := ../../RSUnitTests/src/com/android/rs/unittest
 include $(CLEAR_VARS)
 
 LOCAL_MODULE_TAGS := tests
-LOCAL_STATIC_JAVA_LIBRARIES := android-support-test
+LOCAL_STATIC_JAVA_LIBRARIES := androidx.test.rules
 LOCAL_COMPATIBILITY_SUITE := device-tests
-LOCAL_RENDERSCRIPT_TARGET_API := 0
+LOCAL_RENDERSCRIPT_TARGET_API := current
 LOCAL_PACKAGE_NAME := RSTestForward_25_0_2
+LOCAL_SDK_VERSION := current
 my_rs_path := $(TOP)/prebuilts/renderscript/host/linux-x86/25.0.2
 LOCAL_RENDERSCRIPT_CC := $(my_rs_path)/bin/llvm-rs-cc
 LOCAL_RENDERSCRIPT_INCLUDES_OVERRIDE := $(my_rs_path)/include $(my_rs_path)/clang-include
@@ -148,8 +149,6 @@ LOCAL_SRC_FILES :=\
     $(my_rs_unit_tests_path)/single_source_ref_count.rs\
     $(my_rs_unit_tests_path)/UT_single_source_script.java\
     $(my_rs_unit_tests_path)/single_source_script.rs\
-    $(my_rs_unit_tests_path)/UT_small_struct.java\
-    $(my_rs_unit_tests_path)/small_struct.rs\
     $(my_rs_unit_tests_path)/UT_small_struct_2.java\
     $(my_rs_unit_tests_path)/small_struct_2.rs\
     $(my_rs_unit_tests_path)/UT_static_globals.java\

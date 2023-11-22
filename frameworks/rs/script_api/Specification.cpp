@@ -802,7 +802,7 @@ void SpecFile::addFunctionSpecification(FunctionSpecification* spec, bool hasDoc
 
 // Read the specification, adding the definitions to the global functions map.
 bool SpecFile::readSpecFile(unsigned int maxApiLevel) {
-    FILE* specFile = fopen(mSpecFileName.c_str(), "rt");
+    FILE* specFile = fopen(mSpecFileName.c_str(), "rte");
     if (!specFile) {
         cerr << "Error opening input file: " << mSpecFileName << "\n";
         return false;

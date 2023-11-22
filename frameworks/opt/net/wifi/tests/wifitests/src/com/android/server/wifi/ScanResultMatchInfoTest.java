@@ -21,7 +21,8 @@ import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.*;
 
 import android.net.wifi.WifiConfiguration;
-import android.support.test.filters.SmallTest;
+
+import androidx.test.filters.SmallTest;
 
 import org.junit.Test;
 
@@ -85,11 +86,143 @@ public class ScanResultMatchInfoTest {
     }
 
     /**
+     * Tests equality properties, reflexive, symmetric, transitive, consistent for transition mode
+     * network.
+     */
+    @Test
+    public void testEqualityRulesForTransitionMode() {
+        WifiConfiguration wifiConfiguration =
+                WifiConfigurationTestUtil.createPskNetwork("\"Transition is Hard\"");
+        ScanDetail scanDetail = createScanDetailForWpa2Wpa3TransitionModeNetwork(wifiConfiguration,
+                "AA:BB:CC:DD:CC:BB");
+
+        ScanResultMatchInfo key1 = ScanResultMatchInfo.fromWifiConfiguration(wifiConfiguration);
+        ScanResultMatchInfo key2 = ScanResultMatchInfo.fromScanResult(scanDetail.getScanResult());
+        ScanResultMatchInfo key3 = ScanResultMatchInfo.fromWifiConfiguration(wifiConfiguration);
+
+        // Test a.equals(a)
+        assertTrue(key1.equals(key1));
+
+        // Test if a.equals(b) then b.equals(a)
+        assertTrue(key1.equals(key2));
+        assertTrue(key2.equals(key1));
+
+        // Test transitivity
+        assertTrue(key1.equals(key2));
+        assertTrue(key2.equals(key3));
+        assertTrue(key1.equals(key3));
+
+        // Test consistency
+        assertTrue(key1.equals(key2));
+        assertTrue(key1.equals(key2));
+        assertTrue(key1.equals(key2));
+        assertTrue(key1.equals(key2));
+    }
+
+    /**
+     * Tests equality properties, reflexive, symmetric, transitive, consistent for PSK network.
+     */
+    @Test
+    public void testEqualityRulesForPsk() {
+        WifiConfiguration wifiConfiguration =
+                WifiConfigurationTestUtil.createPskNetwork("\"Psk Tsk\"");
+        ScanDetail scanDetail = createScanDetailForNetwork(wifiConfiguration,
+                "AA:BB:CC:DD:CC:BB");
+
+        ScanResultMatchInfo key1 = ScanResultMatchInfo.fromWifiConfiguration(wifiConfiguration);
+        ScanResultMatchInfo key2 = ScanResultMatchInfo.fromScanResult(scanDetail.getScanResult());
+        ScanResultMatchInfo key3 = ScanResultMatchInfo.fromWifiConfiguration(wifiConfiguration);
+
+        // Test a.equals(a)
+        assertTrue(key1.equals(key1));
+
+        // Test if a.equals(b) then b.equals(a)
+        assertTrue(key1.equals(key2));
+        assertTrue(key2.equals(key1));
+
+        // Test transitivity
+        assertTrue(key1.equals(key2));
+        assertTrue(key2.equals(key3));
+        assertTrue(key1.equals(key3));
+
+        // Test consistency
+        assertTrue(key1.equals(key2));
+        assertTrue(key1.equals(key2));
+        assertTrue(key1.equals(key2));
+        assertTrue(key1.equals(key2));
+    }
+
+
+    /**
+     * Tests equality properties, reflexive, symmetric, transitive, consistent for SAE network.
+     */
+    @Test
+    public void testEqualityRulesForSae() {
+        WifiConfiguration wifiConfiguration =
+                WifiConfigurationTestUtil.createSaeNetwork();
+        ScanDetail scanDetail = createScanDetailForNetwork(wifiConfiguration,
+                "AC:AB:AD:AE:AF:FC");
+
+        ScanResultMatchInfo key1 = ScanResultMatchInfo.fromWifiConfiguration(wifiConfiguration);
+        ScanResultMatchInfo key2 = ScanResultMatchInfo.fromScanResult(scanDetail.getScanResult());
+        ScanResultMatchInfo key3 = ScanResultMatchInfo.fromWifiConfiguration(wifiConfiguration);
+
+        // Test a.equals(a)
+        assertTrue(key1.equals(key1));
+
+        // Test if a.equals(b) then b.equals(a)
+        assertTrue(key1.equals(key2));
+        assertTrue(key2.equals(key1));
+
+        // Test transitivity
+        assertTrue(key1.equals(key2));
+        assertTrue(key2.equals(key3));
+        assertTrue(key1.equals(key3));
+
+        // Test consistency
+        assertTrue(key1.equals(key2));
+        assertTrue(key1.equals(key2));
+        assertTrue(key1.equals(key2));
+        assertTrue(key1.equals(key2));
+    }
+
+    /**
+     * Tests that hashes of various configurations are equal
+     */
+    @Test
+    public void testHashForTransitionMode() {
+        WifiConfiguration wifiConfigurationPsk =
+                WifiConfigurationTestUtil.createPskNetwork("\"Transition is Hard\"");
+        WifiConfiguration wifiConfigurationSae =
+                WifiConfigurationTestUtil.createSaeNetwork("\"Transition is Hard\"");
+        ScanDetail scanDetail = createScanDetailForWpa2Wpa3TransitionModeNetwork(
+                wifiConfigurationPsk, "AA:BB:CC:DD:CC:BB");
+
+        ScanResultMatchInfo key1 = ScanResultMatchInfo.fromWifiConfiguration(wifiConfigurationPsk);
+        ScanResultMatchInfo key2 = ScanResultMatchInfo.fromScanResult(scanDetail.getScanResult());
+        ScanResultMatchInfo key3 = ScanResultMatchInfo.fromWifiConfiguration(wifiConfigurationSae);
+
+        // Assert that all hashes are equal
+        assertEquals(key1.hashCode(), key2.hashCode());
+        assertEquals(key1.hashCode(), key3.hashCode());
+        assertEquals(key2.hashCode(), key3.hashCode());
+    }
+
+    /**
      * Creates a scan detail corresponding to the provided network and given BSSID
      */
     private ScanDetail createScanDetailForNetwork(
             WifiConfiguration configuration, String bssid) {
         return WifiConfigurationTestUtil.createScanDetailForNetwork(configuration, bssid, -40,
                 2402, 0, 0);
+    }
+
+    /**
+     * Creates a scan detail corresponding to the provided network and given BSSID
+     */
+    private ScanDetail createScanDetailForWpa2Wpa3TransitionModeNetwork(
+            WifiConfiguration configuration, String bssid) {
+        return WifiConfigurationTestUtil.createScanDetailForWpa2Wpa3TransitionModeNetwork(
+                configuration, bssid, -40, 2402, 0, 0);
     }
 }

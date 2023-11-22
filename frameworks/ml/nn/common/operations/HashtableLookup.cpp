@@ -17,8 +17,9 @@
 #include "HashtableLookup.h"
 
 #include "CpuExecutor.h"
-#include "HalInterfaces.h"
 #include "Operations.h"
+
+#include "Tracing.h"
 
 namespace android {
 namespace nn {
@@ -42,8 +43,9 @@ HashtableLookup::HashtableLookup(const Operation& operation,
 }
 
 bool HashtableLookup::Eval() {
+  NNTRACE_COMP("HashtableLookup::Eval");
   const int num_rows = value_->shape().dimensions[0];
-  const int row_bytes = sizeOfData(value_->type, value_->dimensions) / num_rows;
+  const int row_bytes = nonExtensionOperandSizeOfData(value_->type, value_->dimensions) / num_rows;
   void* pointer = nullptr;
 
   for (int i = 0; i < static_cast<int>(lookup_->shape().dimensions[0]); i++) {

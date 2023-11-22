@@ -168,7 +168,7 @@ public:
     };
     // enable allocators to be constructed from other templated types
     template <class U>
-    LinearStdAllocator(const LinearStdAllocator<U>& other)  // NOLINT(implicit)
+    LinearStdAllocator(const LinearStdAllocator<U>& other)  // NOLINT(google-explicit-constructor)
             : linearAllocator(other.linearAllocator) {}
 
     T* allocate(size_t num, const void* = 0) {
@@ -201,7 +201,7 @@ public:
             : std::vector<T, LinearStdAllocator<T>>(allocator) {}
 };
 
-};  // namespace uirenderer
-};  // namespace android
+}  // namespace uirenderer
+}  // namespace android
 
 #endif  // ANDROID_LINEARALLOCATOR_H

@@ -35,7 +35,7 @@ public:
 
 protected:
     float mFp[16];
-    short mIp[16];
+    int16_t mIp[16];
     ObjectBaseRef<const Allocation> mAlloc;
     ObjectBaseRef<const Element> mElement;
 
@@ -70,15 +70,15 @@ void RsdCpuScriptIntrinsicConvolve3x3::setGlobalVar(uint32_t slot, const void *d
     memcpy (&mFp, data, dataLength);
     for(int ct=0; ct < 9; ct++) {
         if (mFp[ct] >= 0) {
-            mIp[ct] = (short)(mFp[ct] * 256.f + 0.5f);
+            mIp[ct] = (int16_t)(mFp[ct] * 256.f + 0.5f);
         } else {
-            mIp[ct] = (short)(mFp[ct] * 256.f - 0.5f);
+            mIp[ct] = (int16_t)(mFp[ct] * 256.f - 0.5f);
         }
     }
 }
 
 extern "C" void rsdIntrinsicConvolve3x3_K(void *dst, const void *y0, const void *y1,
-                                          const void *y2, const short *coef, uint32_t count);
+                                          const void *y2, const int16_t *coef, uint32_t count);
 
 
 static void ConvolveOneU4(const RsExpandKernelDriverInfo *info, uint32_t x, uchar4 *out,
@@ -480,7 +480,7 @@ RsdCpuScriptIntrinsicConvolve3x3::RsdCpuScriptIntrinsicConvolve3x3(
     }
     for(int ct=0; ct < 9; ct++) {
         mFp[ct] = 1.f / 9.f;
-        mIp[ct] = (short)(mFp[ct] * 256.f + 0.5f);
+        mIp[ct] = (int16_t)(mFp[ct] * 256.f + 0.5f);
     }
 }
 

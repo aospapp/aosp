@@ -12,12 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Headers module is in frameworks/native/vulkan/Android.bp.
+// Headers module is in external/vulkan-headers/Android.bp.
 ndk_library {
     name: "libvulkan",
     symbol_file: "libvulkan.map.txt",
     first_version: "24",
     unversioned_until: "current",
+}
+
+llndk_library {
+    name: "libvulkan",
+    symbol_file: "libvulkan.map.txt",
+    export_llndk_headers: [
+        "vulkan_headers_llndk",
+    ],
 }
 
 cc_library_shared {
@@ -39,11 +47,13 @@ cc_library_shared {
         "-Wno-switch-enum",
         "-Wno-undef",
 
+        // Have clang emit complete debug_info.
+        "-fstandalone-debug",
+
         //"-DLOG_NDEBUG=0",
     ],
 
     cppflags: [
-        "-std=c++14",
         "-Wno-c99-extensions",
         "-Wno-c++98-compat-pedantic",
         "-Wno-exit-time-destructors",
@@ -63,10 +73,11 @@ cc_library_shared {
         "swapchain.cpp",
     ],
 
-    export_header_lib_headers: ["vulkan_headers"],
     header_libs: [
+        "hwvulkan_headers",
         "vulkan_headers",
     ],
+    export_header_lib_headers: ["vulkan_headers"],
     shared_libs: [
         "android.hardware.configstore@1.0",
         "android.hardware.configstore-utils",
@@ -74,6 +85,7 @@ cc_library_shared {
         "libhardware",
         "libsync",
         "libbase",
+        "libdl_android",
         "libhidlbase",
         "libhidltransport",
         "liblog",
@@ -82,6 +94,8 @@ cc_library_shared {
         "libutils",
         "libcutils",
         "libz",
+        "libnativebridge_lazy",
+        "libnativeloader_lazy",
         "libnativewindow",
         "android.hardware.graphics.common@1.0",
     ],

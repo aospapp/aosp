@@ -16,7 +16,7 @@
 
 package mock_android.view;
 
-import java.lang.JavaClass;
+import notjava.lang.JavaClass;
 
 public class View {
 

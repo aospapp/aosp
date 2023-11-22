@@ -402,15 +402,14 @@ void Context::setPriority(int32_t p) {
     // The public API will always send NORMAL_GRAPHICS
     // for normal, we adjust here
     case RS_THREAD_PRIORITY_NORMAL_GRAPHICS:
-        if (mIsGraphicsContext) {
-            break;
-        } else {
+        if (!mIsGraphicsContext) {
             if (mHal.flags & RS_CONTEXT_LOW_LATENCY) {
                 p = RS_THREAD_PRIORITY_LOW_LATENCY;
             } else {
                 p = RS_THREAD_PRIORITY_NORMAL;
             }
         }
+        break;
     case RS_THREAD_PRIORITY_LOW:
         break;
     }

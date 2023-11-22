@@ -27,7 +27,7 @@ namespace android {
 namespace nn {
 namespace bridge_tests {
 
-void graphDump(const char* name, const ModelBuilder* model, std::ostream& outStream) {
+void graphDump(const char* name, const ModelBuilder* model, std::ostream* outStream) {
     Model hidlModel;
     model->setHidlModel(&hidlModel);
     ::android::nn::graphDump(name, hidlModel, outStream);

@@ -39,7 +39,7 @@
 
 namespace android {
 
-static const int64_t kBufferTimeOutUs = 10000ll; // 10 msec
+static const int64_t kBufferTimeOutUs = 10000LL; // 10 msec
 static const size_t kRetryCount = 50; // must be >0
 
 sp<IMemory> allocVideoFrame(const sp<MetaData>& trackMeta,
@@ -274,7 +274,7 @@ status_t FrameDecoder::extractInternal() {
     size_t retriesLeft = kRetryCount;
     do {
         size_t index;
-        int64_t ptsUs = 0ll;
+        int64_t ptsUs = 0LL;
         uint32_t flags = 0;
 
         // Queue as many inputs as we possibly can, then block on dequeuing
@@ -301,10 +301,13 @@ status_t FrameDecoder::extractInternal() {
             err = mSource->read(&mediaBuffer, &mReadOptions);
             mReadOptions.clearSeekTo();
             if (err != OK) {
-                ALOGW("Input Error or EOS");
                 mHaveMoreInputs = false;
                 if (!mFirstSample && err == ERROR_END_OF_STREAM) {
+                    (void)mDecoder->queueInputBuffer(
+                            index, 0, 0, 0, MediaCodec::BUFFER_FLAG_EOS);
                     err = OK;
+                } else {
+                    ALOGW("Input Error: err=%d", err);
                 }
                 break;
             }
@@ -403,7 +406,7 @@ VideoFrameDecoder::VideoFrameDecoder(
     : FrameDecoder(componentName, trackMeta, source),
       mIsAvcOrHevc(false),
       mSeekMode(MediaSource::ReadOptions::SEEK_PREVIOUS_SYNC),
-      mTargetTimeUs(-1ll),
+      mTargetTimeUs(-1LL),
       mNumFrames(0),
       mNumFramesDecoded(0) {
 }
@@ -428,7 +431,7 @@ sp<AMessage> VideoFrameDecoder::onGetFormatAndSeekOptions(
             || !strcasecmp(mime, MEDIA_MIMETYPE_VIDEO_HEVC);
 
     if (frameTimeUs < 0) {
-        int64_t thumbNailTime;
+        int64_t thumbNailTime = -1ll;
         if (!trackMeta()->findInt64(kKeyThumbnailTime, &thumbNailTime)
                 || thumbNailTime < 0) {
             thumbNailTime = 0;
@@ -484,7 +487,7 @@ status_t VideoFrameDecoder::onOutputReceived(
         const sp<MediaCodecBuffer> &videoFrameBuffer,
         const sp<AMessage> &outputFormat,
         int64_t timeUs, bool *done) {
-    bool shouldOutput = (mTargetTimeUs < 0ll) || (timeUs >= mTargetTimeUs);
+    bool shouldOutput = (mTargetTimeUs < 0LL) || (timeUs >= mTargetTimeUs);
 
     // If this is not the target frame, skip color convert.
     if (!shouldOutput) {
@@ -498,9 +501,15 @@ status_t VideoFrameDecoder::onOutputReceived(
         return ERROR_MALFORMED;
     }
 
-    int32_t width, height;
-    CHECK(outputFormat->findInt32("width", &width));
-    CHECK(outputFormat->findInt32("height", &height));
+    int32_t width, height, stride, srcFormat;
+    if (!outputFormat->findInt32("width", &width) ||
+            !outputFormat->findInt32("height", &height) ||
+            !outputFormat->findInt32("stride", &stride) ||
+            !outputFormat->findInt32("color-format", &srcFormat)) {
+        ALOGE("format missing dimension or color: %s",
+                outputFormat->debugString().c_str());
+        return ERROR_MALFORMED;
+    }
 
     int32_t crop_left, crop_top, crop_right, crop_bottom;
     if (!outputFormat->findRect("crop", &crop_left, &crop_top, &crop_right, &crop_bottom)) {
@@ -519,19 +528,27 @@ status_t VideoFrameDecoder::onOutputReceived(
     addFrame(frameMem);
     VideoFrame* frame = static_cast<VideoFrame*>(frameMem->pointer());
 
-    int32_t srcFormat;
-    CHECK(outputFormat->findInt32("color-format", &srcFormat));
-
     ColorConverter converter((OMX_COLOR_FORMATTYPE)srcFormat, dstFormat());
+
+    uint32_t standard, range, transfer;
+    if (!outputFormat->findInt32("color-standard", (int32_t*)&standard)) {
+        standard = 0;
+    }
+    if (!outputFormat->findInt32("color-range", (int32_t*)&range)) {
+        range = 0;
+    }
+    if (!outputFormat->findInt32("color-transfer", (int32_t*)&transfer)) {
+        transfer = 0;
+    }
+    converter.setSrcColorSpace(standard, range, transfer);
 
     if (converter.isValid()) {
         converter.convert(
                 (const uint8_t *)videoFrameBuffer->data(),
-                width, height,
+                width, height, stride,
                 crop_left, crop_top, crop_right, crop_bottom,
                 frame->getFlattenedData(),
-                frame->mWidth,
-                frame->mHeight,
+                frame->mWidth, frame->mHeight, frame->mRowBytes,
                 crop_left, crop_top, crop_right, crop_bottom);
         return OK;
     }
@@ -678,9 +695,10 @@ status_t ImageDecoder::onOutputReceived(
         return ERROR_MALFORMED;
     }
 
-    int32_t width, height;
+    int32_t width, height, stride;
     CHECK(outputFormat->findInt32("width", &width));
     CHECK(outputFormat->findInt32("height", &height));
+    CHECK(outputFormat->findInt32("stride", &stride));
 
     if (mFrame == NULL) {
         sp<IMemory> frameMem = allocVideoFrame(
@@ -694,6 +712,18 @@ status_t ImageDecoder::onOutputReceived(
     CHECK(outputFormat->findInt32("color-format", &srcFormat));
 
     ColorConverter converter((OMX_COLOR_FORMATTYPE)srcFormat, dstFormat());
+
+    uint32_t standard, range, transfer;
+    if (!outputFormat->findInt32("color-standard", (int32_t*)&standard)) {
+        standard = 0;
+    }
+    if (!outputFormat->findInt32("color-range", (int32_t*)&range)) {
+        range = 0;
+    }
+    if (!outputFormat->findInt32("color-transfer", (int32_t*)&transfer)) {
+        transfer = 0;
+    }
+    converter.setSrcColorSpace(standard, range, transfer);
 
     int32_t dstLeft, dstTop, dstRight, dstBottom;
     dstLeft = mTilesDecoded % mGridCols * width;
@@ -724,11 +754,10 @@ status_t ImageDecoder::onOutputReceived(
     if (converter.isValid()) {
         converter.convert(
                 (const uint8_t *)videoFrameBuffer->data(),
-                width, height,
+                width, height, stride,
                 crop_left, crop_top, crop_right, crop_bottom,
                 mFrame->getFlattenedData(),
-                mFrame->mWidth,
-                mFrame->mHeight,
+                mFrame->mWidth, mFrame->mHeight, mFrame->mRowBytes,
                 dstLeft, dstTop, dstRight, dstBottom);
         return OK;
     }

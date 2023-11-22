@@ -17,7 +17,6 @@
 package com.android.server.net.watchlist;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
@@ -30,9 +29,10 @@ import android.os.IBinder;
 import android.os.Message;
 import android.os.Process;
 import android.os.RemoteException;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.filters.MediumTest;
-import android.support.test.runner.AndroidJUnit4;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.filters.MediumTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import com.android.server.ServiceThread;
 
@@ -51,7 +51,9 @@ import java.util.concurrent.TimeUnit;
 @MediumTest
 public class NetworkWatchlistServiceTests {
 
-    private static final long NETWOR_EVENT_TIMEOUT_SEC = 1;
+    private static final long NETWORK_EVENT_TIMEOUT_SEC = 1;
+    private static final int TEST_NETID = 100;
+    private static final int TEST_EVENT_TYPE = 1;
     private static final String TEST_HOST = "testhost.com";
     private static final String TEST_IP = "7.6.8.9";
     private static final String[] TEST_IPS =
@@ -180,8 +182,9 @@ public class NetworkWatchlistServiceTests {
                     }
                 };
         mWatchlistService.mNetworkWatchlistHandler = testDnsHandler;
-        connectivityMetrics.callback.onDnsEvent(TEST_HOST, TEST_IPS, TEST_IPS.length, 123L, 456);
-        if (!testDnsLatch.await(NETWOR_EVENT_TIMEOUT_SEC, TimeUnit.SECONDS)) {
+        connectivityMetrics.callback.onDnsEvent(TEST_NETID, TEST_EVENT_TYPE, 0,
+                TEST_HOST, TEST_IPS, TEST_IPS.length, 123L, 456);
+        if (!testDnsLatch.await(NETWORK_EVENT_TIMEOUT_SEC, TimeUnit.SECONDS)) {
             fail("Timed out waiting for network event");
         }
         assertEquals(TEST_HOST, dnsParams[0]);
@@ -206,7 +209,7 @@ public class NetworkWatchlistServiceTests {
                 };
         mWatchlistService.mNetworkWatchlistHandler = testConnectHandler;
         connectivityMetrics.callback.onConnectEvent(TEST_IP, 80, 123L, 456);
-        if (!testConnectLatch.await(NETWOR_EVENT_TIMEOUT_SEC, TimeUnit.SECONDS)) {
+        if (!testConnectLatch.await(NETWORK_EVENT_TIMEOUT_SEC, TimeUnit.SECONDS)) {
             fail("Timed out waiting for network event");
         }
         assertNull(connectParams[0]);

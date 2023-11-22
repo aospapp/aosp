@@ -51,6 +51,7 @@ interface IWebViewUpdateService {
      * DevelopmentSettings uses this to get the current available WebView
      * providers (to display as choices to the user).
      */
+    @UnsupportedAppUsage
     WebViewProviderInfo[] getValidWebViewPackages();
 
     /**
@@ -61,23 +62,13 @@ interface IWebViewUpdateService {
     /**
      * Used by DevelopmentSetting to get the name of the WebView provider currently in use.
      */
+    @UnsupportedAppUsage
     String getCurrentWebViewPackageName();
 
     /**
      * Used by public API for debugging purposes.
      */
     PackageInfo getCurrentWebViewPackage();
-
-    /**
-     * Used by Settings to determine whether a certain package can be enabled/disabled by the user -
-     * the package should not be modifiable in this way if it is a fallback package.
-     */
-    boolean isFallbackPackage(String packageName);
-
-    /**
-     * Enable or disable the WebView package fallback mechanism.
-     */
-    void enableFallbackLogic(boolean enable);
 
     /**
      * Used by Settings to determine whether multiprocess is enabled.

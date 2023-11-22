@@ -31,6 +31,7 @@
 #include "ARTPConnection.h"
 #include "ARTSPConnection.h"
 #include "ASessionDescription.h"
+#include "NetworkUtils.h"
 
 #include <ctype.h>
 #include <cutils/properties.h>
@@ -54,6 +55,10 @@
 #define UNUSED_UNLESS_VERBOSE(x)
 #endif
 
+#ifndef FALLTHROUGH_INTENDED
+#define FALLTHROUGH_INTENDED [[clang::fallthrough]]  // NOLINT
+#endif
+
 // If no access units are received within 5 secs, assume that the rtp
 // stream has ended and signal end of stream.
 static int64_t kAccessUnitTimeoutUs = 10000000ll;
@@ -69,6 +74,8 @@ static int64_t kPauseDelayUs = 3000000ll;
 // The allowed maximum number of stale access units at the beginning of
 // a new sequence.
 static int32_t kMaxAllowedStaleAccessUnits = 20;
+
+static int64_t kTearDownTimeoutUs = 3000000ll;
 
 namespace android {
 
@@ -306,8 +313,10 @@ struct MyHandler : public AHandler {
             switch (count) {
                 case 3:
                     data[offset++] = 0;
+                    FALLTHROUGH_INTENDED;
                 case 2:
                     data[offset++] = 0;
+                    FALLTHROUGH_INTENDED;
                 case 1:
                     data[offset++] = 0;
             }
@@ -338,8 +347,7 @@ struct MyHandler : public AHandler {
 
             struct hostent *ent = gethostbyname(mSessionHost.c_str());
             if (ent == NULL) {
-                ALOGE("Failed to look up address of session host '%s'",
-                     mSessionHost.c_str());
+                ALOGE("Failed to look up address of session host");
 
                 return false;
             }
@@ -524,7 +532,7 @@ struct MyHandler : public AHandler {
                             mSessionURL.append(AStringPrintf("%u", port));
                             mSessionURL.append(path);
 
-                            ALOGI("rewritten session url: '%s'", mSessionURL.c_str());
+                            ALOGV("rewritten session url: '%s'", mSessionURL.c_str());
                         }
 
                         sp<AMessage> reply = new AMessage('conn', this);
@@ -751,10 +759,10 @@ struct MyHandler : public AHandler {
                         if (!track->mUsingInterleavedTCP) {
                             // Clear the tag
                             if (mUIDValid) {
-                                HTTPBase::UnRegisterSocketUserTag(track->mRTPSocket);
-                                HTTPBase::UnRegisterSocketUserMark(track->mRTPSocket);
-                                HTTPBase::UnRegisterSocketUserTag(track->mRTCPSocket);
-                                HTTPBase::UnRegisterSocketUserMark(track->mRTCPSocket);
+                                NetworkUtils::UnRegisterSocketUserTag(track->mRTPSocket);
+                                NetworkUtils::UnRegisterSocketUserMark(track->mRTPSocket);
+                                NetworkUtils::UnRegisterSocketUserTag(track->mRTCPSocket);
+                                NetworkUtils::UnRegisterSocketUserMark(track->mRTCPSocket);
                             }
 
                             close(track->mRTPSocket);
@@ -880,10 +888,10 @@ struct MyHandler : public AHandler {
 
                         // Clear the tag
                         if (mUIDValid) {
-                            HTTPBase::UnRegisterSocketUserTag(info->mRTPSocket);
-                            HTTPBase::UnRegisterSocketUserMark(info->mRTPSocket);
-                            HTTPBase::UnRegisterSocketUserTag(info->mRTCPSocket);
-                            HTTPBase::UnRegisterSocketUserMark(info->mRTCPSocket);
+                            NetworkUtils::UnRegisterSocketUserTag(info->mRTPSocket);
+                            NetworkUtils::UnRegisterSocketUserMark(info->mRTPSocket);
+                            NetworkUtils::UnRegisterSocketUserTag(info->mRTCPSocket);
+                            NetworkUtils::UnRegisterSocketUserMark(info->mRTCPSocket);
                         }
 
                         close(info->mRTPSocket);
@@ -924,6 +932,14 @@ struct MyHandler : public AHandler {
                 request.append("\r\n");
 
                 mConn->sendRequest(request.c_str(), reply);
+
+                // If the response of teardown hasn't been received in 3 seconds,
+                // post 'tear' message to avoid ANR.
+                if (!msg->findInt32("reconnect", &reconnect) || !reconnect) {
+                    sp<AMessage> teardown = reply->dup();
+                    teardown->setInt32("result", -ECONNABORTED);
+                    teardown->post(kTearDownTimeoutUs);
+                }
                 break;
             }
 
@@ -1659,12 +1675,12 @@ private:
                     &info->mRTPSocket, &info->mRTCPSocket, &rtpPort);
 
             if (mUIDValid) {
-                HTTPBase::RegisterSocketUserTag(info->mRTPSocket, mUID,
-                                                (uint32_t)*(uint32_t*) "RTP_");
-                HTTPBase::RegisterSocketUserTag(info->mRTCPSocket, mUID,
-                                                (uint32_t)*(uint32_t*) "RTP_");
-                HTTPBase::RegisterSocketUserMark(info->mRTPSocket, mUID);
-                HTTPBase::RegisterSocketUserMark(info->mRTCPSocket, mUID);
+                NetworkUtils::RegisterSocketUserTag(info->mRTPSocket, mUID,
+                        (uint32_t)*(uint32_t*) "RTP_");
+                NetworkUtils::RegisterSocketUserTag(info->mRTCPSocket, mUID,
+                        (uint32_t)*(uint32_t*) "RTP_");
+                NetworkUtils::RegisterSocketUserMark(info->mRTPSocket, mUID);
+                NetworkUtils::RegisterSocketUserMark(info->mRTCPSocket, mUID);
             }
 
             request.append("Transport: RTP/AVP/UDP;unicast;client_port=");
@@ -1906,7 +1922,7 @@ private:
             mLastMediaTimeUs = mediaTimeUs;
         }
 
-        if (mediaTimeUs < 0) {
+        if (mediaTimeUs < 0 && !mSeekable) {
             ALOGV("dropping early accessUnit.");
             return false;
         }

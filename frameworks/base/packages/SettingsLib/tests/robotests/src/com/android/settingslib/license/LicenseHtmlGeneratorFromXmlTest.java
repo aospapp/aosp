@@ -18,10 +18,9 @@ package com.android.settingslib.license;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.android.settingslib.SettingsLibRobolectricTestRunner;
-
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.robolectric.RobolectricTestRunner;
 import org.xmlpull.v1.XmlPullParserException;
 
 import java.io.ByteArrayInputStream;
@@ -32,7 +31,7 @@ import java.io.StringWriter;
 import java.util.HashMap;
 import java.util.Map;
 
-@RunWith(SettingsLibRobolectricTestRunner.class)
+@RunWith(RobolectricTestRunner.class)
 public class LicenseHtmlGeneratorFromXmlTest {
     private static final String VALILD_XML_STRING =
             "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"
@@ -50,7 +49,7 @@ public class LicenseHtmlGeneratorFromXmlTest {
             + "<file-content contentId=\"0\"><![CDATA[license content #0]]></file-content>\n"
             + "</licenses2>";
 
-    private static final String EXPECTED_HTML_STRING =
+    private static final String HTML_HEAD_STRING =
             "<html><head>\n"
             + "<style type=\"text/css\">\n"
             + "body { padding: 0; font-family: sans-serif; }\n"
@@ -63,8 +62,12 @@ public class LicenseHtmlGeneratorFromXmlTest {
             + "</head>"
             + "<body topmargin=\"0\" leftmargin=\"0\" rightmargin=\"0\" bottommargin=\"0\">\n"
             + "<div class=\"toc\">\n"
-            + "<ul>\n"
-            + "<li><a href=\"#id0\">/file0</a></li>\n"
+            + "<ul>\n";
+
+    private static final String HTML_CUSTOM_HEADING = "Custom heading";
+
+    private static final String HTML_BODY_STRING =
+            "<li><a href=\"#id0\">/file0</a></li>\n"
             + "<li><a href=\"#id0\">/file1</a></li>\n"
             + "</ul>\n"
             + "</div><!-- table of contents -->\n"
@@ -81,10 +84,15 @@ public class LicenseHtmlGeneratorFromXmlTest {
             + "</td></tr><!-- same-license -->\n"
             + "</table></body></html>\n";
 
+    private static final String EXPECTED_HTML_STRING = HTML_HEAD_STRING + HTML_BODY_STRING;
+
+    private static final String EXPECTED_HTML_STRING_WITH_CUSTOM_HEADING =
+            HTML_HEAD_STRING + HTML_CUSTOM_HEADING + "\n" + HTML_BODY_STRING;
+
     @Test
     public void testParseValidXmlStream() throws XmlPullParserException, IOException {
-        Map<String, String> fileNameToContentIdMap = new HashMap<String, String>();
-        Map<String, String> contentIdToFileContentMap = new HashMap<String, String>();
+        Map<String, String> fileNameToContentIdMap = new HashMap<>();
+        Map<String, String> contentIdToFileContentMap = new HashMap<>();
 
         LicenseHtmlGeneratorFromXml.parse(
                 new InputStreamReader(new ByteArrayInputStream(VALILD_XML_STRING.getBytes())),
@@ -98,8 +106,8 @@ public class LicenseHtmlGeneratorFromXmlTest {
 
     @Test(expected = XmlPullParserException.class)
     public void testParseInvalidXmlStream() throws XmlPullParserException, IOException {
-        Map<String, String> fileNameToContentIdMap = new HashMap<String, String>();
-        Map<String, String> contentIdToFileContentMap = new HashMap<String, String>();
+        Map<String, String> fileNameToContentIdMap = new HashMap<>();
+        Map<String, String> contentIdToFileContentMap = new HashMap<>();
 
         LicenseHtmlGeneratorFromXml.parse(
                 new InputStreamReader(new ByteArrayInputStream(INVALILD_XML_STRING.getBytes())),
@@ -108,8 +116,8 @@ public class LicenseHtmlGeneratorFromXmlTest {
 
     @Test
     public void testGenerateHtml() {
-        Map<String, String> fileNameToContentIdMap = new HashMap<String, String>();
-        Map<String, String> contentIdToFileContentMap = new HashMap<String, String>();
+        Map<String, String> fileNameToContentIdMap = new HashMap<>();
+        Map<String, String> contentIdToFileContentMap = new HashMap<>();
 
         fileNameToContentIdMap.put("/file0", "0");
         fileNameToContentIdMap.put("/file1", "0");
@@ -117,7 +125,23 @@ public class LicenseHtmlGeneratorFromXmlTest {
 
         StringWriter output = new StringWriter();
         LicenseHtmlGeneratorFromXml.generateHtml(
-                fileNameToContentIdMap, contentIdToFileContentMap, new PrintWriter(output));
+                fileNameToContentIdMap, contentIdToFileContentMap, new PrintWriter(output), "");
         assertThat(output.toString()).isEqualTo(EXPECTED_HTML_STRING);
+    }
+
+    @Test
+    public void testGenerateHtmlWithCustomHeading() {
+        Map<String, String> fileNameToContentIdMap = new HashMap<>();
+        Map<String, String> contentIdToFileContentMap = new HashMap<>();
+
+        fileNameToContentIdMap.put("/file0", "0");
+        fileNameToContentIdMap.put("/file1", "0");
+        contentIdToFileContentMap.put("0", "license content #0");
+
+        StringWriter output = new StringWriter();
+        LicenseHtmlGeneratorFromXml.generateHtml(
+                fileNameToContentIdMap, contentIdToFileContentMap, new PrintWriter(output),
+                HTML_CUSTOM_HEADING);
+        assertThat(output.toString()).isEqualTo(EXPECTED_HTML_STRING_WITH_CUSTOM_HEADING);
     }
 }

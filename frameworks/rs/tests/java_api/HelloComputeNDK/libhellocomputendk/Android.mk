@@ -25,7 +25,7 @@ LOCAL_SRC_FILES := helloComputeNDK.cpp mono.rs
 
 LOCAL_C_INCLUDES := $(JNI_H_INCLUDE)
 
-LOCAL_CFLAGS := -std=c++11 -Wall -Werror
+LOCAL_CFLAGS := -Wall -Werror
 LOCAL_LDFLAGS := -Wl,-Bsymbolic
 LOCAL_SHARED_LIBRARIES := libdl liblog libjnigraphics
 LOCAL_STATIC_LIBRARIES := libRScpp_static

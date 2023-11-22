@@ -16,6 +16,9 @@
 
 package com.android.tools.layoutlib.create;
 
+import com.android.tools.layoutlib.annotations.NotNull;
+import com.android.tools.layoutlib.annotations.Nullable;
+
 import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.Attribute;
 import org.objectweb.asm.ClassReader;
@@ -27,16 +30,24 @@ import org.objectweb.asm.Type;
 import org.objectweb.asm.signature.SignatureReader;
 import org.objectweb.asm.signature.SignatureVisitor;
 
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Enumeration;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.ForkJoinTask;
+import java.util.concurrent.Future;
+import java.util.function.Consumer;
 import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
@@ -47,20 +58,49 @@ import java.util.zip.ZipFile;
  */
 public class AsmAnalyzer {
 
+    public static class Result {
+        private final Map<String, ClassReader> mFound;
+        private final Map<String, ClassReader> mDeps;
+        private final Map<String, InputStream> mFilesFound;
+        private final Set<String> mReplaceMethodCallClasses;
+
+        private Result(Map<String, ClassReader> found, Map<String, ClassReader> deps,
+                Map<String, InputStream> filesFound, Set<String> replaceMethodCallClasses) {
+            mFound = found;
+            mDeps = deps;
+            mFilesFound = filesFound;
+            mReplaceMethodCallClasses = replaceMethodCallClasses;
+        }
+
+        public Map<String, ClassReader> getFound() {
+            return mFound;
+        }
+
+        public Map<String, ClassReader> getDeps() {
+            return mDeps;
+        }
+
+        public Map<String, InputStream> getFilesFound() {
+            return mFilesFound;
+        }
+
+        public Set<String> getReplaceMethodCallClasses() {
+            return mReplaceMethodCallClasses;
+        }
+    }
+
     // Note: a bunch of stuff has package-level access for unit tests. Consider it private.
 
     /** Output logger. */
     private final Log mLog;
     /** The input source JAR to parse. */
     private final List<String> mOsSourceJar;
-    /** The generator to fill with the class list and dependency list. */
-    private final AsmGenerator mGen;
     /** Keep all classes that derive from these one (these included). */
     private final String[] mDeriveFrom;
     /** Glob patterns of classes to keep, e.g. "com.foo.*" */
     private final String[] mIncludeGlobs;
-    /** The set of classes to exclude.*/
-    private final Set<String> mExcludedClasses;
+    /** Glob patterns of classes to exclude.*/
+    private final String[] mExcludedGlobs;
     /** Glob patterns of files to keep as is. */
     private final String[] mIncludeFileGlobs;
     /** Internal names of classes that contain method calls that need to be rewritten. */
@@ -71,47 +111,65 @@ public class AsmAnalyzer {
      *
      * @param log The log output.
      * @param osJarPath The input source JARs to parse.
-     * @param gen The generator to fill with the class list and dependency list.
      * @param deriveFrom Keep all classes that derive from these one (these included).
      * @param includeGlobs Glob patterns of classes to keep, e.g. "com.foo.*"
      *        ("*" does not matches dots whilst "**" does, "." and "$" are interpreted as-is)
      * @param includeFileGlobs Glob patterns of files which are kept as is. This is only for files
      *        not ending in .class.
      */
-    public AsmAnalyzer(Log log, List<String> osJarPath, AsmGenerator gen,
-            String[] deriveFrom, String[] includeGlobs, Set<String> excludeClasses,
+    public AsmAnalyzer(Log log, List<String> osJarPath,
+            String[] deriveFrom, String[] includeGlobs, String[] excludedGlobs,
             String[] includeFileGlobs) {
         mLog = log;
-        mGen = gen;
-        mOsSourceJar = osJarPath != null ? osJarPath : new ArrayList<String>();
+        mOsSourceJar = osJarPath != null ? osJarPath : new ArrayList<>();
         mDeriveFrom = deriveFrom != null ? deriveFrom : new String[0];
         mIncludeGlobs = includeGlobs != null ? includeGlobs : new String[0];
-        mExcludedClasses = excludeClasses;
+        mExcludedGlobs = excludedGlobs != null ? excludedGlobs : new String[0];
         mIncludeFileGlobs = includeFileGlobs != null ? includeFileGlobs : new String[0];
     }
 
     /**
-     * Starts the analysis using parameters from the constructor.
-     * Fills the generator with classes & dependencies found.
+     * Starts the analysis using parameters from the constructor and returns the result.
      */
-    public void analyze() throws IOException, LogAbortException {
-
-        TreeMap<String, ClassReader> zipClasses = new TreeMap<>();
+    @NotNull
+    public Result analyze() throws IOException {
+        Map<String, ClassReader> zipClasses = new TreeMap<>();
         Map<String, InputStream> filesFound = new TreeMap<>();
 
         parseZip(mOsSourceJar, zipClasses, filesFound);
         mLog.info("Found %d classes in input JAR%s.", zipClasses.size(),
                 mOsSourceJar.size() > 1 ? "s" : "");
 
-        Map<String, ClassReader> found = findIncludes(zipClasses);
-        Map<String, ClassReader> deps = findDeps(zipClasses, found);
+        Pattern[] includePatterns = Arrays.stream(mIncludeGlobs).parallel()
+                .map(AsmAnalyzer::getPatternFromGlob)
+                .toArray(Pattern[]::new);
+        Pattern[] excludePatterns = Arrays.stream(mExcludedGlobs).parallel()
+                .map(AsmAnalyzer::getPatternFromGlob)
+                .toArray(Pattern[]::new);
 
-        if (mGen != null) {
-            mGen.setKeep(found);
-            mGen.setDeps(deps);
-            mGen.setCopyFiles(filesFound);
-            mGen.setRewriteMethodCallClasses(mReplaceMethodCallClasses);
-        }
+
+        Map<String, ClassReader> found = new HashMap<>();
+        findIncludes(mLog, includePatterns, mDeriveFrom, zipClasses, entry -> {
+            if (!matchesAny(entry.getKey(), excludePatterns)) {
+                found.put(entry.getKey(), entry.getValue());
+            }
+        });
+
+        Map<String, ClassReader> deps = new HashMap<>();
+        findDeps(mLog, zipClasses, found, keepEntry -> {
+            if (!matchesAny(keepEntry.getKey(), excludePatterns)) {
+                found.put(keepEntry.getKey(), keepEntry.getValue());
+            }
+        }, depEntry -> {
+            if (!matchesAny(depEntry.getKey(), excludePatterns)) {
+                deps.put(depEntry.getKey(), depEntry.getValue());
+            }
+        });
+
+        mLog.info("Found %1$d classes to keep, %2$d class dependencies.",
+                found.size(), deps.size());
+
+        return new Result(found, deps, filesFound, mReplaceMethodCallClasses);
     }
 
     /**
@@ -134,27 +192,39 @@ public class AsmAnalyzer {
             includeFilePatterns[i] = getPatternFromGlob(mIncludeFileGlobs[i]);
         }
 
+        List<ForkJoinTask<?>> futures = new ArrayList<>();
         for (String jarPath : jarPathList) {
-            ZipFile zip = new ZipFile(jarPath);
-            Enumeration<? extends ZipEntry> entries = zip.entries();
-            ZipEntry entry;
-            while (entries.hasMoreElements()) {
-                entry = entries.nextElement();
-                if (entry.getName().endsWith(".class")) {
-                    ClassReader cr = new ClassReader(zip.getInputStream(entry));
-                    String className = classReaderToClassName(cr);
-                    classes.put(className, cr);
-                } else {
-                    for (Pattern includeFilePattern : includeFilePatterns) {
-                        if (includeFilePattern.matcher(entry.getName()).matches()) {
-                            filesFound.put(entry.getName(), zip.getInputStream(entry));
-                            break;
+            futures.add(ForkJoinPool.commonPool().submit(() -> {
+                try {
+                    ZipFile zip = new ZipFile(jarPath);
+                    Enumeration<? extends ZipEntry> entries = zip.entries();
+                    ZipEntry entry;
+                    while (entries.hasMoreElements()) {
+                        entry = entries.nextElement();
+                        if (entry.getName().endsWith(".class")) {
+                            ClassReader cr = new ClassReader(zip.getInputStream(entry));
+                            String className = classReaderToClassName(cr);
+                            synchronized (classes) {
+                                classes.put(className, cr);
+                            }
+                        } else {
+                            for (Pattern includeFilePattern : includeFilePatterns) {
+                                if (includeFilePattern.matcher(entry.getName()).matches()) {
+                                    synchronized (filesFound) {
+                                        filesFound.put(entry.getName(), zip.getInputStream(entry));
+                                    }
+                                    break;
+                                }
+                            }
                         }
                     }
+                } catch (IOException e) {
+                    e.printStackTrace();
                 }
-            }
+            }));
         }
 
+        futures.forEach(ForkJoinTask::join);
     }
 
     /**
@@ -173,7 +243,7 @@ public class AsmAnalyzer {
      * Utility that returns the fully qualified binary class name from a path-like FQCN.
      * E.g. it returns android.view.View from android/view/View.
      */
-    static String internalToBinaryClassName(String className) {
+    private static String internalToBinaryClassName(String className) {
         if (className == null) {
             return null;
         } else {
@@ -181,25 +251,43 @@ public class AsmAnalyzer {
         }
     }
 
+    private static boolean matchesAny(@Nullable String className, @NotNull Pattern[] patterns) {
+        for (int i = 0; i < patterns.length; i++) {
+            if (patterns[i].matcher(className).matches()) {
+                return true;
+            }
+        }
+
+        int dollarIdx = className.indexOf('$');
+        if (dollarIdx != -1) {
+            // This is an inner class, if the outer class matches, we also consider this a match
+            return matchesAny(className.substring(0, dollarIdx), patterns);
+        }
+
+        return false;
+    }
+
     /**
      * Process the "includes" arrays.
      * <p/>
      * This updates the in_out_found map.
      */
-    Map<String, ClassReader> findIncludes(Map<String, ClassReader> zipClasses)
-            throws LogAbortException {
+    private static void findIncludes(@NotNull Log log, @NotNull Pattern[] includePatterns,
+            @NotNull String[] deriveFrom, @NotNull Map<String, ClassReader> zipClasses,
+            @NotNull Consumer<Entry<String, ClassReader>> newInclude) throws FileNotFoundException {
         TreeMap<String, ClassReader> found = new TreeMap<>();
 
-        mLog.debug("Find classes to include.");
+        log.debug("Find classes to include.");
 
-        for (String s : mIncludeGlobs) {
-            findGlobs(s, zipClasses, found);
-        }
-        for (String s : mDeriveFrom) {
-            findClassesDerivingFrom(s, zipClasses, found);
+        zipClasses.entrySet().stream()
+                .filter(entry -> matchesAny(entry.getKey(), includePatterns))
+                .forEach(entry -> found.put(entry.getKey(), entry.getValue()));
+
+        for (String entry : deriveFrom) {
+            findClassesDerivingFrom(entry, zipClasses, found);
         }
 
-        return found;
+        found.entrySet().forEach(newInclude);
     }
 
 
@@ -208,47 +296,19 @@ public class AsmAnalyzer {
      * If found, insert it in the in_out_found map.
      * Returns the class reader object.
      */
-    ClassReader findClass(String className, Map<String, ClassReader> zipClasses,
-            Map<String, ClassReader> inOutFound) throws LogAbortException {
+    static ClassReader findClass(String className, Map<String, ClassReader> zipClasses,
+            Map<String, ClassReader> inOutFound) throws FileNotFoundException {
         ClassReader classReader = zipClasses.get(className);
         if (classReader == null) {
-            throw new LogAbortException("Class %s not found by ASM in %s",
-                    className, mOsSourceJar);
+            throw new FileNotFoundException(String.format("Class %s not found by ASM", className));
         }
 
         inOutFound.put(className, classReader);
         return classReader;
     }
 
-    /**
-     * Insert in the inOutFound map all classes found in zipClasses that match the
-     * given glob pattern.
-     * <p/>
-     * The glob pattern is not a regexp. It only accepts the "*" keyword to mean
-     * "anything but a period". The "." and "$" characters match themselves.
-     * The "**" keyword means everything including ".".
-     * <p/>
-     * Examples:
-     * <ul>
-     * <li>com.foo.* matches all classes in the package com.foo but NOT sub-packages.
-     * <li>com.foo*.*$Event matches all internal Event classes in a com.foo*.* class.
-     * </ul>
-     */
-    void findGlobs(String globPattern, Map<String, ClassReader> zipClasses,
-            Map<String, ClassReader> inOutFound) throws LogAbortException {
 
-        Pattern regexp = getPatternFromGlob(globPattern);
-
-        for (Entry<String, ClassReader> entry : zipClasses.entrySet()) {
-            String class_name = entry.getKey();
-            if (regexp.matcher(class_name).matches() &&
-                    !mExcludedClasses.contains(getOuterClassName(class_name))) {
-                findClass(class_name, zipClasses, inOutFound);
-            }
-        }
-    }
-
-    Pattern getPatternFromGlob(String globPattern) {
+    static Pattern getPatternFromGlob(String globPattern) {
      // transforms the glob pattern in a regexp:
         // - escape "." with "\."
         // - replace "*" by "[^.]*"
@@ -271,11 +331,8 @@ public class AsmAnalyzer {
      * determine if they are derived from the given FQCN super class name.
      * Inserts the super class and all the class objects found in the map.
      */
-    void findClassesDerivingFrom(String super_name, Map<String, ClassReader> zipClasses,
-            Map<String, ClassReader> inOutFound) throws LogAbortException {
-        if (mExcludedClasses.contains(getOuterClassName(super_name))) {
-            return;
-        }
+    static void findClassesDerivingFrom(String super_name, Map<String, ClassReader> zipClasses,
+            Map<String, ClassReader> inOutFound) throws FileNotFoundException {
         findClass(super_name, zipClasses, inOutFound);
 
         for (Entry<String, ClassReader> entry : zipClasses.entrySet()) {
@@ -314,16 +371,20 @@ public class AsmAnalyzer {
      * Finds all dependencies for all classes in keepClasses which are also
      * listed in zipClasses. Returns a map of all the dependencies found.
      */
-    Map<String, ClassReader> findDeps(Map<String, ClassReader> zipClasses,
-            Map<String, ClassReader> inOutKeepClasses) {
+    void findDeps(Log log,
+            Map<String, ClassReader> zipClasses,
+            Map<String, ClassReader> inOutKeepClasses,
+            Consumer<Entry<String, ClassReader>> newKeep,
+            Consumer<Entry<String, ClassReader>> newDep) {
 
+        TreeMap<String, ClassReader> keep = new TreeMap<>(inOutKeepClasses);
         TreeMap<String, ClassReader> deps = new TreeMap<>();
         TreeMap<String, ClassReader> new_deps = new TreeMap<>();
         TreeMap<String, ClassReader> new_keep = new TreeMap<>();
         TreeMap<String, ClassReader> temp = new TreeMap<>();
 
         DependencyVisitor visitor = getVisitor(zipClasses,
-                inOutKeepClasses, new_keep,
+                keep, new_keep,
                 deps, new_deps);
 
         for (ClassReader cr : inOutKeepClasses.values()) {
@@ -332,15 +393,17 @@ public class AsmAnalyzer {
         }
 
         while (new_deps.size() > 0 || new_keep.size() > 0) {
+            new_deps.entrySet().forEach(newDep);
+            new_keep.entrySet().forEach(newKeep);
+            keep.putAll(new_keep);
             deps.putAll(new_deps);
-            inOutKeepClasses.putAll(new_keep);
 
             temp.clear();
             temp.putAll(new_deps);
             temp.putAll(new_keep);
             new_deps.clear();
             new_keep.clear();
-            mLog.debug("Found %1$d to keep, %2$d dependencies.",
+            log.debug("Found %1$d to keep, %2$d dependencies.",
                     inOutKeepClasses.size(), deps.size());
 
             for (ClassReader cr : temp.values()) {
@@ -348,19 +411,6 @@ public class AsmAnalyzer {
                 cr.accept(visitor, 0 /* flags */);
             }
         }
-
-        mLog.info("Found %1$d classes to keep, %2$d class dependencies.",
-                inOutKeepClasses.size(), deps.size());
-
-        return deps;
-    }
-
-    private String getOuterClassName(String className) {
-        int pos = className.indexOf('$');
-        if (pos > 0) {
-            return className.substring(0, pos);
-        }
-        return className;
     }
 
     // ----------------------------------
@@ -425,8 +475,7 @@ public class AsmAnalyzer {
             if (mInKeep.containsKey(className) ||
                     mOutKeep.containsKey(className) ||
                     mInDeps.containsKey(className) ||
-                    mOutDeps.containsKey(className) ||
-                    mExcludedClasses.contains(getOuterClassName(className))) {
+                    mOutDeps.containsKey(className)) {
                 return;
             }
 
@@ -438,7 +487,7 @@ public class AsmAnalyzer {
 
             try {
                 // exclude classes that are part of the default JRE (the one executing this program)
-                if (className.startsWith("java.") ||
+                if (className.startsWith("java.") || className.startsWith("sun.") ||
                         getClass().getClassLoader().loadClass(className) != null) {
                     return;
                 }
@@ -483,7 +532,8 @@ public class AsmAnalyzer {
 
         /**
          * Considers this {@link Type}. For arrays, the element type is considered.
-         * If the type is an object, it's internal name is considered.
+         * If the type is an object, its internal name is considered. If it is a method type,
+         * iterate through the argument and return types.
          */
         public void considerType(Type t) {
             if (t != null) {
@@ -492,6 +542,12 @@ public class AsmAnalyzer {
                 }
                 if (t.getSort() == Type.OBJECT) {
                     considerName(t.getInternalName());
+                }
+                if (t.getSort() == Type.METHOD) {
+                    for (Type type : t.getArgumentTypes()) {
+                        considerType(type);
+                    }
+                    considerType(t.getReturnType());
                 }
             }
         }

@@ -18,13 +18,14 @@ LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 
 LOCAL_MODULE_TAGS := tests
-LOCAL_STATIC_JAVA_LIBRARIES += android-support-v4
-LOCAL_STATIC_JAVA_LIBRARIES += android-support-v7-appcompat
+LOCAL_USE_AAPT2 :=true
+LOCAL_STATIC_ANDROID_LIBRARIES += androidx.legacy_legacy-support-v4
+LOCAL_STATIC_ANDROID_LIBRARIES += androidx.appcompat_appcompat
 LOCAL_AAPT_FLAGS += --extra-packages android.support.v7.appcompat
 LOCAL_RENDERSCRIPT_TARGET_API := 22
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src) $(call all-renderscript-files-under, src)
-LOCAL_SDK_VERSION := 23
+LOCAL_SDK_VERSION := current
 
 LOCAL_PACKAGE_NAME := CannyLive
 

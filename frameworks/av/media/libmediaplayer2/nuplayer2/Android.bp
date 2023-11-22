@@ -1,6 +1,7 @@
 cc_library_static {
 
     srcs: [
+        "JMediaPlayer2Utils.cpp",
         "JWakeLock.cpp",
         "GenericSource2.cpp",
         "HTTPLiveSource2.cpp",
@@ -16,6 +17,7 @@ cc_library_static {
     ],
 
     header_libs: [
+        "libbase_headers",
         "libmediaplayer2_headers",
         "media_plugin_headers",
     ],
@@ -27,6 +29,8 @@ cc_library_static {
         "frameworks/av/media/libstagefright/mpeg2ts",
         "frameworks/av/media/libstagefright/rtsp",
         "frameworks/av/media/libstagefright/timedtext",
+        "frameworks/av/media/ndk",
+        "frameworks/base/core/jni",
     ],
 
     cflags: [
@@ -47,24 +51,22 @@ cc_library_static {
         "libui",
         "libgui",
         "libmedia",
-        "libmediadrm",
+        "libmediametrics",
         "libmediandk",
+        "libmediandk_utils",
         "libpowermanager",
     ],
 
     static_libs: [
         "libmedia_helper",
+        "libmediaplayer2-protos",
+        "libmedia2_jni_core",
     ],
 
     name: "libstagefright_nuplayer2",
 
-    tags: ["eng"],
-
     sanitize: {
         cfi: true,
-        diag: {
-            cfi: true,
-        },
     },
 
 }

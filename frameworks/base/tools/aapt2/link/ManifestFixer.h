@@ -44,11 +44,17 @@ struct ManifestFixerOptions {
   // <instrumentation>.
   Maybe<std::string> rename_instrumentation_target_package;
 
-  // The version name to set if 'android:versionName' is not defined in <manifest>.
+  // The version name to set if 'android:versionName' is not defined in <manifest> or if
+  // replace_version is set.
   Maybe<std::string> version_name_default;
 
-  // The version code to set if 'android:versionCode' is not defined in <manifest>.
+  // The version code to set if 'android:versionCode' is not defined in <manifest> or if
+  // replace_version is set.
   Maybe<std::string> version_code_default;
+
+  // The version code to set if 'android:versionCodeMajor' is not defined in <manifest> or if
+  // replace_version is set.
+  Maybe<std::string> version_code_major_default;
 
   // The version of the framework being compiled against to set for 'android:compileSdkVersion' in
   // the <manifest> tag.
@@ -65,6 +71,9 @@ struct ManifestFixerOptions {
 
   // Whether to inject the android:debuggable="true" flag into the manifest
   bool debug_mode = false;
+
+  // Whether to replace the manifest version with the the command line version
+  bool replace_version = false;
 };
 
 // Verifies that the manifest is correctly formed and inserts defaults where specified with

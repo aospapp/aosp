@@ -17,7 +17,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="done_label" msgid="7007948707597430919">"সম্পন্ন হ\'ল"</string>
+    <string name="done_label" msgid="7007948707597430919">"সম্পন্ন হ’ল"</string>
     <string name="hour_picker_description" msgid="7586639618712934060">"ঘণ্টাৰ বৃত্তাকাৰ শ্লাইডাৰ"</string>
     <string name="minute_picker_description" msgid="6024811202872705251">"মিনিটৰ বৃত্তাকাৰ শ্লাইডাৰ"</string>
     <string name="select_hours" msgid="7651068754188418859">"ঘণ্টা বাছনি কৰক"</string>
@@ -26,6 +26,6 @@
     <string name="year_picker_description" msgid="6963340404644587098">"বছৰৰ সূচী"</string>
     <string name="select_day" msgid="3973338219107019769">"মাহ আৰু দিন বাছনি কৰক"</string>
     <string name="select_year" msgid="2603330600102539372">"বছৰ বাছনি কৰক"</string>
-    <string name="item_is_selected" msgid="2674929164900463786">"<xliff:g id="ITEM">%1$s</xliff:g> বাছনি কৰা হ\'ল"</string>
-    <string name="deleted_key" msgid="6908431551612331381">"<xliff:g id="KEY">%1$s</xliff:g> মচা হ\'ল"</string>
+    <string name="item_is_selected" msgid="2674929164900463786">"<xliff:g id="ITEM">%1$s</xliff:g> বাছনি কৰা হ’ল"</string>
+    <string name="deleted_key" msgid="6908431551612331381">"<xliff:g id="KEY">%1$s</xliff:g> মচা হ’ল"</string>
 </resources>

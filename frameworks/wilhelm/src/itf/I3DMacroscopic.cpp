@@ -170,7 +170,7 @@ static SLresult I3DMacroscopic_GetOrientationVectors(SL3DMacroscopicItf self,
                 break;
             case ANGLES_SET_VECTORS_UNKNOWN:
                 thiz->mOrientationActive = ANGLES_SET_VECTORS_REQUESTED;
-                // fall through
+                FALLTHROUGH_INTENDED;
             case ANGLES_SET_VECTORS_REQUESTED:
                 // matched by cond_broadcast in case multiple requesters
 #if 0

@@ -17,15 +17,17 @@
 package com.android.server.wifi.wificond;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
 
 import android.os.Parcel;
-import android.support.test.filters.SmallTest;
 
+import androidx.test.filters.SmallTest;
+
+import org.junit.Before;
 import org.junit.Test;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 
 /**
  * Unit tests for {@link com.android.server.wifi.wificond.PnoSettingsResult}.
@@ -37,41 +39,74 @@ public class PnoSettingsTest {
             new byte[] {'G', 'o', 'o', 'g', 'l', 'e', 'G', 'u', 'e', 's', 't'};
     private static final byte[] TEST_SSID_2 =
             new byte[] {'A', 'n', 'd', 'r', 'o', 'i', 'd', 'T', 'e', 's', 't'};
+    private static final int[] TEST_FREQUENCIES_1 = {};
+    private static final int[] TEST_FREQUENCIES_2 = {2500, 5124};
     private static final int TEST_INTERVAL_MS = 30000;
     private static final int TEST_MIN_2G_RSSI = -60;
     private static final int TEST_MIN_5G_RSSI = -65;
+    private static final int TEST_VALUE = 42;
+
+    private PnoNetwork mPnoNetwork1;
+    private PnoNetwork mPnoNetwork2;
+
+    @Before
+    public void setUp() {
+        mPnoNetwork1 = new PnoNetwork();
+        mPnoNetwork1.ssid = TEST_SSID_1;
+        mPnoNetwork1.isHidden = true;
+        mPnoNetwork1.frequencies = TEST_FREQUENCIES_1;
+
+        mPnoNetwork2 = new PnoNetwork();
+        mPnoNetwork2.ssid = TEST_SSID_2;
+        mPnoNetwork2.isHidden = false;
+        mPnoNetwork2.frequencies = TEST_FREQUENCIES_2;
+    }
 
     /**
      *  PnoSettings object can be serialized and deserialized, while keeping the
      *  values unchanged.
      */
     @Test
-    public void canSerializeAndDeserialize() throws Exception {
-
+    public void canSerializeAndDeserialize() {
         PnoSettings pnoSettings = new PnoSettings();
-
-        PnoNetwork pnoNetwork1 = new PnoNetwork();
-        pnoNetwork1.ssid = TEST_SSID_1;
-        pnoNetwork1.isHidden = true;
-
-        PnoNetwork pnoNetwork2 = new PnoNetwork();
-        pnoNetwork2.ssid = TEST_SSID_2;
-        pnoNetwork2.isHidden = false;
-
-        pnoSettings.pnoNetworks = new ArrayList(Arrays.asList(pnoNetwork1, pnoNetwork2));
-
         pnoSettings.intervalMs = TEST_INTERVAL_MS;
         pnoSettings.min2gRssi = TEST_MIN_2G_RSSI;
         pnoSettings.min5gRssi = TEST_MIN_5G_RSSI;
+        pnoSettings.pnoNetworks = new ArrayList<>(Arrays.asList(mPnoNetwork1, mPnoNetwork2));
 
         Parcel parcel = Parcel.obtain();
         pnoSettings.writeToParcel(parcel, 0);
         // Rewind the pointer to the head of the parcel.
         parcel.setDataPosition(0);
-        PnoSettings pnoSettingsDeserialized =
-                pnoSettings.CREATOR.createFromParcel(parcel);
+        PnoSettings pnoSettingsDeserialized = PnoSettings.CREATOR.createFromParcel(parcel);
 
-        assertNotNull(pnoSettingsDeserialized);
         assertEquals(pnoSettings, pnoSettingsDeserialized);
+        assertEquals(pnoSettings.hashCode(), pnoSettingsDeserialized.hashCode());
+    }
+
+    /**
+     * Tests usage of {@link PnoSettings} as a HashMap key type.
+     */
+    @Test
+    public void testAsHashMapKey() {
+        PnoSettings pnoSettings1 = new PnoSettings();
+        pnoSettings1.intervalMs = TEST_INTERVAL_MS;
+        pnoSettings1.min2gRssi = TEST_MIN_2G_RSSI;
+        pnoSettings1.min5gRssi = TEST_MIN_5G_RSSI;
+        pnoSettings1.pnoNetworks = new ArrayList<>(Arrays.asList(mPnoNetwork1, mPnoNetwork2));
+
+        PnoSettings pnoSettings2 = new PnoSettings();
+        pnoSettings2.intervalMs = TEST_INTERVAL_MS;
+        pnoSettings2.min2gRssi = TEST_MIN_2G_RSSI;
+        pnoSettings2.min5gRssi = TEST_MIN_5G_RSSI;
+        pnoSettings2.pnoNetworks = new ArrayList<>(Arrays.asList(mPnoNetwork1, mPnoNetwork2));
+
+        assertEquals(pnoSettings1, pnoSettings2);
+        assertEquals(pnoSettings1.hashCode(), pnoSettings2.hashCode());
+
+        HashMap<PnoSettings, Integer> map = new HashMap<>();
+        map.put(pnoSettings1, TEST_VALUE);
+
+        assertEquals(TEST_VALUE, map.get(pnoSettings2).intValue());
     }
 }

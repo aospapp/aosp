@@ -24,12 +24,12 @@
 
     <!--
         To run all tests:
-            adb shell am instrument -w com.android.ims.tests/android.support.test.runner.AndroidJUnitRunner
+            adb shell am instrument -w com.android.ims.tests/androidx.test.runner.AndroidJUnitRunner
 
         To run a single class test:
-            adb shell am instrument -e class com.android.ims.unit.FooUnitTest -w com.android.ims.tests/android.support.test.runner.AndroidJUnitRunner
+            adb shell am instrument -e class com.android.ims.unit.FooUnitTest -w com.android.ims.tests/androidx.test.runner.AndroidJUnitRunner
     -->
-    <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
         android:targetPackage="com.android.ims.tests"
         android:label="Ims Common Tests" />
 </manifest>

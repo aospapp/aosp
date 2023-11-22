@@ -23,31 +23,28 @@ import static org.junit.Assert.assertFalse;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Matchers.anyInt;
 import static org.mockito.Matchers.anyObject;
-import static org.mockito.Matchers.isNull;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.mockito.hamcrest.MockitoHamcrest.argThat;
 
-import org.hamcrest.BaseMatcher;
+import android.view.KeyEvent;
+
+import androidx.test.runner.AndroidJUnit4;
+
+import com.android.server.policy.WindowManagerPolicy;
+import com.android.server.policy.WindowManagerPolicy.WindowState;
+
 import org.hamcrest.Description;
 import org.hamcrest.TypeSafeMatcher;
+import org.junit.After;
 import org.junit.Before;
-import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
-
-import android.os.Looper;
-import android.support.test.runner.AndroidJUnit4;
-import android.view.KeyEvent;
-
-import com.android.server.policy.WindowManagerPolicy;
-import com.android.server.policy.WindowManagerPolicy.WindowState;
 
 /**
  * Tests for KeyboardInterceptor
@@ -60,18 +57,17 @@ public class KeyboardInterceptorTest {
     @Mock AccessibilityManagerService mMockAms;
     @Mock WindowManagerPolicy mMockPolicy;
 
-    @BeforeClass
-    public static void oneTimeInitialization() {
-        if (Looper.myLooper() == null) {
-            Looper.prepare();
-        }
-    }
-
     @Before
     public void setUp() {
         MockitoAnnotations.initMocks(this);
         mInterceptor = new KeyboardInterceptor(mMockAms, mMockPolicy, mHandler);
     }
+
+    @After
+    public void tearDown() {
+        mHandler.removeAllMessages();
+    }
+
 
     @Test
     public void whenNonspecialKeyArrives_withNothingInQueue_eventGoesToAms() {

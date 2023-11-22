@@ -60,6 +60,7 @@ interface IPhoneSubInfo {
     /**
      * Retrieves the unique sbuscriber ID, e.g., IMSI for GSM phones.
      */
+    @UnsupportedAppUsage
     String getSubscriberId(String callingPackage);
 
     /**
@@ -75,6 +76,7 @@ interface IPhoneSubInfo {
     /**
      * Retrieves the serial number of the ICC, if applicable.
      */
+    @UnsupportedAppUsage
     String getIccSerialNumber(String callingPackage);
 
     /**
@@ -123,16 +125,6 @@ interface IPhoneSubInfo {
      * Retrieves the voice mail number of a given subId.
      */
     String getVoiceMailNumberForSubscriber(int subId, String callingPackage);
-
-    /**
-     * Retrieves the complete voice mail number.
-     */
-    String getCompleteVoiceMailNumber();
-
-    /**
-     * Retrieves the complete voice mail number for particular subId
-     */
-    String getCompleteVoiceMailNumberForSubscriber(int subId);
 
     /**
      * Retrieves the Carrier information used to encrypt IMSI and IMPI.

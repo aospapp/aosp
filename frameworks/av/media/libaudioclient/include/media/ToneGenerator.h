@@ -212,6 +212,12 @@ private:
         // IRELAND Supervisory tones
         TONE_IE_RINGTONE,           // Ring Tone: A 400Hz + 450Hz tone repeated in a 0.4s on, 0.2s off, 0.4s on, 2.0s off pattern.
         TONE_IE_CALL_WAITING,       // Call waiting tone: 425Hz tone repeated in a 0.18s on, 0.2s off, 0.2s on, 4.5s off pattern.
+        // INDIA supervisory tones
+        TONE_INDIA_DIAL,            // Dial tone: 400 Hz tone modulated with 25Hz, continuous
+        TONE_INDIA_BUSY,            // Busy tone: 400 Hz, 750ms ON, 750ms OFF...
+        TONE_INDIA_CONGESTION,      // Congestion tone: 400 Hz, 250ms ON, 250ms OFF...
+        TONE_INDIA_CALL_WAITING,    // Call waiting tone: 400 Hz, tone repeated in a 0.2s on, 0.1s off, 0.2s on, 7.5s off pattern.
+        TONE_INDIA_RINGTONE,        // Ring tone: 400 Hz tone modulated with 25Hz, 0.4 on 0.2 off 0.4 on 2..0 off
         NUM_ALTERNATE_TONES
     };
 
@@ -223,6 +229,7 @@ private:
         SINGAPORE,
         HONGKONG,
         IRELAND,
+        INDIA,
         CEPT,
         NUM_REGIONS
     };
@@ -256,9 +263,9 @@ private:
     class ToneSegment {
     public:
         unsigned int duration;
-        unsigned short waveFreq[TONEGEN_MAX_WAVES+1];
-        unsigned short loopCnt;
-        unsigned short loopIndx;
+        uint16_t waveFreq[TONEGEN_MAX_WAVES+1];
+        uint16_t loopCnt;
+        uint16_t loopIndx;
     };
 
     class ToneDescriptor {
@@ -279,14 +286,14 @@ private:
     unsigned int mMaxSmp;  // Maximum number of audio samples played (maximun tone duration)
     int mDurationMs;  // Maximum tone duration in ms
 
-    unsigned short mCurSegment;  // Current segment index in ToneDescriptor segments[]
-    unsigned short mCurCount;  // Current sequence repeat count
-    volatile unsigned short mState;  // ToneGenerator state (tone_state)
-    unsigned short mRegion;
+    uint16_t mCurSegment;  // Current segment index in ToneDescriptor segments[]
+    uint16_t mCurCount;  // Current sequence repeat count
+    volatile uint16_t mState;  // ToneGenerator state (tone_state)
+    uint16_t mRegion;
     const ToneDescriptor *mpToneDesc;  // pointer to active tone descriptor
     const ToneDescriptor *mpNewToneDesc;  // pointer to next active tone descriptor
 
-    unsigned short mLoopCounter; // Current tone loopback count
+    uint16_t mLoopCounter; // Current tone loopback count
 
     uint32_t mSamplingRate;  // AudioFlinger Sampling rate
     sp<AudioTrack> mpAudioTrack;  // Pointer to audio track used for playback
@@ -314,26 +321,26 @@ private:
             WAVEGEN_STOP  // Stop wave on zero crossing
         };
 
-        WaveGenerator(uint32_t samplingRate, unsigned short frequency,
+        WaveGenerator(uint32_t samplingRate, uint16_t frequency,
                 float volume);
         ~WaveGenerator();
 
-        void getSamples(short *outBuffer, unsigned int count,
+        void getSamples(int16_t *outBuffer, unsigned int count,
                 unsigned int command);
 
     private:
-        static const short GEN_AMP = 32000;  // amplitude of generator
-        static const short S_Q14 = 14;  // shift for Q14
-        static const short S_Q15 = 15;  // shift for Q15
+        static const int16_t GEN_AMP = 32000;  // amplitude of generator
+        static const int16_t S_Q14 = 14;  // shift for Q14
+        static const int16_t S_Q15 = 15;  // shift for Q15
 
-        short mA1_Q14;  // Q14 coefficient
+        int16_t mA1_Q14;  // Q14 coefficient
         // delay line of full amplitude generator
         long mS1, mS2;  // delay line S2 oldest
-        short mS2_0;  // saved value for reinitialisation
-        short mAmplitude_Q15;  // Q15 amplitude
+        int16_t mS2_0;  // saved value for reinitialisation
+        int16_t mAmplitude_Q15;  // Q15 amplitude
     };
 
-    KeyedVector<unsigned short, WaveGenerator *> mWaveGens;  // list of active wave generators.
+    KeyedVector<uint16_t, WaveGenerator *> mWaveGens;  // list of active wave generators.
 };
 
 }

@@ -20,14 +20,17 @@
 
 #include "android-base/logging.h"
 
-#include "ConfigDescription.h"
 #include "ResourceTable.h"
 #include "SdkConstants.h"
 #include "ValueVisitor.h"
+#include "trace/TraceBuffer.h"
+
+using android::ConfigDescription;
 
 namespace aapt {
 
-bool ShouldGenerateVersionedResource(const ResourceEntry* entry, const ConfigDescription& config,
+bool ShouldGenerateVersionedResource(const ResourceEntry* entry,
+                                     const ConfigDescription& config,
                                      const ApiVersion sdk_version_to_generate) {
   // We assume the caller is trying to generate a version greater than the current configuration.
   CHECK(sdk_version_to_generate > config.sdkVersion);
@@ -68,6 +71,7 @@ ApiVersion FindNextApiVersionForConfig(const ResourceEntry* entry,
 }
 
 bool AutoVersioner::Consume(IAaptContext* context, ResourceTable* table) {
+  TRACE_NAME("AutoVersioner::Consume");
   for (auto& package : table->packages) {
     for (auto& type : package->types) {
       if (type->type != ResourceType::kStyle) {

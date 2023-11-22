@@ -20,6 +20,7 @@
 #include <mutex>
 #include <vector>
 
+#include <android-base/unique_fd.h>
 #include <binder/BinderService.h>
 
 #include "android/os/BnDumpstate.h"
@@ -41,8 +42,20 @@ class DumpstateService : public BinderService<DumpstateService>, public BnDumpst
                                bool getSectionDetails,
                                sp<IDumpstateToken>* returned_token) override;
 
+    binder::Status startBugreport(int32_t calling_uid, const std::string& calling_package,
+                                  const android::base::unique_fd& bugreport_fd,
+                                  const android::base::unique_fd& screenshot_fd, int bugreport_mode,
+                                  const sp<IDumpstateListener>& listener) override;
+
+    // No-op
+    binder::Status cancelBugreport();
+
   private:
-    Dumpstate& ds_;
+    // Dumpstate object which contains all the bugreporting logic.
+    // Note that dumpstate is a oneshot service, so this object is meant to be used at most for
+    // one bugreport.
+    // This service does not own this object.
+    Dumpstate* ds_;
     std::mutex lock_;
 };
 

@@ -29,11 +29,12 @@
     <string name="keyguard_password_enter_password_code" msgid="595980919238127672">"Ապակողպելու համար մուտքագրեք գաղտնաբառը"</string>
     <string name="keyguard_password_enter_pin_password_code" msgid="7504123374204446086">"Ապակողպելու համար մուտքագրեք PIN կոդը"</string>
     <string name="keyguard_enter_your_pin" msgid="7152989016739952871">"Մուտքագրեք PIN կոդը"</string>
-    <string name="keyguard_enter_your_pattern" msgid="3915717164691787047">"Մուտքագրեք նախշը"</string>
-    <string name="keyguard_enter_your_password" msgid="5761514484663983731">"Մուտքագրեք գաղտնաբառը"</string>
+    <string name="keyguard_enter_your_pattern" msgid="4297890206109830353">"Մուտքագրեք նախշը"</string>
+    <string name="keyguard_enter_your_password" msgid="5397328359341314506">"Մուտքագրեք գաղտնաբառը"</string>
     <string name="keyguard_password_wrong_pin_code" msgid="6535018036285012028">"PIN կոդը սխալ է։"</string>
     <string name="keyguard_sim_error_message_short" msgid="592109500618448312">"Սխալ քարտ"</string>
-    <string name="keyguard_charged" msgid="2222329688813033109">"Լիցքավորված է"</string>
+    <string name="keyguard_charged" msgid="3316115607283493413">"Ամբողջությամբ լիցքավորված է"</string>
+    <string name="keyguard_plugged_in_wireless" msgid="8404159927155454732">"<xliff:g id="PERCENTAGE">%s</xliff:g> • Անլար լիցքավորում"</string>
     <string name="keyguard_plugged_in" msgid="3161102098900158923">"<xliff:g id="PERCENTAGE">%s</xliff:g> • Լիցքավորում"</string>
     <string name="keyguard_plugged_in_charging_fast" msgid="3684592786276709342">"<xliff:g id="PERCENTAGE">%s</xliff:g> • Արագ լիցքավորում"</string>
     <string name="keyguard_plugged_in_charging_slowly" msgid="509533586841478405">"<xliff:g id="PERCENTAGE">%s</xliff:g> • Դանդաղ լիցքավորում"</string>
@@ -61,8 +62,8 @@
     <string name="error_disable_esim_msg" msgid="676694908770135639">"Սխալի պատճառով չհաջողվեց անջատել eSIM-ը։"</string>
     <string name="keyboardview_keycode_enter" msgid="4505833604411016668">"Մուտքի ստեղն"</string>
     <string name="kg_forgot_pattern_button_text" msgid="534245177645252620">"Մոռացել եմ նախշը"</string>
-    <string name="kg_wrong_pattern" msgid="7620081431514773802">"Նախշը սխալ է"</string>
-    <string name="kg_wrong_password" msgid="4580683060277329277">"Գաղտնաբառը սխալ է"</string>
+    <string name="kg_wrong_pattern" msgid="2873443744087746812">"Նախշը սխալ է"</string>
+    <string name="kg_wrong_password" msgid="8060364776224836597">"Գաղտնաբառը սխալ է"</string>
     <string name="kg_wrong_pin" msgid="4785660766909463466">"PIN կոդը սխալ է"</string>
     <plurals name="kg_too_many_failed_attempts_countdown" formatted="false" msgid="4368805541257003755">
       <item quantity="one">Փորձեք <xliff:g id="NUMBER">%d</xliff:g> վայրկյանից:</item>
@@ -101,7 +102,7 @@
     <string name="kg_failed_attempts_now_erasing_profile" product="default" msgid="8476407539834855">"Դուք կատարել եք հեռախոսն ապակողպելու <xliff:g id="NUMBER">%d</xliff:g> անհաջող փորձ: Աշխատանքային պրոֆիլը կհեռացվի և պրոֆիլի բոլոր տվյալները կջնջվեն:"</string>
     <string name="kg_failed_attempts_almost_at_login" product="tablet" msgid="956706236554092172">"Դուք կատարել եք ապակողպման նախշը մուտքագրելու <xliff:g id="NUMBER_0">%1$d</xliff:g> անհաջող փորձ: Եվս <xliff:g id="NUMBER_1">%2$d</xliff:g> անհաջող փորձից հետո ձեզանից կպահանջվի ապակողպել պլանշետը էլփոստի հաշվի միջոցով։\n\n Խնդրում ենք փորձել կրկին <xliff:g id="NUMBER_2">%3$d</xliff:g> վայրկյանից:"</string>
     <string name="kg_failed_attempts_almost_at_login" product="default" msgid="8364140853305528449">"Դուք կատարել եք ապակողպման նախշը մուտքագրելու <xliff:g id="NUMBER_0">%1$d</xliff:g> անհաջող փորձ: Եվս <xliff:g id="NUMBER_1">%2$d</xliff:g> անհաջող փորձից հետո ձեզանից կպահանջվի ապակողպել հեռախոսը էլփոստի հաշվի միջոցով։\n\n Խնդրում ենք փորձել կրկին <xliff:g id="NUMBER_2">%3$d</xliff:g> վայրկյանից:"</string>
-    <string name="kg_password_wrong_pin_code_pukked" msgid="3389829202093674267">"SIM PIN կոդը սխալ է։ Այժմ պետք է դիմեք ձեր օպերատորին՝ սարքն արգելաբացելու համար:"</string>
+    <string name="kg_password_wrong_pin_code_pukked" msgid="3389829202093674267">"SIM PIN կոդը սխալ է։ Այժմ պետք է դիմեք ձեր օպերատորին՝ սարքն արգելահանելու համար:"</string>
     <plurals name="kg_password_wrong_pin_code" formatted="false" msgid="4314341367727055967">
       <item quantity="one">Incorrect SIM PIN code, you have <xliff:g id="NUMBER_1">%d</xliff:g> remaining attempts.</item>
       <item quantity="other">SIM PIN կոդը սխալ է: Մնաց <xliff:g id="NUMBER_1">%d</xliff:g> փորձ:</item>
@@ -116,7 +117,7 @@
     <string name="kg_pin_accepted" msgid="7637293533973802143">"Կոդն ընդունվեց:"</string>
     <string name="keyguard_carrier_default" msgid="4274828292998453695">"Ծառայությունն անհասանելի է։"</string>
     <string name="accessibility_ime_switch_button" msgid="2695096475319405612">"Փոխել ներածման եղանակը"</string>
-    <string name="airplane_mode" msgid="3807209033737676010">"Ինքնաթիռի ռեժիմ"</string>
+    <string name="airplane_mode" msgid="3807209033737676010">"Ավիառեժիմ"</string>
     <string name="kg_prompt_reason_restart_pattern" msgid="7246972020562621506">"Սարքը վերագործարկելուց հետո անհրաժեշտ է մուտքագրել նախշը"</string>
     <string name="kg_prompt_reason_restart_pin" msgid="6303592361322290145">"Սարքը վերագործարկելուց հետո անհրաժեշտ է մուտքագրել PIN կոդը"</string>
     <string name="kg_prompt_reason_restart_password" msgid="6984641181515902406">"Սարքը վերագործարկելուց հետո անհրաժեշտ է մուտքագրել գաղտնաբառը"</string>
@@ -140,7 +141,8 @@
       <item quantity="one">Device hasn\'t been unlocked for <xliff:g id="NUMBER_1">%d</xliff:g> hours. Confirm password.</item>
       <item quantity="other">Սարքը չի ապակողպվել <xliff:g id="NUMBER_1">%d</xliff:g> ժամվա ընթացքում: Հաստատեք գաղտնաբառը:</item>
     </plurals>
-    <string name="fingerprint_not_recognized" msgid="348813995267914625">"Չճանաչվեց"</string>
+    <string name="kg_fingerprint_not_recognized" msgid="7854413849848459418">"Չհաջողվեց ճանաչել"</string>
+    <string name="kg_face_not_recognized" msgid="6382535088345875294">"Չհաջողվեց ճանաչել"</string>
     <plurals name="kg_password_default_pin_message" formatted="false" msgid="3739658416797652781">
       <item quantity="one">Մուտքագրեք SIM քարտի PIN կոդը: Մնացել է <xliff:g id="NUMBER_1">%d</xliff:g> փորձ:</item>
       <item quantity="other">Մուտքագրեք SIM քարտի PIN կոդը: Մնացել է <xliff:g id="NUMBER_1">%d</xliff:g> փորձ:</item>

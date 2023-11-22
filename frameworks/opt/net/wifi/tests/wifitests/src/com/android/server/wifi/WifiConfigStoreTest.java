@@ -25,8 +25,11 @@ import android.content.pm.PackageManager;
 import android.net.MacAddress;
 import android.net.wifi.WifiConfiguration;
 import android.os.test.TestLooper;
-import android.support.test.filters.SmallTest;
 
+import androidx.test.filters.SmallTest;
+
+import com.android.internal.util.ArrayUtils;
+import com.android.server.wifi.WifiConfigStore.StoreData;
 import com.android.server.wifi.WifiConfigStore.StoreFile;
 import com.android.server.wifi.util.XmlUtil;
 
@@ -43,23 +46,15 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashSet;
+import java.util.HashMap;
 import java.util.List;
-import java.util.Set;
+import java.util.Map;
 
 /**
  * Unit tests for {@link com.android.server.wifi.WifiConfigStore}.
  */
 @SmallTest
 public class WifiConfigStoreTest {
-    // Store file content without any data.
-    private static final String EMPTY_FILE_CONTENT =
-            "<?xml version='1.0' encoding='utf-8' standalone='yes' ?>\n"
-            + "<WifiConfigStoreData>\n"
-            + "<int name=\"Version\" value=\"1\" />\n"
-            + "</WifiConfigStoreData>\n";
-
     private static final String TEST_USER_DATA = "UserData";
     private static final String TEST_SHARE_DATA = "ShareData";
     private static final String TEST_CREATOR_NAME = "CreatorName";
@@ -86,6 +81,8 @@ public class WifiConfigStoreTest {
                     + "<byte-array name=\"AllowedAuthAlgos\" num=\"0\"></byte-array>\n"
                     + "<byte-array name=\"AllowedGroupCiphers\" num=\"0\"></byte-array>\n"
                     + "<byte-array name=\"AllowedPairwiseCiphers\" num=\"0\"></byte-array>\n"
+                    + "<byte-array name=\"AllowedGroupMgmtCiphers\" num=\"0\"></byte-array>\n"
+                    + "<byte-array name=\"AllowedSuiteBCiphers\" num=\"0\"></byte-array>\n"
                     + "<boolean name=\"Shared\" value=\"%s\" />\n"
                     + "<int name=\"Status\" value=\"2\" />\n"
                     + "<null name=\"FQDN\" />\n"
@@ -108,6 +105,7 @@ public class WifiConfigStoreTest {
                     + "<boolean name=\"IsLegacyPasspointConfig\" value=\"false\" />\n"
                     + "<long-array name=\"RoamingConsortiumOIs\" num=\"0\" />\n"
                     + "<string name=\"RandomizedMacAddress\">%s</string>\n"
+                    + "<int name=\"MacRandomizationSetting\" value=\"1\" />\n"
                     + "</WifiConfiguration>\n"
                     + "<NetworkStatus>\n"
                     + "<string name=\"SelectionStatus\">NETWORK_SELECTION_ENABLED</string>\n"
@@ -123,9 +121,9 @@ public class WifiConfigStoreTest {
                     + "</Network>\n"
                     + "</NetworkList>\n"
                     + "<DeletedEphemeralSSIDList>\n"
-                    + "<set name=\"SSIDList\">\n"
-                    + "<string>%s</string>\n"
-                    + "</set>\n"
+                    + "<map name=\"SSIDList\">\n"
+                    + "<long name=\"%s\" value=\"0\" />\n"
+                    + "</map>\n"
                     + "</DeletedEphemeralSSIDList>\n"
                     + "</WifiConfigStoreData>\n";
 
@@ -148,9 +146,13 @@ public class WifiConfigStoreTest {
     private TestAlarmManager mAlarmManager;
     private TestLooper mLooper;
     @Mock private Clock mClock;
+    @Mock private WifiMetrics mWifiMetrics;
     private MockStoreFile mSharedStore;
     private MockStoreFile mUserStore;
-    private MockStoreData mStoreData;
+    private MockStoreFile mUserNetworkSuggestionsStore;
+    private List<StoreFile> mUserStores = new ArrayList<StoreFile>();
+    private MockStoreData mSharedStoreData;
+    private MockStoreData mUserStoreData;
 
     /**
      * Test instance of WifiConfigStore.
@@ -168,9 +170,15 @@ public class WifiConfigStoreTest {
                 .thenReturn(mAlarmManager.getAlarmManager());
         when(mContext.getPackageManager()).thenReturn(mPackageManager);
         when(mPackageManager.getNameForUid(anyInt())).thenReturn(TEST_CREATOR_NAME);
-        mUserStore = new MockStoreFile();
-        mSharedStore = new MockStoreFile();
-        mStoreData = new MockStoreData();
+        mSharedStore = new MockStoreFile(WifiConfigStore.STORE_FILE_SHARED_GENERAL);
+        mUserStore = new MockStoreFile(WifiConfigStore.STORE_FILE_USER_GENERAL);
+        mUserNetworkSuggestionsStore =
+                new MockStoreFile(WifiConfigStore.STORE_FILE_USER_NETWORK_SUGGESTIONS);
+        mUserStores.add(mUserStore);
+        mUserStores.add(mUserNetworkSuggestionsStore);
+
+        mSharedStoreData = new MockStoreData(WifiConfigStore.STORE_FILE_SHARED_GENERAL);
+        mUserStoreData = new MockStoreData(WifiConfigStore.STORE_FILE_USER_GENERAL);
     }
 
     /**
@@ -180,7 +188,8 @@ public class WifiConfigStoreTest {
     public void setUp() throws Exception {
         setupMocks();
 
-        mWifiConfigStore = new WifiConfigStore(mContext, mLooper.getLooper(), mClock, mSharedStore);
+        mWifiConfigStore = new WifiConfigStore(mContext, mLooper.getLooper(), mClock, mWifiMetrics,
+                mSharedStore);
         // Enable verbose logging before tests.
         mWifiConfigStore.enableVerboseLogging(true);
     }
@@ -194,24 +203,22 @@ public class WifiConfigStoreTest {
     }
 
     /**
-     * Verify the contents of the config file with empty data.  The data content should be the
-     * same as {@link #EMPTY_FILE_CONTENT}.
+     * Verify that no write occurs if there is {@link StoreData} registered for any
+     * {@link StoreFile}.
      *
      * @throws Exception
      */
     @Test
-    public void testWriteWithEmptyData() throws Exception {
+    public void testWriteWithNoStoreData() throws Exception {
         // Perform force write to both share and user store file.
-        mWifiConfigStore.switchUserStoreAndRead(mUserStore);
+        mWifiConfigStore.setUserStores(mUserStores);
         mWifiConfigStore.write(true);
 
-        assertFalse(mAlarmManager.isPending(WifiConfigStore.BUFFERED_WRITE_ALARM_TAG));
-        assertTrue(mSharedStore.isStoreWritten());
-        assertTrue(mUserStore.isStoreWritten());
-        assertTrue(Arrays.equals(EMPTY_FILE_CONTENT.getBytes(StandardCharsets.UTF_8),
-                mSharedStore.getStoreBytes()));
-        assertTrue(Arrays.equals(EMPTY_FILE_CONTENT.getBytes(StandardCharsets.UTF_8),
-                mUserStore.getStoreBytes()));
+        assertFalse(mSharedStore.isStoreWritten());
+        assertFalse(mUserStore.isStoreWritten());
+        assertFalse(mUserNetworkSuggestionsStore.isStoreWritten());
+
+        verify(mWifiMetrics, never()).noteWifiConfigStoreWriteDuration(anyInt());
     }
 
     /**
@@ -221,12 +228,19 @@ public class WifiConfigStoreTest {
      */
     @Test
     public void testForceWrite() throws Exception {
-        mWifiConfigStore.switchUserStoreAndRead(mUserStore);
+        // Register data container.
+        mWifiConfigStore.registerStoreData(mSharedStoreData);
+        mWifiConfigStore.registerStoreData(mUserStoreData);
+
+        mWifiConfigStore.switchUserStoresAndRead(mUserStores);
         mWifiConfigStore.write(true);
 
         assertFalse(mAlarmManager.isPending(WifiConfigStore.BUFFERED_WRITE_ALARM_TAG));
         assertTrue(mSharedStore.isStoreWritten());
         assertTrue(mUserStore.isStoreWritten());
+        assertFalse(mUserNetworkSuggestionsStore.isStoreWritten());
+
+        verify(mWifiMetrics).noteWifiConfigStoreWriteDuration(anyInt());
     }
 
     /**
@@ -235,18 +249,26 @@ public class WifiConfigStoreTest {
      */
     @Test
     public void testBufferedWrite() throws Exception {
-        mWifiConfigStore.switchUserStoreAndRead(mUserStore);
+        // Register data container.
+        mWifiConfigStore.registerStoreData(mSharedStoreData);
+        mWifiConfigStore.registerStoreData(mUserStoreData);
+
+        mWifiConfigStore.switchUserStoresAndRead(mUserStores);
         mWifiConfigStore.write(false);
 
         assertTrue(mAlarmManager.isPending(WifiConfigStore.BUFFERED_WRITE_ALARM_TAG));
         assertFalse(mSharedStore.isStoreWritten());
         assertFalse(mUserStore.isStoreWritten());
+        assertFalse(mUserNetworkSuggestionsStore.isStoreWritten());
 
         // Now send the alarm and ensure that the writes happen.
         mAlarmManager.dispatch(WifiConfigStore.BUFFERED_WRITE_ALARM_TAG);
         mLooper.dispatchAll();
         assertTrue(mSharedStore.isStoreWritten());
         assertTrue(mUserStore.isStoreWritten());
+        assertFalse(mUserNetworkSuggestionsStore.isStoreWritten());
+
+        verify(mWifiMetrics).noteWifiConfigStoreWriteDuration(anyInt());
     }
 
     /**
@@ -257,12 +279,14 @@ public class WifiConfigStoreTest {
     @Test
     public void testForceWriteAfterBufferedWrite() throws Exception {
         // Register a test data container with bogus data.
-        mWifiConfigStore.registerStoreData(mStoreData);
-        mStoreData.setShareData("abcds");
-        mStoreData.setUserData("asdfa");
+        mWifiConfigStore.registerStoreData(mSharedStoreData);
+        mWifiConfigStore.registerStoreData(mUserStoreData);
+
+        mSharedStoreData.setData("abcds");
+        mUserStoreData.setData("asdfa");
 
         // Perform buffered write for both user and share store file.
-        mWifiConfigStore.switchUserStoreAndRead(mUserStore);
+        mWifiConfigStore.switchUserStoresAndRead(mUserStores);
         mWifiConfigStore.write(false);
 
         assertTrue(mAlarmManager.isPending(WifiConfigStore.BUFFERED_WRITE_ALARM_TAG));
@@ -271,8 +295,8 @@ public class WifiConfigStoreTest {
 
         // Update the container with new set of data. The send a force write and ensure that the
         // writes have been performed and alarms have been stopped and updated data are written.
-        mStoreData.setUserData(TEST_USER_DATA);
-        mStoreData.setShareData(TEST_SHARE_DATA);
+        mUserStoreData.setData(TEST_USER_DATA);
+        mSharedStoreData.setData(TEST_SHARE_DATA);
         mWifiConfigStore.write(true);
 
         assertFalse(mAlarmManager.isPending(WifiConfigStore.BUFFERED_WRITE_ALARM_TAG));
@@ -281,9 +305,47 @@ public class WifiConfigStoreTest {
 
         // Verify correct data are loaded to the data container after a read.
         mWifiConfigStore.read();
-        assertEquals(TEST_USER_DATA, mStoreData.getUserData());
-        assertEquals(TEST_SHARE_DATA, mStoreData.getShareData());
+        assertEquals(TEST_USER_DATA, mUserStoreData.getData());
+        assertEquals(TEST_SHARE_DATA, mSharedStoreData.getData());
     }
+
+    /**
+     * Tests the force write with no new data after a buffered write.
+     * Expected behaviour: The force write should flush the previous buffered write and stop the
+     * buffer write alarms.
+     */
+    @Test
+    public void testForceWriteWithNoNewDataAfterBufferedWrite() throws Exception {
+        // Register a test data container with bogus data.
+        mWifiConfigStore.registerStoreData(mSharedStoreData);
+        mWifiConfigStore.registerStoreData(mUserStoreData);
+
+        mSharedStoreData.setData("abcds");
+        mUserStoreData.setData("asdfa");
+
+        // Perform buffered write for both user and share store file.
+        mWifiConfigStore.switchUserStoresAndRead(mUserStores);
+        mWifiConfigStore.write(false);
+
+        assertTrue(mAlarmManager.isPending(WifiConfigStore.BUFFERED_WRITE_ALARM_TAG));
+        assertFalse(mSharedStore.isStoreWritten());
+        assertFalse(mUserStore.isStoreWritten());
+
+        // Containers have no new data.
+        mUserStoreData.setHasAnyNewData(false);
+        mSharedStoreData.setHasAnyNewData(false);
+        mWifiConfigStore.write(true);
+
+        assertFalse(mAlarmManager.isPending(WifiConfigStore.BUFFERED_WRITE_ALARM_TAG));
+        assertTrue(mSharedStore.isStoreWritten());
+        assertTrue(mUserStore.isStoreWritten());
+
+        // Verify correct data are loaded to the data container after a read.
+        mWifiConfigStore.read();
+        assertEquals("abcds", mSharedStoreData.getData());
+        assertEquals("asdfa", mUserStoreData.getData());
+    }
+
 
     /**
      * Tests the read API behaviour after a write to the store files.
@@ -292,24 +354,28 @@ public class WifiConfigStoreTest {
     @Test
     public void testReadAfterWrite() throws Exception {
         // Register data container.
-        mWifiConfigStore.registerStoreData(mStoreData);
+        mWifiConfigStore.registerStoreData(mSharedStoreData);
+        mWifiConfigStore.registerStoreData(mUserStoreData);
 
         // Read both share and user config store.
-        mWifiConfigStore.switchUserStoreAndRead(mUserStore);
+        mWifiConfigStore.switchUserStoresAndRead(mUserStores);
 
         // Verify no data is read.
-        assertNull(mStoreData.getUserData());
-        assertNull(mStoreData.getShareData());
+        assertNull(mUserStoreData.getData());
+        assertNull(mSharedStoreData.getData());
 
         // Write share and user data.
-        mStoreData.setUserData(TEST_USER_DATA);
-        mStoreData.setShareData(TEST_SHARE_DATA);
+        mUserStoreData.setData(TEST_USER_DATA);
+        mSharedStoreData.setData(TEST_SHARE_DATA);
         mWifiConfigStore.write(true);
 
         // Read and verify the data content in the data container.
         mWifiConfigStore.read();
-        assertEquals(TEST_USER_DATA, mStoreData.getUserData());
-        assertEquals(TEST_SHARE_DATA, mStoreData.getShareData());
+        assertEquals(TEST_USER_DATA, mUserStoreData.getData());
+        assertEquals(TEST_SHARE_DATA, mSharedStoreData.getData());
+
+        verify(mWifiMetrics, times(2)).noteWifiConfigStoreReadDuration(anyInt());
+        verify(mWifiMetrics).noteWifiConfigStoreWriteDuration(anyInt());
     }
 
     /**
@@ -320,19 +386,25 @@ public class WifiConfigStoreTest {
      */
     @Test
     public void testReadWithNoSharedStoreFileAndUserStoreNotVisible() throws Exception {
-        WifiConfigStore.StoreData storeData = mock(WifiConfigStore.StoreData.class);
+        StoreData sharedStoreData = mock(StoreData.class);
+        when(sharedStoreData.getStoreFileId())
+                .thenReturn(WifiConfigStore.STORE_FILE_SHARED_GENERAL);
+        StoreData userStoreData = mock(StoreData.class);
+        when(userStoreData.getStoreFileId())
+                .thenReturn(WifiConfigStore.STORE_FILE_USER_GENERAL);
 
         // Reading the mock store without a write should simulate the file not found case because
         // |readRawData| would return null.
-        mWifiConfigStore.registerStoreData(storeData);
+        mWifiConfigStore.registerStoreData(sharedStoreData);
+        mWifiConfigStore.registerStoreData(userStoreData);
         assertFalse(mWifiConfigStore.areStoresPresent());
         mWifiConfigStore.read();
 
         // Ensure that we got the call to deserialize empty shared data, but no user data.
-        verify(storeData).resetData(eq(true));
-        verify(storeData).deserializeData(eq(null), anyInt(), eq(true));
-        verify(storeData, never()).resetData(eq(false));
-        verify(storeData, never()).deserializeData(eq(null), anyInt(), eq(false));
+        verify(sharedStoreData).resetData();
+        verify(sharedStoreData).deserializeData(eq(null), anyInt());
+        verify(userStoreData, never()).resetData();
+        verify(userStoreData, never()).deserializeData(any(), anyInt());
     }
 
     /**
@@ -342,21 +414,27 @@ public class WifiConfigStoreTest {
      */
     @Test
     public void testReadWithNoStoreFiles() throws Exception {
-        WifiConfigStore.StoreData storeData = mock(WifiConfigStore.StoreData.class);
+        StoreData sharedStoreData = mock(StoreData.class);
+        when(sharedStoreData.getStoreFileId())
+                .thenReturn(WifiConfigStore.STORE_FILE_SHARED_GENERAL);
+        StoreData userStoreData = mock(StoreData.class);
+        when(userStoreData.getStoreFileId())
+                .thenReturn(WifiConfigStore.STORE_FILE_USER_GENERAL);
 
         // Reading the mock store without a write should simulate the file not found case because
         // |readRawData| would return null.
-        mWifiConfigStore.registerStoreData(storeData);
+        mWifiConfigStore.registerStoreData(sharedStoreData);
+        mWifiConfigStore.registerStoreData(userStoreData);
         // Read both share and user config store.
-        mWifiConfigStore.switchUserStoreAndRead(mUserStore);
+        mWifiConfigStore.setUserStores(mUserStores);
         assertFalse(mWifiConfigStore.areStoresPresent());
         mWifiConfigStore.read();
 
         // Ensure that we got the call to deserialize empty shared & user data.
-        verify(storeData).resetData(eq(true));
-        verify(storeData).deserializeData(eq(null), anyInt(), eq(true));
-        verify(storeData, times(2)).resetData(eq(false));
-        verify(storeData, times(2)).deserializeData(eq(null), anyInt(), eq(false));
+        verify(userStoreData).resetData();
+        verify(userStoreData).deserializeData(eq(null), anyInt());
+        verify(sharedStoreData).resetData();
+        verify(sharedStoreData).deserializeData(eq(null), anyInt());
     }
 
     /**
@@ -367,14 +445,14 @@ public class WifiConfigStoreTest {
     @Test
     public void testReadAfterWriteWithNoUserStore() throws Exception {
         // Setup data container.
-        mWifiConfigStore.registerStoreData(mStoreData);
-        mStoreData.setShareData(TEST_SHARE_DATA);
+        mWifiConfigStore.registerStoreData(mSharedStoreData);
+        mSharedStoreData.setData(TEST_SHARE_DATA);
 
         // Perform write for the share store file.
         mWifiConfigStore.write(true);
         mWifiConfigStore.read();
         // Verify data content for both user and share data.
-        assertEquals(TEST_SHARE_DATA, mStoreData.getShareData());
+        assertEquals(TEST_SHARE_DATA, mSharedStoreData.getData());
     }
 
     /**
@@ -386,21 +464,22 @@ public class WifiConfigStoreTest {
     @Test
     public void testReadWillResetStoreData() throws Exception {
         // Register and setup store data.
-        mWifiConfigStore.registerStoreData(mStoreData);
+        mWifiConfigStore.registerStoreData(mSharedStoreData);
+        mWifiConfigStore.registerStoreData(mUserStoreData);
 
         // Perform force write with empty data content to both user and share store file.
-        mWifiConfigStore.switchUserStoreAndRead(mUserStore);
+        mWifiConfigStore.switchUserStoresAndRead(mUserStores);
         mWifiConfigStore.write(true);
 
         // Setup data container with some value.
-        mStoreData.setUserData(TEST_USER_DATA);
-        mStoreData.setShareData(TEST_SHARE_DATA);
+        mUserStoreData.setData(TEST_USER_DATA);
+        mSharedStoreData.setData(TEST_SHARE_DATA);
 
         // Perform read of both user and share store file and verify data in the data container
         // is in sync (empty) with what is in the file.
         mWifiConfigStore.read();
-        assertNull(mStoreData.getShareData());
-        assertNull(mStoreData.getUserData());
+        assertNull(mSharedStoreData.getData());
+        assertNull(mUserStoreData.getData());
     }
 
     /**
@@ -413,7 +492,7 @@ public class WifiConfigStoreTest {
     @Test
     public void testReadWifiConfigStoreData() throws Exception {
         // Setup network list.
-        NetworkListStoreData networkList = new NetworkListStoreData(mContext);
+        NetworkListStoreData networkList = new NetworkListUserStoreData(mContext);
         mWifiConfigStore.registerStoreData(networkList);
         WifiConfiguration openNetwork = WifiConfigurationTestUtil.createOpenNetwork();
         openNetwork.creatorName = TEST_CREATOR_NAME;
@@ -425,25 +504,25 @@ public class WifiConfigStoreTest {
 
         // Setup deleted ephemeral SSID list.
         DeletedEphemeralSsidsStoreData deletedEphemeralSsids =
-                new DeletedEphemeralSsidsStoreData();
+                new DeletedEphemeralSsidsStoreData(mClock);
         mWifiConfigStore.registerStoreData(deletedEphemeralSsids);
-        String testSsid = "Test SSID";
-        Set<String> ssidList = new HashSet<>();
-        ssidList.add(testSsid);
+        String testSsid = "\"Test SSID\"";
+        Map<String, Long> ssidMap = new HashMap<>();
+        ssidMap.put(testSsid, 0L);
 
         // Setup user store XML bytes.
         String xmlString = String.format(TEST_DATA_XML_STRING_FORMAT,
                 openNetwork.configKey().replaceAll("\"", "&quot;"),
                 openNetwork.SSID.replaceAll("\"", "&quot;"),
                 openNetwork.shared, openNetwork.creatorUid, openNetwork.creatorName,
-                openNetwork.getRandomizedMacAddress(), testSsid);
+                openNetwork.getRandomizedMacAddress(), testSsid.replaceAll("\"", "&quot;"));
         byte[] xmlBytes = xmlString.getBytes(StandardCharsets.UTF_8);
         mUserStore.storeRawDataToWrite(xmlBytes);
 
-        mWifiConfigStore.switchUserStoreAndRead(mUserStore);
+        mWifiConfigStore.switchUserStoresAndRead(mUserStores);
         WifiConfigurationTestUtil.assertConfigurationsEqualForConfigStore(
-                userConfigs, networkList.getUserConfigurations());
-        assertEquals(ssidList, deletedEphemeralSsids.getSsidList());
+                userConfigs, networkList.getConfigurations());
+        assertEquals(ssidMap, deletedEphemeralSsids.getSsidToTimeMap());
     }
 
     /**
@@ -455,10 +534,10 @@ public class WifiConfigStoreTest {
     @Test
     public void testWriteWifiConfigStoreData() throws Exception {
         // Setup user store.
-        mWifiConfigStore.switchUserStoreAndRead(mUserStore);
+        mWifiConfigStore.switchUserStoresAndRead(mUserStores);
 
         // Setup network list store data.
-        NetworkListStoreData networkList = new NetworkListStoreData(mContext);
+        NetworkListStoreData networkList = new NetworkListUserStoreData(mContext);
         mWifiConfigStore.registerStoreData(networkList);
         WifiConfiguration openNetwork = WifiConfigurationTestUtil.createOpenNetwork();
         openNetwork.creatorName = TEST_CREATOR_NAME;
@@ -467,29 +546,27 @@ public class WifiConfigStoreTest {
         openNetwork.setRandomizedMacAddress(TEST_RANDOMIZED_MAC);
         List<WifiConfiguration> userConfigs = new ArrayList<>();
         userConfigs.add(openNetwork);
-        networkList.setUserConfigurations(userConfigs);
+        networkList.setConfigurations(userConfigs);
 
         // Setup deleted ephemeral SSID list store data.
         DeletedEphemeralSsidsStoreData deletedEphemeralSsids =
-                new DeletedEphemeralSsidsStoreData();
+                new DeletedEphemeralSsidsStoreData(mClock);
         mWifiConfigStore.registerStoreData(deletedEphemeralSsids);
         String testSsid = "Test SSID";
-        Set<String> ssidList = new HashSet<>();
-        ssidList.add(testSsid);
-        deletedEphemeralSsids.setSsidList(ssidList);
+        Map<String, Long> ssidMap = new HashMap<>();
+        ssidMap.put(testSsid, 0L);
+        deletedEphemeralSsids.setSsidToTimeMap(ssidMap);
 
         // Setup expected XML bytes.
         String xmlString = String.format(TEST_DATA_XML_STRING_FORMAT,
                 openNetwork.configKey().replaceAll("\"", "&quot;"),
                 openNetwork.SSID.replaceAll("\"", "&quot;"),
                 openNetwork.shared, openNetwork.creatorUid, openNetwork.creatorName,
-                openNetwork.getRandomizedMacAddress(), testSsid);
-        byte[] xmlBytes = xmlString.getBytes(StandardCharsets.UTF_8);
+                openNetwork.getRandomizedMacAddress(), testSsid.replaceAll("\"", "&quot;"));
 
         mWifiConfigStore.write(true);
-        assertEquals(xmlBytes.length, mUserStore.getStoreBytes().length);
         // Verify the user store content.
-        assertTrue(Arrays.equals(xmlBytes, mUserStore.getStoreBytes()));
+        assertEquals(xmlString, new String(mUserStore.getStoreBytes()));
     }
 
     /**
@@ -503,14 +580,12 @@ public class WifiConfigStoreTest {
     public void testReadWifiConfigStoreDataIndicateClientsThatThereIsNoDataForThem()
             throws Exception {
         // Set both the user store & shared store files.
-        mWifiConfigStore.switchUserStoreAndRead(mUserStore);
+        mWifiConfigStore.switchUserStoresAndRead(mUserStores);
 
         String storeData1Name = "test1";
         String storeData2Name = "test2";
-        WifiConfigStore.StoreData storeData1 = mock(WifiConfigStore.StoreData.class);
-        WifiConfigStore.StoreData storeData2 = mock(WifiConfigStore.StoreData.class);
-        when(storeData1.getName()).thenReturn(storeData1Name);
-        when(storeData2.getName()).thenReturn(storeData2Name);
+        StoreData storeData1 = mock(StoreData.class);
+        StoreData storeData2 = mock(StoreData.class);
 
         assertTrue(mWifiConfigStore.registerStoreData(storeData1));
         assertTrue(mWifiConfigStore.registerStoreData(storeData2));
@@ -524,55 +599,119 @@ public class WifiConfigStoreTest {
                         storeData1Name, storeData2Name);
 
         // Scenario 1: StoreData1 in shared store file.
+        when(storeData1.getName()).thenReturn(storeData1Name);
+        when(storeData2.getName()).thenReturn(storeData2Name);
+        when(storeData1.getStoreFileId())
+                .thenReturn(WifiConfigStore.STORE_FILE_SHARED_GENERAL);
+        when(storeData2.getStoreFileId())
+                .thenReturn(WifiConfigStore.STORE_FILE_SHARED_GENERAL);
         mSharedStore.storeRawDataToWrite(fileContentsXmlStringWithOnlyStoreData1.getBytes());
         mUserStore.storeRawDataToWrite(null);
 
         mWifiConfigStore.read();
-        verify(storeData1).deserializeData(notNull(), anyInt(), eq(true));
-        verify(storeData1, never()).deserializeData(eq(null), anyInt(), eq(true));
-        verify(storeData1).deserializeData(eq(null), anyInt(), eq(false));
-        verify(storeData2).deserializeData(eq(null), anyInt(), eq(true));
-        verify(storeData2).deserializeData(eq(null), anyInt(), eq(false));
+        verify(storeData1).deserializeData(notNull(), anyInt());
+        verify(storeData1, never()).deserializeData(eq(null), anyInt());
+        verify(storeData2).deserializeData(eq(null), anyInt());
         reset(storeData1, storeData2);
 
         // Scenario 2: StoreData2 in user store file.
+        when(storeData1.getName()).thenReturn(storeData1Name);
+        when(storeData2.getName()).thenReturn(storeData2Name);
+        when(storeData1.getStoreFileId())
+                .thenReturn(WifiConfigStore.STORE_FILE_USER_GENERAL);
+        when(storeData2.getStoreFileId())
+                .thenReturn(WifiConfigStore.STORE_FILE_USER_GENERAL);
         mSharedStore.storeRawDataToWrite(null);
         mUserStore.storeRawDataToWrite(fileContentsXmlStringWithOnlyStoreData2.getBytes());
 
         mWifiConfigStore.read();
-        verify(storeData1).deserializeData(eq(null), anyInt(), eq(true));
-        verify(storeData1).deserializeData(eq(null), anyInt(), eq(false));
-        verify(storeData2).deserializeData(eq(null), anyInt(), eq(true));
-        verify(storeData2).deserializeData(notNull(), anyInt(), eq(false));
-        verify(storeData2, never()).deserializeData(eq(null), anyInt(), eq(false));
+        verify(storeData1).deserializeData(eq(null), anyInt());
+        verify(storeData2).deserializeData(notNull(), anyInt());
+        verify(storeData2, never()).deserializeData(eq(null), anyInt());
         reset(storeData1, storeData2);
 
         // Scenario 3: StoreData1 in shared store file & StoreData2 in user store file.
+        when(storeData1.getName()).thenReturn(storeData1Name);
+        when(storeData2.getName()).thenReturn(storeData2Name);
+        when(storeData1.getStoreFileId())
+                .thenReturn(WifiConfigStore.STORE_FILE_SHARED_GENERAL);
+        when(storeData2.getStoreFileId())
+                .thenReturn(WifiConfigStore.STORE_FILE_USER_GENERAL);
         mSharedStore.storeRawDataToWrite(fileContentsXmlStringWithOnlyStoreData1.getBytes());
         mUserStore.storeRawDataToWrite(fileContentsXmlStringWithOnlyStoreData2.getBytes());
 
         mWifiConfigStore.read();
-        verify(storeData1).deserializeData(notNull(), anyInt(), eq(true));
-        verify(storeData1, never()).deserializeData(eq(null), anyInt(), eq(true));
-        verify(storeData1).deserializeData(eq(null), anyInt(), eq(false));
-        verify(storeData2).deserializeData(eq(null), anyInt(), eq(true));
-        verify(storeData2).deserializeData(notNull(), anyInt(), eq(false));
-        verify(storeData2, never()).deserializeData(eq(null), anyInt(), eq(false));
+        verify(storeData1).deserializeData(notNull(), anyInt());
+        verify(storeData1, never()).deserializeData(eq(null), anyInt());
+        verify(storeData2).deserializeData(notNull(), anyInt());
+        verify(storeData2, never()).deserializeData(eq(null), anyInt());
         reset(storeData1, storeData2);
 
         // Scenario 4: StoreData1 & StoreData2 in shared store file.
+        when(storeData1.getName()).thenReturn(storeData1Name);
+        when(storeData2.getName()).thenReturn(storeData2Name);
+        when(storeData1.getStoreFileId())
+                .thenReturn(WifiConfigStore.STORE_FILE_SHARED_GENERAL);
+        when(storeData2.getStoreFileId())
+                .thenReturn(WifiConfigStore.STORE_FILE_SHARED_GENERAL);
         mSharedStore.storeRawDataToWrite(
                 fileContentsXmlStringWithStoreData1AndStoreData2.getBytes());
         mUserStore.storeRawDataToWrite(null);
 
         mWifiConfigStore.read();
-        verify(storeData1).deserializeData(notNull(), anyInt(), eq(true));
-        verify(storeData1, never()).deserializeData(eq(null), anyInt(), eq(true));
-        verify(storeData1).deserializeData(eq(null), anyInt(), eq(false));
-        verify(storeData2).deserializeData(notNull(), anyInt(), eq(true));
-        verify(storeData2, never()).deserializeData(eq(null), anyInt(), eq(true));
-        verify(storeData2).deserializeData(eq(null), anyInt(), eq(false));
+        verify(storeData1).deserializeData(notNull(), anyInt());
+        verify(storeData1, never()).deserializeData(eq(null), anyInt());
+        verify(storeData2).deserializeData(notNull(), anyInt());
+        verify(storeData2, never()).deserializeData(eq(null), anyInt());
         reset(storeData1, storeData2);
+    }
+
+    /**
+     * Tests the write API behavior when all the store data's registered for a given store file
+     * has no new data to write.
+     * Expected behaviour: The write should not trigger a new file write for that specific store
+     * file.
+     */
+    @Test
+    public void testWriteWithNoNewData() throws Exception {
+        StoreData sharedStoreData = mock(StoreData.class);
+        when(sharedStoreData.getStoreFileId())
+                .thenReturn(WifiConfigStore.STORE_FILE_SHARED_GENERAL);
+        when(sharedStoreData.hasNewDataToSerialize()).thenReturn(true);
+        when(sharedStoreData.getName()).thenReturn("sharedStoreData");
+
+        StoreData userStoreData = mock(StoreData.class);
+        when(userStoreData.getStoreFileId())
+                .thenReturn(WifiConfigStore.STORE_FILE_USER_GENERAL);
+        when(userStoreData.hasNewDataToSerialize()).thenReturn(true);
+        when(userStoreData.getName()).thenReturn("userStoreData");
+
+        StoreData userStoreNetworkSuggestionsData =
+                mock(StoreData.class);
+        when(userStoreNetworkSuggestionsData.getStoreFileId())
+                .thenReturn(WifiConfigStore.STORE_FILE_USER_NETWORK_SUGGESTIONS);
+        when(userStoreNetworkSuggestionsData.hasNewDataToSerialize()).thenReturn(false);
+        when(userStoreNetworkSuggestionsData.getName())
+                .thenReturn("userStoreNetworkSuggestionsData");
+
+        assertTrue(mWifiConfigStore.registerStoreData(sharedStoreData));
+        assertTrue(mWifiConfigStore.registerStoreData(userStoreData));
+        assertTrue(mWifiConfigStore.registerStoreData(userStoreNetworkSuggestionsData));
+
+        // Write both share and user config store.
+        mWifiConfigStore.setUserStores(mUserStores);
+
+        // Now trigger a write.
+        mWifiConfigStore.write(true);
+
+        verify(sharedStoreData).hasNewDataToSerialize();
+        verify(userStoreData).hasNewDataToSerialize();
+        verify(userStoreNetworkSuggestionsData).hasNewDataToSerialize();
+
+        // Verify that we serialized data from the first 2 data source, but not from the last one.
+        verify(sharedStoreData).serializeData(any());
+        verify(userStoreData).serializeData(any());
+        verify(userStoreNetworkSuggestionsData, never()).serializeData(any());
     }
 
     /**
@@ -591,7 +730,7 @@ public class WifiConfigStoreTest {
                         + "</UnknownTag>\n"
                         + "</WifiConfigStoreData>\n";
         mUserStore.storeRawDataToWrite(storeFileData.getBytes(StandardCharsets.UTF_8));
-        mWifiConfigStore.switchUserStoreAndRead(mUserStore);
+        mWifiConfigStore.switchUserStoresAndRead(mUserStores);
     }
 
     /**
@@ -621,8 +760,8 @@ public class WifiConfigStoreTest {
         private byte[] mStoreBytes;
         private boolean mStoreWritten;
 
-        public MockStoreFile() {
-            super(new File("MockStoreFile"));
+        MockStoreFile(@WifiConfigStore.StoreFileId int fileId) {
+            super(new File("MockStoreFile"), fileId);
         }
 
         @Override
@@ -643,7 +782,9 @@ public class WifiConfigStoreTest {
 
         @Override
         public void writeBufferedRawData() {
-            mStoreWritten = true;
+            if (!ArrayUtils.isEmpty(mStoreBytes)) {
+                mStoreWritten = true;
+            }
         }
 
         public byte[] getStoreBytes() {
@@ -658,45 +799,41 @@ public class WifiConfigStoreTest {
     /**
      * Mock data container for providing test data for the store file.
      */
-    private class MockStoreData implements WifiConfigStore.StoreData {
+    private class MockStoreData implements StoreData {
         private static final String XML_TAG_TEST_HEADER = "TestHeader";
         private static final String XML_TAG_TEST_DATA = "TestData";
 
-        private String mShareData;
-        private String mUserData;
+        private @WifiConfigStore.StoreFileId int mFileId;
+        private String mData;
+        private boolean mHasAnyNewData = true;
 
-        MockStoreData() {}
-
-        @Override
-        public void serializeData(XmlSerializer out, boolean shared)
-                throws XmlPullParserException, IOException {
-            if (shared) {
-                XmlUtil.writeNextValue(out, XML_TAG_TEST_DATA, mShareData);
-            } else {
-                XmlUtil.writeNextValue(out, XML_TAG_TEST_DATA, mUserData);
-            }
+        MockStoreData(@WifiConfigStore.StoreFileId int fileId) {
+            mFileId = fileId;
         }
 
         @Override
-        public void deserializeData(XmlPullParser in, int outerTagDepth, boolean shared)
+        public void serializeData(XmlSerializer out)
+                throws XmlPullParserException, IOException {
+            XmlUtil.writeNextValue(out, XML_TAG_TEST_DATA, mData);
+        }
+
+        @Override
+        public void deserializeData(XmlPullParser in, int outerTagDepth)
                 throws XmlPullParserException, IOException {
             if (in == null) {
                 return;
             }
-            if (shared) {
-                mShareData = (String) XmlUtil.readNextValueWithName(in, XML_TAG_TEST_DATA);
-            } else {
-                mUserData = (String) XmlUtil.readNextValueWithName(in, XML_TAG_TEST_DATA);
-            }
+            mData = (String) XmlUtil.readNextValueWithName(in, XML_TAG_TEST_DATA);
         }
 
         @Override
-        public void resetData(boolean shared) {
-            if (shared) {
-                mShareData = null;
-            } else {
-                mUserData = null;
-            }
+        public void resetData() {
+            mData = null;
+        }
+
+        @Override
+        public boolean hasNewDataToSerialize() {
+            return mHasAnyNewData;
         }
 
         @Override
@@ -705,24 +842,20 @@ public class WifiConfigStoreTest {
         }
 
         @Override
-        public boolean supportShareData() {
-            return true;
+        public @WifiConfigStore.StoreFileId int getStoreFileId() {
+            return mFileId;
         }
 
-        public String getShareData() {
-            return mShareData;
+        public String getData() {
+            return mData;
         }
 
-        public void setShareData(String shareData) {
-            mShareData = shareData;
+        public void setData(String data) {
+            mData = data;
         }
 
-        public String getUserData() {
-            return mUserData;
-        }
-
-        public void setUserData(String userData) {
-            mUserData = userData;
+        public void setHasAnyNewData(boolean hasAnyNewData) {
+            mHasAnyNewData = hasAnyNewData;
         }
     }
 }

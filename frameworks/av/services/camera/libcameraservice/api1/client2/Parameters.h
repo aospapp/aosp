@@ -30,6 +30,8 @@
 #include <camera/CameraParameters2.h>
 #include <camera/CameraMetadata.h>
 
+#include "common/CameraDeviceBase.h"
+
 namespace android {
 namespace camera2 {
 
@@ -120,6 +122,7 @@ struct Parameters {
         int32_t high;
     };
 
+    uint8_t aeState; //latest AE state from Hal
     int32_t exposureCompensation;
     bool autoExposureLock;
     bool autoExposureLockAvailable;
@@ -241,10 +244,11 @@ struct Parameters {
         };
         DefaultKeyedVector<uint8_t, OverrideModes> sceneModeOverrides;
         bool isExternalCamera;
-        float minFocalLength;
+        float defaultFocalLength;
         bool useFlexibleYuv;
         Size maxJpegSize;
         Size maxZslSize;
+        bool supportsPreferredConfigs;
     } fastInfo;
 
     // Quirks information; these are short-lived flags to enable workarounds for
@@ -264,10 +268,10 @@ struct Parameters {
     ~Parameters();
 
     // Sets up default parameters
-    status_t initialize(const CameraMetadata *info, int deviceVersion);
+    status_t initialize(CameraDeviceBase *device, int deviceVersion);
 
     // Build fast-access device static info from static info
-    status_t buildFastInfo();
+    status_t buildFastInfo(CameraDeviceBase *device);
     // Query for quirks from static info
     status_t buildQuirks();
 
@@ -300,6 +304,9 @@ struct Parameters {
     // whether zero shutter lag should be used for non-recording operation
     bool useZeroShutterLag() const;
 
+    // Get default focal length
+    status_t getDefaultFocalLength(CameraDeviceBase *camera);
+
     // Calculate the crop region rectangle, either tightly about the preview
     // resolution, or a region just based on the active array; both take
     // into account the current zoom level.
@@ -326,7 +333,7 @@ struct Parameters {
     static const char* wbModeEnumToString(uint8_t wbMode);
     static int effectModeStringToEnum(const char *effectMode);
     static int abModeStringToEnum(const char *abMode);
-    static int sceneModeStringToEnum(const char *sceneMode);
+    static int sceneModeStringToEnum(const char *sceneMode, uint8_t defaultScene);
     static flashMode_t flashModeStringToEnum(const char *flashMode);
     static const char* flashModeEnumToString(flashMode_t flashMode);
     static focusMode_t focusModeStringToEnum(const char *focusMode);
@@ -412,6 +419,9 @@ private:
     // returns an empty Vector if device HAL version does support it
     Vector<StreamConfiguration> getStreamConfigurations();
 
+    // Helper function to extract the suggested stream configurations
+    Vector<StreamConfiguration> getPreferredStreamConfigurations(int32_t usecaseId) const;
+
     // Helper function to get minimum frame duration for a jpeg size
     // return -1 if input jpeg size cannot be found in supported size list
     int64_t getJpegStreamMinFrameDurationNs(Parameters::Size size);
@@ -433,7 +443,17 @@ private:
     // The maximum size is defined by comparing width first, when width ties comparing height.
     Size getMaxSize(const Vector<Size>& sizes);
 
+    // Helper function to filter and sort suggested sizes
+    Vector<Parameters::Size> getPreferredFilteredSizes(int32_t usecaseId, int32_t format) const;
+    // Helper function to get the suggested jpeg sizes
+    Vector<Size> getPreferredJpegSizes() const;
+    // Helper function to get the suggested preview sizes
+    Vector<Size> getPreferredPreviewSizes() const;
+    // Helper function to get the suggested video sizes
+    Vector<Size> getPreferredVideoSizes() const;
+
     int mDeviceVersion;
+    uint8_t mDefaultSceneMode;
 };
 
 // This class encapsulates the Parameters class so that it can only be accessed

@@ -27,6 +27,12 @@ package android.webkit;
  * {@link android.webkit.WebView#getSafeBrowsingPrivacyPolicyUrl()}.
  */
 public abstract class SafeBrowsingResponse {
+    /**
+     * @deprecated This class should not be constructed by applications.
+     */
+    // TODO(ntfschr): mark this as @SystemApi after a year.
+    @Deprecated
+    public SafeBrowsingResponse() {}
 
     /**
      * Display the default interstitial.
@@ -36,14 +42,14 @@ public abstract class SafeBrowsingResponse {
     public abstract void showInterstitial(boolean allowReporting);
 
     /**
-     * Act as if the user clicked "visit this unsafe site."
+     * Act as if the user clicked the "visit this unsafe site" button.
      *
      * @param report {@code true} to enable Safe Browsing reporting.
      */
     public abstract void proceed(boolean report);
 
     /**
-     * Act as if the user clicked "back to safety."
+     * Act as if the user clicked the "back to safety" button.
      *
      * @param report {@code true} to enable Safe Browsing reporting.
      */

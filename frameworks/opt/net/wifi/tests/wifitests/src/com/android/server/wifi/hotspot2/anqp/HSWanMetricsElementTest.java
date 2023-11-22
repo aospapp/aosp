@@ -18,7 +18,7 @@ package com.android.server.wifi.hotspot2.anqp;
 
 import static org.junit.Assert.assertEquals;
 
-import android.support.test.filters.SmallTest;
+import androidx.test.filters.SmallTest;
 
 import org.junit.Test;
 
@@ -40,6 +40,11 @@ public class HSWanMetricsElementTest {
     private static final int TEST_UPLINK_LOAD = 0x45;
     private static final int TEST_LMD = 0x2132;
 
+    private static final HSWanMetricsElement TEST_ELEMENT = new HSWanMetricsElement(
+            TEST_LINK_STATUS, TEST_SYMMETRIC_LINK, TEST_AT_CAPACITY,
+            TEST_DOWNLINK_SPEED, TEST_UPLINK_SPEED, TEST_DOWNLINK_LOAD,
+            TEST_UPLINK_LOAD, TEST_LMD);
+
     /**
      * Helper function for generating a ByteBuffer with the test data.
      *
@@ -59,6 +64,46 @@ public class HSWanMetricsElementTest {
         buffer.putShort((short) (TEST_LMD & 0xFFFF));
         buffer.position(0);
         return buffer;
+    }
+
+    @Test
+    public void testGetStatus() {
+        assertEquals(TEST_LINK_STATUS, TEST_ELEMENT.getStatus());
+    }
+
+    @Test
+    public void testIsSymmetric() {
+        assertEquals(TEST_SYMMETRIC_LINK, TEST_ELEMENT.isSymmetric());
+    }
+
+    @Test
+    public void testIsCapped() {
+        assertEquals(TEST_AT_CAPACITY, TEST_ELEMENT.isCapped());
+    }
+
+    @Test
+    public void testGetDownlinkSpeed() {
+        assertEquals(TEST_DOWNLINK_SPEED, TEST_ELEMENT.getDownlinkSpeed());
+    }
+
+    @Test
+    public void testGetUplinkSpeed() {
+        assertEquals(TEST_UPLINK_SPEED, TEST_ELEMENT.getUplinkSpeed());
+    }
+
+    @Test
+    public void testGetDownlinkLoad() {
+        assertEquals(TEST_DOWNLINK_LOAD, TEST_ELEMENT.getDownlinkLoad());
+    }
+
+    @Test
+    public void testGetUplinkLoad() {
+        assertEquals(TEST_UPLINK_LOAD, TEST_ELEMENT.getUplinkLoad());
+    }
+
+    @Test
+    public void testGetLMD() {
+        assertEquals(TEST_LMD, TEST_ELEMENT.getLMD());
     }
 
     /**
